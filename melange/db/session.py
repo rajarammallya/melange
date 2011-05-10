@@ -48,7 +48,7 @@ def configure_db(options):
 
 def get_session(autocommit=True, expire_on_commit=False):
         """Helper method to grab session"""
-        global _MAKER, _ENGINE            
+        global _MAKER, _ENGINE
         if not _MAKER:
             assert _ENGINE
             _MAKER = sessionmaker(bind=_ENGINE,

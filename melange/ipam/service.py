@@ -45,14 +45,22 @@ class IpBlockController(wsgi.Controller):
                                          'cidr':ip_block.cidr}),
                         content_type = "application/json")
 
+class IpAddressController(wsgi.Controller):
+    def show(self, request,id, ip_block_id):
+        return "ip address"
+
 class API(wsgi.Router):                                                                
     def __init__(self, options):                                                       
         self.options = options
         session.configure_db(options)
         mapper = routes.Mapper()                                                       
-        controller = IpBlockController()                                            
-        mapper.resource("ip_block", "/ipam/ip_blocks", controller=controller)
-        mapper.connect("/", controller=controller, action="version")
+        ip_block_controller = IpBlockController()
+        ip_address_controller = IpAddressController()
+        mapper.resource("ip_block", "/ipam/ip_blocks", controller=ip_block_controller)
+        mapper.resource("ip_address", "ip_addresses", controller=ip_address_controller,
+                        parent_resource=dict(member_name="ip_block",
+                                             collection_name="/ipam/ip_blocks"))
+        mapper.connect("/", controller=ip_block_controller, action="version")
         super(API, self).__init__(mapper)
                                                                                       
 def app_factory(global_conf, **local_conf):                                            

@@ -18,14 +18,12 @@
 import unittest
 
 from melange.ipam.models import IpBlock
+from melange.ipam.models import IpAddress
 from melange.ipam import models
 from melange.db import session
 
 class TestIpBlock(unittest.TestCase):
 
-    def setUp(self):
-        pass
-    
     def test_create_ip_block(self):
         IpBlock.create({"cidr":"10.0.0.1\8","network_id":10})
 
@@ -47,3 +45,20 @@ class TestIpBlock(unittest.TestCase):
         found_block = IpBlock.find(block_1.id, session.get_session())
 
         self.assertEqual(found_block.cidr, block_1.cidr)
+
+    def test_allocate_ip(self):
+        block= IpBlock.create({"cidr":"10.0.0.0/31"})
+        block = IpBlock.find(block.id)
+        ip = block.allocate_ip(port_id = "1234")
+
+        saved_ip = IpAddress.find(ip.id)
+        self.assertEqual(ip.address, saved_ip.address)
+        self.assertTrue(saved_ip.allocated)
+        self.assertEqual(ip.port_id,"1234")
+
+    def test_allocate_ip_is_not_duplicated(self):
+        block= IpBlock.create({"cidr":"10.0.0.0/30"})
+        self.assertEqual(block.allocate_ip().address,"10.0.0.0")
+        self.assertEqual(block.ip_addresses[0].address, "10.0.0.0")
+        self.assertEqual(block.allocate_ip().address,"10.0.0.1")
+        

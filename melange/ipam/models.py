@@ -27,7 +27,8 @@ from melange.common import config
 from melange.common import exception
 from melange.common import utils
 
-from sqlalchemy.orm import relationship, backref, exc, object_mapper, validates
+from sqlalchemy.orm import (relationship, backref,lazyload,joinedload,
+                            exc , object_mapper, validates)
 from sqlalchemy import Column, Integer, String, BigInteger
 from sqlalchemy import ForeignKey, DateTime, Boolean, Text
 from sqlalchemy import UniqueConstraint
@@ -62,6 +63,7 @@ class ModelBase(object):
         """Save this object"""
         db_session = db_session or session.get_session()
         db_session.add(self)
+        self.db_session = db_session
         db_session.flush()
         return self
 
@@ -73,9 +75,10 @@ class ModelBase(object):
     @classmethod
     def find(cls,id,db_session=None):
         db_session = db_session or session.get_session()
-        return db_session.query(IpBlock).filter_by(id=id).first()
+        x = db_session.query(cls).filter_by(id=id).first()
+        x.db_session = db_session
+        return x
         
-
     def __setitem__(self, key, value):
         setattr(self, key, value)
 
@@ -109,11 +112,31 @@ class IpBlock(BASE, ModelBase):
     network_id = Column(String(255), nullable=True)
     cidr = Column(String(255), nullable=False)
 
-
     @classmethod
     def find_by_network_id(cls, network_id):
         return session.get_session().\
                query(IpBlock).filter_by(network_id=network_id).first()
-    
-    
-    
+
+    def allocate_ip(self, port_id=None):
+        from IPy import IP
+        candidate_ip = None
+
+        #TODO:very inefficient way to generate ips,
+        #will look at better algos for this
+        for ip in IP(self.cidr):
+            if str(ip) not in [ip_addr.address for ip_addr in self.ip_addresses]:
+                candidate_ip = str(ip)
+                break
+        return IpAddress.create({'address':candidate_ip,
+                                'port_id':port_id,'allocated':True,
+                                'ip_block':self},self.db_session)
+                
+class IpAddress(BASE, ModelBase):
+    __tablename__ = 'ip_addresses'
+
+    id = Column(Integer, primary_key=True)
+    address = Column(String(255),nullable=False)
+    allocated = Column(String(255), nullable=False)
+    port_id = Column(String(255),nullable=True)
+    ip_block_id = Column(Integer(),ForeignKey('ip_blocks.id'),nullable=True)
+    ip_block = relationship(IpBlock, backref=backref('ip_addresses'))

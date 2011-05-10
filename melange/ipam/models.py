@@ -102,6 +102,11 @@ class IpBlock(BASE, ModelBase):
     network_id = Column(String(255), nullable=True)
     cidr = Column(String(255), nullable=False)
 
+
+    @classmethod
+    def find_by_network_id(self, network_id):
+        return session.get_session().\
+               query(IpBlock).filter_by(network_id=network_id).first()
     
     
     

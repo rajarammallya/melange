@@ -31,11 +31,19 @@ class IpBlockController(wsgi.Controller):
         block = IpBlock()
         block.update(request.params)
         block.save()
-        return Response(body=json.dumps({'id':block.id, 'network_id':block.network_id,
-                'cidr':block.cidr}), content_type = "application/json")
+        return self._ip_block_dict(block)
 
+    def show(self, request,id):
+        return self._ip_block_dict(IpBlock.find(id))
+        
     def version(self,request):
         return "Melange version 0.1"
+
+    def _ip_block_dict(self,ip_block):
+        return Response(body=json.dumps({'id':ip_block.id,
+                                         'network_id':ip_block.network_id,
+                                         'cidr':ip_block.cidr}),
+                        content_type = "application/json")
 
 class API(wsgi.Router):                                                                
     def __init__(self, options):                                                       

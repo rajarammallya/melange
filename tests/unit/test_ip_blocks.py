@@ -27,21 +27,23 @@ class TestIpBlock(unittest.TestCase):
         pass
     
     def test_create_ip_block(self):
-        self._create_ip_block({"cidr":"10.0.0.1\8","network_id":10})
+        IpBlock.create({"cidr":"10.0.0.1\8","network_id":10})
 
         saved_block = IpBlock.find_by_network_id(10)
         self.assertEqual(saved_block.cidr, "10.0.0.1\8")
 
     def test_find_by_network_id(self):
-        self._create_ip_block({"cidr":"10.0.0.1\8","network_id":10})
-        self._create_ip_block({"cidr":"10.1.1.1\2","network_id":11})
+        IpBlock.create({"cidr":"10.0.0.1\8","network_id":10})
+        IpBlock.create({"cidr":"10.1.1.1\2","network_id":11})
 
         block = IpBlock.find_by_network_id(11)
 
         self.assertEqual(block.cidr,"10.1.1.1\2")
 
-    def _create_ip_block(self,values):
-        block = IpBlock()
-        block.update(values)
-        block.save()
-        
+    def test_find_ip_block(self):
+        block_1 = IpBlock.create({"cidr":"10.0.0.1\8","network_id":10})
+        block_2 = IpBlock.create({"cidr":"10.1.1.1\8","network_id":11})
+
+        found_block = IpBlock.find(block_1.id, session.get_session())
+
+        self.assertEqual(found_block.cidr, block_1.cidr)

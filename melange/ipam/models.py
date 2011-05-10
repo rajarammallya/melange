@@ -52,22 +52,29 @@ class ModelBase(object):
                         nullable=False)
     updated_at = Column(DateTime, onupdate=datetime.datetime.utcnow)
 
+    @classmethod
+    def create(cls, values, db_session=None):
+        instance =cls()
+        instance.update(values)
+        return instance.save(db_session)
+
     def save(self, db_session=None):
         """Save this object"""
         db_session = db_session or session.get_session()
         db_session.add(self)
         db_session.flush()
-
-    def delete(self, session=None):
-        """Delete this object"""
-        self.deleted = True
-        self.deleted_at = datetime.datetime.utcnow()
-        self.save(session=session)
+        return self
 
     def update(self, values):
         """dict.update() behaviour."""
         for k, v in values.iteritems():
             self[k] = v
+
+    @classmethod
+    def find(cls,id,db_session=None):
+        db_session = db_session or session.get_session()
+        return db_session.query(IpBlock).filter_by(id=id).first()
+        
 
     def __setitem__(self, key, value):
         setattr(self, key, value)
@@ -104,7 +111,7 @@ class IpBlock(BASE, ModelBase):
 
 
     @classmethod
-    def find_by_network_id(self, network_id):
+    def find_by_network_id(cls, network_id):
         return session.get_session().\
                query(IpBlock).filter_by(network_id=network_id).first()
     

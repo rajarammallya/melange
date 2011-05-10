@@ -27,15 +27,26 @@ from melange.common import config
 from melange.db import session
 
 class TestIpBlockController(unittest.TestCase):
-
-    def test_create(self):
+    def setUp(self):
         conf, melange_app = config.load_paste_app('melange',
                 {"config_file":os.path.abspath("../../etc/melange.conf.test")}, None)
-        app = TestApp(melange_app)
-        response = app.post("/ipam/ip_blocks",{'network_id':"300",'cidr':"10.1.1.0\2"})
+        self.app = TestApp(melange_app)
+
+
+    def test_create(self):
+        response = self.app.post("/ipam/ip_blocks",
+                                 {'network_id':"300",'cidr':"10.1.1.0\2"})
 
         self.assertEqual(response.status,"200 OK")
         saved_block = IpBlock.find_by_network_id("300")
         self.assertEqual(saved_block.cidr, "10.1.1.0\2")
         self.assertEqual(response.json, {'id':saved_block.id,'network_id':"300",
+                                         'cidr':"10.1.1.0\2"})
+
+    def test_show(self):
+        block = IpBlock.create({'network_id':"301",'cidr':"10.1.1.0\2"})
+        response = self.app.get("/ipam/ip_blocks/%s" %block.id)
+
+        self.assertEqual(response.status,"200 OK")
+        self.assertEqual(response.json, {'id': block.id,'network_id':"301",
                                          'cidr':"10.1.1.0\2"})

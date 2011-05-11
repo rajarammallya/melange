@@ -26,7 +26,7 @@ def setup():
     from melange.common import config
     from melange.db import migration
     from melange.db import session
-    
+    from melange.ipam import models
     conf_file, conf = config.load_paste_config("melange",
                         {"config_file": os.path.abspath("../../etc/melange.conf.test")},None)
     conn_string = conf["sql_connection"]
@@ -36,4 +36,5 @@ def setup():
         os.unlink(testdb)
 
     migration.db_sync(conf)
+    conf["models"] = models.models()
     session.configure_db(conf)

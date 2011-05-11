@@ -27,58 +27,26 @@ from melange.common import config
 from melange.common import exception
 from melange.common import utils
 
-from sqlalchemy.orm import (relationship, backref,lazyload,joinedload,
-                            exc , object_mapper, validates)
-from sqlalchemy import Column, Integer, String, BigInteger
-from sqlalchemy import ForeignKey, DateTime, Boolean, Text
-from sqlalchemy import UniqueConstraint
-from sqlalchemy.ext.declarative import declarative_base
-
 from melange.common import exception
-from melange.db import session
-
-_ENGINE=None
-_MAKER=None
-
-BASE = declarative_base()
+from melange.db import api as db_api
 
 class ModelBase(object):
-    """Base class for Melange Models"""
-    __table_args__ = {'mysql_engine': 'InnoDB'}
-    __table_initialized__ = False
-    __protected_attributes__ = set([
-        "created_at", "updated_at", "deleted_at", "deleted"])
-
-    created_at = Column(DateTime, default=datetime.datetime.utcnow,
-                        nullable=False)
-    updated_at = Column(DateTime, onupdate=datetime.datetime.utcnow)
 
     @classmethod
     def create(cls, values, db_session=None):
         instance =cls()
         instance.update(values)
-        return instance.save(db_session)
+        return db_api.save(instance)
 
-    def save(self, db_session=None):
-        """Save this object"""
-        db_session = db_session or session.get_session()
-        db_session.add(self)
-        self.db_session = db_session
-        db_session.flush()
-        return self
+    @classmethod
+    def find(cls,id):
+        return db_api.find(cls,id)
 
     def update(self, values):
         """dict.update() behaviour."""
         for k, v in values.iteritems():
             self[k] = v
 
-    @classmethod
-    def find(cls,id,db_session=None):
-        db_session = db_session or session.get_session()
-        x = db_session.query(cls).filter_by(id=id).first()
-        x.db_session = db_session
-        return x
-        
     def __setitem__(self, key, value):
         setattr(self, key, value)
 
@@ -105,38 +73,35 @@ class ModelBase(object):
     def to_dict(self):
         return self.__dict__.copy()
 
-class IpBlock(BASE, ModelBase):
-    __tablename__ = 'ip_blocks'
-
-    id = Column(Integer, primary_key=True)
-    network_id = Column(String(255), nullable=True)
-    cidr = Column(String(255), nullable=False)
+class IpBlock(ModelBase):
 
     @classmethod
     def find_by_network_id(cls, network_id):
-        return session.get_session().\
-               query(IpBlock).filter_by(network_id=network_id).first()
-
+        return db_api.ip_block_find_by_network_id(network_id)
+    
     def allocate_ip(self, port_id=None):
         from IPy import IP
         candidate_ip = None
+        allocated_addresses = [ip_addr.address
+                               for ip_addr in
+                               db_api.ip_address_find_all_by_ip_block(self.id)]
 
         #TODO:very inefficient way to generate ips,
         #will look at better algos for this
         for ip in IP(self.cidr):
-            if str(ip) not in [ip_addr.address for ip_addr in self.ip_addresses]:
+            if str(ip) not in allocated_addresses:
                 candidate_ip = str(ip)
                 break
-        return IpAddress.create({'address':candidate_ip,
+        return db_api.save(IpAddress.create({'address':candidate_ip,
                                 'port_id':port_id,'allocated':True,
-                                'ip_block':self},self.db_session)
+                                'ip_block_id':self.id}))
                 
-class IpAddress(BASE, ModelBase):
-    __tablename__ = 'ip_addresses'
+class IpAddress(ModelBase):
 
-    id = Column(Integer, primary_key=True)
-    address = Column(String(255),nullable=False)
-    allocated = Column(String(255), nullable=False)
-    port_id = Column(String(255),nullable=True)
-    ip_block_id = Column(Integer(),ForeignKey('ip_blocks.id'),nullable=True)
-    ip_block = relationship(IpBlock, backref=backref('ip_addresses'))
+    @classmethod
+    def find_all_by_ip_block(cls,ip_block_id):
+        return db_api.ip_address_find_all_by_ip_block(ip_block_id)
+
+
+def models():
+    return {'IpBlock':IpBlock,'IpAddress':IpAddress}

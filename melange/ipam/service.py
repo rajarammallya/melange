@@ -28,9 +28,7 @@ class IpBlockController(wsgi.Controller):
         return "index"
 
     def create(self,request):
-        block = IpBlock()
-        block.update(request.params)
-        block.save()
+        block = IpBlock.create(request.params)
         return self._ip_block_dict(block)
 
     def show(self, request,id):

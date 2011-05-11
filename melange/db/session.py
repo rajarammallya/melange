@@ -17,6 +17,7 @@
 
 _ENGINE=None
 _MAKER=None
+_MODELS=None
 
 import logging
 
@@ -27,9 +28,10 @@ from sqlalchemy.orm import joinedload
 from sqlalchemy.orm import sessionmaker
 
 from melange.common import config
+from melange.db import mappers
 
 def configure_db(options):
-    global _ENGINE
+    global _ENGINE,_MODELS
     if not _ENGINE:
         debug = config.get_option(options,
                                   'debug', type='bool', default=False)
@@ -41,10 +43,19 @@ def configure_db(options):
                                 pool_recycle=timeout)
         logger = logging.getLogger('sqlalchemy.engine')
 
+        mappers.map(_ENGINE,options['models'])
+
+        _MODELS = options['models']
         if debug:
             logger.setLevel(logging.DEBUG)
         elif verbose:
             logger.setLevel(logging.INFO)
+
+def models():
+    global _MODELS
+    assert _MODELS
+    return _MODELS
+            
 
 def get_session(autocommit=True, expire_on_commit=False):
         """Helper method to grab session"""

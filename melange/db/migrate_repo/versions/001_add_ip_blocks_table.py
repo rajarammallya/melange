@@ -15,9 +15,10 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 from sqlalchemy.schema import (Column, MetaData, Table)
-
+from melange.ipam import models
 from melange.db.migrate_repo.schema import (
     Boolean, DateTime, Integer, String, Text, create_tables, drop_tables)
+import datetime
 
 
 def define_ip_blocks_table(meta):
@@ -25,9 +26,11 @@ def define_ip_blocks_table(meta):
         Column('id', Integer(), primary_key=True, nullable=False),
         Column('network_id', String(255)),
         Column('cidr', String(255),nullable=False),
-        Column('created_at', DateTime(), nullable=False),
-        Column('updated_at', DateTime())
+        Column('created_at', DateTime(),
+               default=datetime.datetime.utcnow, nullable=True),
+        Column('updated_at',DateTime(),default=datetime.datetime.utcnow)
         )
+    
     return ip_blocks
 
 def upgrade(migrate_engine):

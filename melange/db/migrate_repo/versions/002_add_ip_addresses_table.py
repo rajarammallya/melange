@@ -34,7 +34,7 @@ def define_ip_addresses_table(meta):
         Column('allocated',Boolean(),nullable=False),
         Column('port_id', String(255),nullable=True),
         Column('ip_block_id', Integer(),ForeignKey('ip_blocks.id'),nullable=True),
-        Column('created_at', DateTime(), nullable=False),
+        Column('created_at', DateTime(), nullable=True),
         Column('updated_at', DateTime())
         )
     return ip_addresses

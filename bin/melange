@@ -35,12 +35,14 @@ if os.path.exists(os.path.join(possible_topdir, 'melange', '__init__.py')):
 
 from melange.common import wsgi
 from melange.common import config
+from melange.ipam.models import models
 from melange.db import migration
+from melange.db import session
 
 def create_options(parser):
     """                             
     Sets up the CLI and config-file options that may be
-    parsed and program commands.                                                        
+    parsed and program commands.
     :param parser: The option parser
     """
     config.add_common_options(parser)
@@ -58,6 +60,8 @@ if __name__ == '__main__':
         #TODO move migration to a melange-manage script
         migration.db_sync(conf)
         
+        conf["models"] = models()
+        session.configure_db(conf)
 	server = wsgi.Server()
 	server.start(app, int(conf['bind_port']), conf['bind_host'])
 	server.wait()

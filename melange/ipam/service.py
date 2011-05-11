@@ -1,4 +1,4 @@
-# vim: tabstop=4 shiftwidth=4 softtabstop=4
+2# vim: tabstop=4 shiftwidth=4 softtabstop=4
 
 # Copyright 2011 OpenStack LLC.
 # All Rights Reserved.
@@ -20,7 +20,9 @@ import routes
 from webob import Response
 
 from melange.common import wsgi
+from melange.ipam.models import models
 from melange.ipam.models import IpBlock
+from melange.ipam.models import IpAddress
 from melange.db import session
 
 class IpBlockController(wsgi.Controller):
@@ -44,13 +46,33 @@ class IpBlockController(wsgi.Controller):
                         content_type = "application/json")
 
 class IpAddressController(wsgi.Controller):
+    def index(self, request, ip_block_id):
+        addresses = IpAddress.find_all_by_ip_block(ip_block_id)
+        return self._json_response(dict(ip_addresses=[self._ip_address_dict(ip_address)
+                                  for ip_address in addresses]))
+    
     def show(self, request,id, ip_block_id):
-        return "ip address"
+        return self._ip_address_dict_response(IpAddress.find(id))
 
+    def create(self, request, ip_block_id):
+        ip_block = IpBlock.find(ip_block_id)
+        ip_address = ip_block.allocate_ip()
+        return self._ip_address_dict_response(ip_address)
+
+    def _ip_address_dict_response(self, ip_address):
+        return self._json_response(self._ip_address_dict(ip_address))
+
+    def _json_response(self, body):
+        return Response(body=json.dumps(body), content_type="application/json")
+
+    def _ip_address_dict(self,ip_address):
+        return {'id':ip_address.id,
+                'ip_block_id':ip_address.ip_block_id,
+                'address':ip_address.address}
+    
 class API(wsgi.Router):                                                                
     def __init__(self, options):                                                       
         self.options = options
-        session.configure_db(options)
         mapper = routes.Mapper()                                                       
         ip_block_controller = IpBlockController()
         ip_address_controller = IpAddressController()

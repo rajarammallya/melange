@@ -37,13 +37,15 @@ class ModelBase(object):
     @classmethod
     def create(cls, values):
         instance = cls(values)
-        instance.validate()
         return instance.save()
 
     def save(self):
         self.validate()
         return db_api.save(self)
     
+    def delete(self):
+        db_api.delete(self)
+        
     def __init__(self, values):
         self.update(values)
 
@@ -121,6 +123,13 @@ class IpBlock(ModelBase):
         return db_api.save(IpAddress.create({'address':candidate_ip,
                                 'port_id':port_id,
                                 'ip_block_id':self.id}))
+
+    def find_allocated_ip(self, address):
+        return db_api.ip_address_find_by_ip_block_and_address(self.id, address)
+
+    def deallocate_ip(self, address):
+        ip_address = self.find_allocated_ip(address)
+        return IpAddress.delete(ip_address)
 
     def is_valid(self):
         self.errors = None

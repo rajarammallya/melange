@@ -74,7 +74,6 @@ class TestIpAddressController(unittest.TestCase):
         allocated_address = IpAddress.find_all_by_ip_block(block.id).first()
         self.assertEqual(allocated_address.address, "10.1.1.0")
         self.assertEqual(response.json, {'id':allocated_address.id,
-                                         'ip_block_id':allocated_address.ip_block_id,
                                          'address':allocated_address.address,
                                          'port_id':allocated_address.port_id})
 
@@ -96,17 +95,30 @@ class TestIpAddressController(unittest.TestCase):
         self.assertEqual(allocated_address.port_id, "1111")
 
     def test_show(self):
-        block = IpBlock.create({'network_id':"301",'cidr':"10.1.1.0/28"})
-        address = block.allocate_ip()
+        block_1 = IpBlock.create({'network_id':"301",'cidr':"10.1.1.0/28"})
+        block_2 = IpBlock.create({'network_id':"301",'cidr':"10.1.1.0/28"})
+        ip = block_1.allocate_ip(port_id="3333")
+        block_2.allocate_ip(port_id="9999")
+
         response = self.app.get("/ipam/ip_blocks/%s/ip_addresses/%s" %
-                                (block.id, address.id))
+                                (block_1.id, ip.address))
 
         self.assertEqual(response.status,"200 OK")
-        self.assertEqual(response.json, {'id': address.id,
-                                         'ip_block_id':address.ip_block_id,
-                                         'address':address.address,
-                                         'port_id':address.port_id})
-        self.assertEqual(response.json["id"], address.id)
+        self.assertEqual(response.json, {'id': ip.id,
+                                         'address':ip.address,
+                                         'port_id':"3333"})
+
+    def test_delete_ip(self):
+        block_1 = IpBlock.create({'network_id':"301",'cidr':"10.1.1.0/28"})
+        block_2 = IpBlock.create({'network_id':"301",'cidr':"10.1.1.0/28"})
+        ip = block_1.allocate_ip()
+        block_2.allocate_ip()
+        
+        response = self.app.delete("/ipam/ip_blocks/%s/ip_addresses/%s" %
+                                (block_1.id, ip.address))
+
+        self.assertEqual(response.status, "200 OK")
+        self.assertEqual(IpAddress.find(ip.id), None)
 
     def test_index(self):
         block = IpBlock.create({'network_id':"301",'cidr':"10.1.1.0/28"})

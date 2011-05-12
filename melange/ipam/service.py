@@ -57,8 +57,12 @@ class IpAddressController(wsgi.Controller):
         return self._json_response(dict(ip_addresses=[self._ip_address_dict(ip_address)
                                   for ip_address in addresses]))
     
-    def show(self, request,id, ip_block_id):
-        return self._ip_address_dict_response(IpAddress.find(id))
+    def show(self, request,address,ip_block_id):
+        return self._ip_address_dict_response(IpBlock.find(ip_block_id).\
+                                              find_allocated_ip(address))
+
+    def delete(self, request,address,ip_block_id):
+        IpBlock.find(ip_block_id).deallocate_ip(address)
 
     def create(self, request, ip_block_id):
         try:
@@ -77,7 +81,6 @@ class IpAddressController(wsgi.Controller):
 
     def _ip_address_dict(self,ip_address):
         return {'id':ip_address.id,
-                'ip_block_id':ip_address.ip_block_id,
                 'address':ip_address.address,
                 'port_id':ip_address.port_id}
     
@@ -88,9 +91,15 @@ class API(wsgi.Router):
         ip_block_controller = IpBlockController()
         ip_address_controller = IpAddressController()
         mapper.resource("ip_block", "/ipam/ip_blocks", controller=ip_block_controller)
+        mapper.connect("/ipam/ip_blocks/{ip_block_id}/ip_addresses/{address:.*}",
+                       controller=ip_address_controller, action = "show",
+                       conditions=dict(method=["GET"]))
+        mapper.connect("/ipam/ip_blocks/{ip_block_id}/ip_addresses/{address:.*}",
+                       controller=ip_address_controller, action = "delete",
+                       conditions=dict(method=["DELETE"]))
         mapper.resource("ip_address", "ip_addresses", controller=ip_address_controller,
-                        parent_resource=dict(member_name="ip_block",
-                                             collection_name="/ipam/ip_blocks"))
+                         parent_resource=dict(member_name="ip_block",
+                                              collection_name="/ipam/ip_blocks"))
         mapper.connect("/", controller=ip_block_controller, action="version")
         super(API, self).__init__(mapper)
                                                                                       

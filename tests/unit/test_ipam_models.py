@@ -62,6 +62,12 @@ class TestIpBlock(unittest.TestCase):
 
         self.assertEqual(found_block.cidr, block_1.cidr)
 
+    def test_find_allocated_ip(self):
+        block = IpBlock.create({"cidr":"10.0.0.1/8","network_id":10})
+        ip = block.allocate_ip(port_id="111")
+        self.assertEqual(block.find_allocated_ip(ip.address).id,
+                         ip.id)
+
     def test_allocate_ip(self):
         block= IpBlock.create({"cidr":"10.0.0.0/31"})
         block = IpBlock.find(block.id)
@@ -70,6 +76,13 @@ class TestIpBlock(unittest.TestCase):
         saved_ip = IpAddress.find(ip.id)
         self.assertEqual(ip.address, saved_ip.address)
         self.assertEqual(ip.port_id,"1234")
+
+    def test_deallocate_ip(self):
+        block = IpBlock.create({"cidr":"10.0.0.0/31"})
+        ip = block.allocate_ip(port_id="1234")
+
+        block.deallocate_ip(ip.address)
+        self.assertEqual(IpAddress.find(ip.id), None)
 
     def test_allocate_ip_when_no_more_ips(self):
         block= IpBlock.create({"cidr":"10.0.0.0/32"})
@@ -97,4 +110,12 @@ class TestIpAddress(unittest.TestCase):
         addresses = [ip.address for ip in ips]
         self.assertTrue("10.0.0.1" in addresses)
         self.assertTrue("10.0.0.2" in addresses)
+
+    def test_delete_ip_address(self):
+        block = IpBlock.create({"cidr":"10.0.0.1/8","network_id":1})        
+        address = IpAddress.create({"ip_block_id":block.id, "address":"10.0.0.1"})
+
+        address.delete()
+
+        self.assertEqual(IpAddress.find(address.id), None)
         

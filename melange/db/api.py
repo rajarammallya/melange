@@ -25,6 +25,13 @@ def ip_address_find_all_by_ip_block(ip_block_id):
     return session.get_session().\
            query(session.models()['IpAddress']).filter_by(ip_block_id=ip_block_id)
 
+def ip_address_find_by_ip_block_and_address(ip_block_id, address):
+    return session.get_session().\
+           query(session.models()['IpAddress']).\
+           filter_by(ip_block_id=ip_block_id).\
+           filter_by(address=address).first()
+
+
 def find(cls, id):
     return session.get_session().query(cls).filter_by(id=id).first()
 
@@ -33,3 +40,9 @@ def save(model):
     model = db_session.merge(model)
     db_session.flush()
     return model
+
+def delete(model):
+    db_session = session.get_session()
+    model = db_session.merge(model)
+    db_session.delete(model)
+    db_session.flush()

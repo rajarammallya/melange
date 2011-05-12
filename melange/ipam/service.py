@@ -18,7 +18,7 @@
 import json
 import routes
 from webob import Response
-from webob.exc import HTTPUnprocessableEntity
+from webob.exc import HTTPUnprocessableEntity,HTTPBadRequest
 
 from melange.common import wsgi
 from melange.ipam import models
@@ -31,8 +31,13 @@ class IpBlockController(wsgi.Controller):
         return "index"
 
     def create(self,request):
-        block = IpBlock.create(request.params)
-        return self._ip_block_dict(block)
+        try:
+            block = IpBlock.create(request.params)
+            return self._ip_block_dict(block)
+        except models.InvalidModelError, e:
+            raise HTTPBadRequest("block parameters are invalid : %s" % e,
+                                 request=request,
+                                 content_type="text\plain")
 
     def show(self, request,id):
         return self._ip_block_dict(IpBlock.find(id))
@@ -60,7 +65,7 @@ class IpAddressController(wsgi.Controller):
             ip_block = IpBlock.find(ip_block_id)
             ip_address = ip_block.allocate_ip(request.params.get('port_id',None))
             return self._ip_address_dict_response(ip_address)
-        except models.NoMoreAddressesException:
+        except models.NoMoreAdressesError:
             raise HTTPUnprocessableEntity("ip block is full",
                                           request=request, content_type="text\plain")
 

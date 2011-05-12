@@ -44,6 +44,14 @@ class TestIpBlockController(unittest.TestCase):
         self.assertEqual(response.json, {'id':saved_block.id,'network_id':"300",
                                          'cidr':"10.1.1.0/2"})
 
+    def test_create_with_bad_cidr(self):
+        response = self.app.post("/ipam/ip_blocks",
+                                 {'network_id':"300",'cidr':"10..."}, status="*")
+        
+        self.assertEqual(response.status, "400 Bad Request")
+        self.assertTrue("[{'cidr': 'cidr is invalid'}]" in response.body)
+        
+
     def test_show(self):
         block = IpBlock.create({'network_id':"301",'cidr':"10.1.1.0/2"})
         response = self.app.get("/ipam/ip_blocks/%s" %block.id)
@@ -77,8 +85,7 @@ class TestIpAddressController(unittest.TestCase):
         response = self.app.post("/ipam/ip_blocks/%s/ip_addresses" % block.id,
                                  status="*")
         self.assertEqual(response.status,"422 Unprocessable Entity")
-        self.assertTrue("ip block is full" in response.body)
-        
+        self.assertTrue("ip block is full" in response.body)        
 
     def test_create_with_port(self):
         block = IpBlock.create({'network_id':"301",'cidr':"10.1.1.0/28"})

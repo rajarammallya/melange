@@ -27,22 +27,36 @@ from melange.db import api as db_api
 class TestIpBlock(unittest.TestCase):
 
     def test_create_ip_block(self):
-        IpBlock.create({"cidr":"10.0.0.1\8","network_id":10})
+        IpBlock.create({"cidr":"10.0.0.1/8","network_id":10})
 
         saved_block = IpBlock.find_by_network_id(10)
-        self.assertEqual(saved_block.cidr, "10.0.0.1\8")
+        self.assertEqual(saved_block.cidr, "10.0.0.1/8")
+
+    def test_valid_cidr(self):
+        block = IpBlock({"cidr":"10.1.1.1////", "network_id":111})
+
+        self.assertFalse(block.is_valid())
+        self.assertEqual(block.errors, [{'cidr':'cidr is invalid'}])
+        self.assertRaises(models.InvalidModelError, block.validate)
+        self.assertRaises(models.InvalidModelError, block.save)
+        self.assertRaises(models.InvalidModelError, IpBlock.create,
+                          {"cidr":"10.1.0.0/33", "network_id":111})
+
+        block.cidr = "10.1.1.1/8"
+        self.assertTrue(block.is_valid())
+        
 
     def test_find_by_network_id(self):
-        IpBlock.create({"cidr":"10.0.0.1\8","network_id":10})
-        IpBlock.create({"cidr":"10.1.1.1\2","network_id":11})
+        IpBlock.create({"cidr":"10.0.0.1/8","network_id":10})
+        IpBlock.create({"cidr":"10.1.1.1/2","network_id":11})
 
         block = IpBlock.find_by_network_id(11)
 
-        self.assertEqual(block.cidr,"10.1.1.1\2")
+        self.assertEqual(block.cidr,"10.1.1.1/2")
 
     def test_find_ip_block(self):
-        block_1 = IpBlock.create({"cidr":"10.0.0.1\8","network_id":10})
-        block_2 = IpBlock.create({"cidr":"10.1.1.1\8","network_id":11})
+        block_1 = IpBlock.create({"cidr":"10.0.0.1/8","network_id":10})
+        block_2 = IpBlock.create({"cidr":"10.1.1.1/8","network_id":11})
 
         found_block = IpBlock.find(block_1.id)
 
@@ -60,7 +74,7 @@ class TestIpBlock(unittest.TestCase):
     def test_allocate_ip_when_no_more_ips(self):
         block= IpBlock.create({"cidr":"10.0.0.0/32"})
         block.allocate_ip()
-        self.assertRaises(models.NoMoreAddressesException,block.allocate_ip)
+        self.assertRaises(models.NoMoreAdressesError,block.allocate_ip)
 
     def test_allocate_ip_is_not_duplicated(self):
         block= IpBlock.create({"cidr":"10.0.0.0/30"})
@@ -72,7 +86,7 @@ class TestIpBlock(unittest.TestCase):
 class TestIpAddress(unittest.TestCase):
 
     def test_find_all_by_ip_block(self):
-        block = IpBlock.create({"cidr":"10.0.0.1\8","network_id":1})
+        block = IpBlock.create({"cidr":"10.0.0.1/8","network_id":1})
         IpAddress.create({"ip_block_id":block.id, "address":"10.0.0.1"})
         IpAddress.create({"ip_block_id":block.id, "address":"10.0.0.2"})
 

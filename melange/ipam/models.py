@@ -22,6 +22,8 @@ SQLAlchemy models for Melange data
 
 import sys
 import datetime
+import netaddr
+from netaddr import IPNetwork
 
 from melange.common import config
 from melange.common import exception
@@ -33,10 +35,24 @@ from melange.db import api as db_api
 class ModelBase(object):
 
     @classmethod
-    def create(cls, values, db_session=None):
-        instance =cls()
-        instance.update(values)
-        return db_api.save(instance)
+    def create(cls, values):
+        instance = cls(values)
+        instance.validate()
+        return instance.save()
+
+    def save(self):
+        self.validate()
+        return db_api.save(self)
+    
+    def __init__(self, values):
+        self.update(values)
+
+    def validate(self):
+        if not self.is_valid():
+            raise InvalidModelError(self.errors)
+
+    def is_valid(self):
+        return True
 
     @classmethod
     def find(cls,id):
@@ -73,6 +89,15 @@ class ModelBase(object):
     def to_dict(self):
         return self.__dict__.copy()
 
+
+class InvalidModelError(Exception):
+
+    def __init__(self,errors):
+        self.errors = errors
+
+    def __str__(self):
+        return str(self.errors)
+
 class IpBlock(ModelBase):
 
     @classmethod
@@ -80,7 +105,6 @@ class IpBlock(ModelBase):
         return db_api.ip_block_find_by_network_id(network_id)
     
     def allocate_ip(self, port_id=None):
-        from IPy import IP
         candidate_ip = None
         allocated_addresses = [ip_addr.address
                                for ip_addr in
@@ -88,16 +112,25 @@ class IpBlock(ModelBase):
 
         #TODO:very inefficient way to generate ips,
         #will look at better algos for this
-        for ip in IP(self.cidr):
+        for ip in IPNetwork(self.cidr):
             if str(ip) not in allocated_addresses:
                 candidate_ip = str(ip)
                 break
         if not candidate_ip:
-            raise NoMoreAddressesException()
+            raise NoMoreAdressesError()
         return db_api.save(IpAddress.create({'address':candidate_ip,
                                 'port_id':port_id,
                                 'ip_block_id':self.id}))
-                
+
+    def is_valid(self):
+        self.errors = None
+        try:
+            IPNetwork(self.cidr)
+        except Exception:
+            self.errors = [{'cidr':'cidr is invalid'}]
+
+        return self.errors == None
+         
 class IpAddress(ModelBase):
 
     @classmethod
@@ -108,5 +141,5 @@ class IpAddress(ModelBase):
 def models():
     return {'IpBlock':IpBlock,'IpAddress':IpAddress}
 
-class NoMoreAddressesException(Exception):
+class NoMoreAdressesError(Exception):
     pass

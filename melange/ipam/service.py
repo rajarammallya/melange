@@ -18,9 +18,10 @@
 import json
 import routes
 from webob import Response
+from webob.exc import HTTPUnprocessableEntity
 
 from melange.common import wsgi
-from melange.ipam.models import models
+from melange.ipam import models
 from melange.ipam.models import IpBlock
 from melange.ipam.models import IpAddress
 from melange.db import session
@@ -55,9 +56,13 @@ class IpAddressController(wsgi.Controller):
         return self._ip_address_dict_response(IpAddress.find(id))
 
     def create(self, request, ip_block_id):
-        ip_block = IpBlock.find(ip_block_id)
-        ip_address = ip_block.allocate_ip()
-        return self._ip_address_dict_response(ip_address)
+        try:
+            ip_block = IpBlock.find(ip_block_id)
+            ip_address = ip_block.allocate_ip(request.params.get('port_id',None))
+            return self._ip_address_dict_response(ip_address)
+        except models.NoMoreAddressesException:
+            raise HTTPUnprocessableEntity("ip block is full",
+                                          request=request, content_type="text\plain")
 
     def _ip_address_dict_response(self, ip_address):
         return self._json_response(self._ip_address_dict(ip_address))
@@ -68,7 +73,8 @@ class IpAddressController(wsgi.Controller):
     def _ip_address_dict(self,ip_address):
         return {'id':ip_address.id,
                 'ip_block_id':ip_address.ip_block_id,
-                'address':ip_address.address}
+                'address':ip_address.address,
+                'port_id':ip_address.port_id}
     
 class API(wsgi.Router):                                                                
     def __init__(self, options):                                                       

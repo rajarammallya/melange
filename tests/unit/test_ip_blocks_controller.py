@@ -20,6 +20,7 @@ import unittest
 
 from webtest import TestApp
 from webob import Request, Response
+from webob.exc import HTTPUnprocessableEntity
 
 from melange.ipam.models import IpBlock
 from melange.ipam.models import IpAddress
@@ -66,7 +67,26 @@ class TestIpAddressController(unittest.TestCase):
         self.assertEqual(allocated_address.address, "10.1.1.0")
         self.assertEqual(response.json, {'id':allocated_address.id,
                                          'ip_block_id':allocated_address.ip_block_id,
-                                         'address':allocated_address.address})
+                                         'address':allocated_address.address,
+                                         'port_id':allocated_address.port_id})
+
+    def test_create_when_no_more_addresses(self):
+        block = IpBlock.create({'network_id':"301",'cidr':"10.1.1.0/32"})
+        block.allocate_ip()
+
+        response = self.app.post("/ipam/ip_blocks/%s/ip_addresses" % block.id,
+                                 status="*")
+        self.assertEqual(response.status,"422 Unprocessable Entity")
+        self.assertTrue("ip block is full" in response.body)
+        
+
+    def test_create_with_port(self):
+        block = IpBlock.create({'network_id':"301",'cidr':"10.1.1.0/28"})
+        response = self.app.post("/ipam/ip_blocks/%s/ip_addresses" % block.id,
+                                 {"port_id":"1111"})
+
+        allocated_address = IpAddress.find_all_by_ip_block(block.id).first()
+        self.assertEqual(allocated_address.port_id, "1111")
 
     def test_show(self):
         block = IpBlock.create({'network_id':"301",'cidr':"10.1.1.0/28"})
@@ -77,7 +97,9 @@ class TestIpAddressController(unittest.TestCase):
         self.assertEqual(response.status,"200 OK")
         self.assertEqual(response.json, {'id': address.id,
                                          'ip_block_id':address.ip_block_id,
-                                         'address':address.address})
+                                         'address':address.address,
+                                         'port_id':address.port_id})
+        self.assertEqual(response.json["id"], address.id)
 
     def test_index(self):
         block = IpBlock.create({'network_id':"301",'cidr':"10.1.1.0/28"})

@@ -16,6 +16,7 @@
 #    under the License.
 
 import unittest
+from webob.exc import HTTPUnprocessableEntity
 
 from melange.ipam.models import IpBlock
 from melange.ipam.models import IpAddress
@@ -54,8 +55,12 @@ class TestIpBlock(unittest.TestCase):
 
         saved_ip = IpAddress.find(ip.id)
         self.assertEqual(ip.address, saved_ip.address)
-        self.assertTrue(saved_ip.allocated)
         self.assertEqual(ip.port_id,"1234")
+
+    def test_allocate_ip_when_no_more_ips(self):
+        block= IpBlock.create({"cidr":"10.0.0.0/32"})
+        block.allocate_ip()
+        self.assertRaises(models.NoMoreAddressesException,block.allocate_ip)
 
     def test_allocate_ip_is_not_duplicated(self):
         block= IpBlock.create({"cidr":"10.0.0.0/30"})
@@ -63,4 +68,19 @@ class TestIpBlock(unittest.TestCase):
         self.assertEqual(IpAddress.find_all_by_ip_block(block.id).first().address,
                          "10.0.0.0")
         self.assertEqual(block.allocate_ip().address,"10.0.0.1")
+
+class TestIpAddress(unittest.TestCase):
+
+    def test_find_all_by_ip_block(self):
+        block = IpBlock.create({"cidr":"10.0.0.1\8","network_id":1})
+        IpAddress.create({"ip_block_id":block.id, "address":"10.0.0.1"})
+        IpAddress.create({"ip_block_id":block.id, "address":"10.0.0.2"})
+
+        ips = IpAddress.find_all_by_ip_block(block.id)
+        self.assertEqual(len(ips.all()),2)
+        self.assertEqual(ips[0].ip_block_id, block.id)
+        self.assertEqual(ips[1].ip_block_id, block.id)
+        addresses = [ip.address for ip in ips]
+        self.assertTrue("10.0.0.1" in addresses)
+        self.assertTrue("10.0.0.2" in addresses)
         

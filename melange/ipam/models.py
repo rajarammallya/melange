@@ -92,8 +92,10 @@ class IpBlock(ModelBase):
             if str(ip) not in allocated_addresses:
                 candidate_ip = str(ip)
                 break
+        if not candidate_ip:
+            raise NoMoreAddressesException()
         return db_api.save(IpAddress.create({'address':candidate_ip,
-                                'port_id':port_id,'allocated':True,
+                                'port_id':port_id,
                                 'ip_block_id':self.id}))
                 
 class IpAddress(ModelBase):
@@ -105,3 +107,6 @@ class IpAddress(ModelBase):
 
 def models():
     return {'IpBlock':IpBlock,'IpAddress':IpAddress}
+
+class NoMoreAddressesException(Exception):
+    pass

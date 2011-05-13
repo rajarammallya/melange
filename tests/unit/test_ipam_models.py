@@ -27,10 +27,12 @@ from melange.db import api as db_api
 class TestIpBlock(unittest.TestCase):
 
     def test_create_ip_block(self):
-        IpBlock.create({"cidr":"10.0.0.1/8","network_id":10})
+        IpBlock.create({"cidr":"10.0.0.1/8","network_id":'10', "type":"private"})
 
         saved_block = IpBlock.find_by_network_id(10)
         self.assertEqual(saved_block.cidr, "10.0.0.1/8")
+        self.assertEqual(saved_block.network_id, '10')
+        self.assertEqual(saved_block.type, "private")
 
     def test_valid_cidr(self):
         block = IpBlock({"cidr":"10.1.1.1////", "network_id":111})
@@ -45,6 +47,13 @@ class TestIpBlock(unittest.TestCase):
         block.cidr = "10.1.1.1/8"
         self.assertTrue(block.is_valid())
         
+    def test_uniqueness_of_cidr_for_public_ip_blocks(self):
+        IpBlock.create({"cidr":"10.0.0.1/8","network_id":10, "type":"public"})
+        dup_block = IpBlock({"cidr":"10.0.0.1/8", "network_id":11, "type":"public"})
+
+        self.assertFalse(dup_block.is_valid())
+        self.assertEqual(dup_block.errors,
+                         [{'cidr': 'cidr for public ip is not unique'}])
 
     def test_find_by_network_id(self):
         IpBlock.create({"cidr":"10.0.0.1/8","network_id":10})

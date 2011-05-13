@@ -14,30 +14,19 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+from sqlalchemy.schema import (Column, MetaData, Table)
+from melange.ipam import models
+from melange.db.migrate_repo.schema import (
+    Boolean, DateTime, Integer, String, Text, create_tables, drop_tables)
+import datetime
 
-from melange.db import session
 
-def find_all_by(cls,**kwargs):
-    return base_query(cls).filter_by(**kwargs)
+def upgrade(migrate_engine):
+    meta = MetaData()
+    meta.bind = migrate_engine
+    Column('type', String(7)).create(Table('ip_blocks',meta))
 
-def find_by(cls, **kwargs):
-    return find_all_by(cls,**kwargs).first()
-
-def find(cls, id):
-    return base_query(cls).get(id)
-
-def save(model):
-    db_session = session.get_session()
-    model = db_session.merge(model)
-    db_session.flush()
-    return model
-
-def delete(model):
-    db_session = session.get_session()
-    model = db_session.merge(model)
-    db_session.delete(model)
-    db_session.flush()
-
-def base_query(cls):
-    return  session.get_session().query(cls)
-    
+def downgrade(migrate_engine):
+    meta = MetaData()
+    meta.bind = migrate_engine
+    Table('ip_blocks', meta).columns["type"].drop()

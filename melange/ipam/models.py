@@ -104,13 +104,13 @@ class IpBlock(ModelBase):
 
     @classmethod
     def find_by_network_id(cls, network_id):
-        return db_api.ip_block_find_by_network_id(network_id)
+        return db_api.find_by(IpBlock,network_id=network_id)
     
     def allocate_ip(self, port_id=None):
         candidate_ip = None
         allocated_addresses = [ip_addr.address
                                for ip_addr in
-                               db_api.ip_address_find_all_by_ip_block(self.id)]
+                               IpAddress.find_all_by_ip_block(self.id)]
 
         #TODO:very inefficient way to generate ips,
         #will look at better algos for this
@@ -125,27 +125,38 @@ class IpBlock(ModelBase):
                                 'ip_block_id':self.id}))
 
     def find_allocated_ip(self, address):
-        return db_api.ip_address_find_by_ip_block_and_address(self.id, address)
+        return IpAddress.find_by_block_and_address(self.id,address)
 
     def deallocate_ip(self, address):
         ip_address = self.find_allocated_ip(address)
         return IpAddress.delete(ip_address)
 
-    def is_valid(self):
-        self.errors = None
+    def validate_cidr(self):
         try:
             IPNetwork(self.cidr)
         except Exception:
-            self.errors = [{'cidr':'cidr is invalid'}]
+            self.errors.append({'cidr':'cidr is invalid'})
 
-        return self.errors == None
+    def validate_uniqueness_for_public_ip_block(self):
+        if self.type=='public' and \
+        db_api.find_by(IpBlock,type=self.type, cidr=self.cidr):
+            self.errors.append({'cidr': 'cidr for public ip is not unique'})
+                
+    def is_valid(self):
+        self.errors = []
+        self.validate_cidr()
+        self.validate_uniqueness_for_public_ip_block()
+        return self.errors == []
          
 class IpAddress(ModelBase):
 
     @classmethod
     def find_all_by_ip_block(cls,ip_block_id):
-        return db_api.ip_address_find_all_by_ip_block(ip_block_id)
+        return db_api.find_all_by(IpAddress,ip_block_id=ip_block_id)
 
+    @classmethod
+    def find_by_block_and_address(cls,ip_block_id, address):
+        return db_api.find_by(IpAddress,ip_block_id=ip_block_id,address=address)
 
 def models():
     return {'IpBlock':IpBlock,'IpAddress':IpAddress}

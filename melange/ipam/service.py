@@ -91,10 +91,10 @@ class API(wsgi.Router):
         ip_block_controller = IpBlockController()
         ip_address_controller = IpAddressController()
         mapper.resource("ip_block", "/ipam/ip_blocks", controller=ip_block_controller)
-        mapper.connect("/ipam/ip_blocks/{ip_block_id}/ip_addresses/{address:.*}",
+        mapper.connect("/ipam/ip_blocks/{ip_block_id}/ip_addresses/{address:.+}",
                        controller=ip_address_controller, action = "show",
                        conditions=dict(method=["GET"]))
-        mapper.connect("/ipam/ip_blocks/{ip_block_id}/ip_addresses/{address:.*}",
+        mapper.connect("/ipam/ip_blocks/{ip_block_id}/ip_addresses/{address:.+}",
                        controller=ip_address_controller, action = "delete",
                        conditions=dict(method=["DELETE"]))
         mapper.resource("ip_address", "ip_addresses", controller=ip_address_controller,

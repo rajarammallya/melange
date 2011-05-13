@@ -27,12 +27,14 @@ from melange.ipam.models import IpAddress
 from melange.common import config
 from melange.db import session
 
-class TestIpBlockController(unittest.TestCase):
+class TestController(unittest.TestCase):
     def setUp(self):
         conf, melange_app = config.load_paste_app('melange',
                 {"config_file":os.path.abspath("../../etc/melange.conf.test")}, None)
         self.app = TestApp(melange_app)
 
+
+class TestIpBlockController(TestController):
 
     def test_create(self):
         response = self.app.post("/ipam/ip_blocks",
@@ -46,7 +48,7 @@ class TestIpBlockController(unittest.TestCase):
 
     def test_cannot_create_duplicate_public_cidr(self):
         self.app.post("/ipam/ip_blocks",
-                      {"network_id":"300", 'cidr':"192.1.1.1/2", 'type':'public'})
+                      {"network_id":"12200", 'cidr':"192.1.1.1/2", 'type':'public'})
         response = self.app.post("/ipam/ip_blocks",
                       {"network_id":"22200", 'cidr':"192.1.1.1/2", 'type':'public'},
                                  status="*")
@@ -70,12 +72,7 @@ class TestIpBlockController(unittest.TestCase):
         self.assertEqual(response.json, {'id': block.id,'network_id':"301",
                                          'cidr':"10.1.1.0/2"})
 
-class TestIpAddressController(unittest.TestCase):
-    def setUp(self):
-        conf, melange_app = config.load_paste_app('melange',
-                {"config_file":os.path.abspath("../../etc/melange.conf.test")}, None)
-        self.app = TestApp(melange_app)
-
+class TestIpAddressController(TestController):
     def test_create(self):
         block = IpBlock.create({'network_id':"301",'cidr':"10.1.1.0/28"})
         response = self.app.post("/ipam/ip_blocks/%s/ip_addresses" % block.id)
@@ -142,3 +139,53 @@ class TestIpAddressController(unittest.TestCase):
         self.assertEqual(len(ip_addresses), 2)
         self.assertEqual(ip_addresses[0]['address'], address_1.address)
         self.assertEqual(ip_addresses[1]['address'], address_2.address)
+
+class TestIpNatController(TestController):
+
+    def wip_create_inside_local_nat(self):
+        global_block = IpBlock.create({'cidr':"192.1.1.1/30"})
+        local_block_1 = IpBlock.create({'cidr':"10.1.1.1/30"})
+        local_block_2 = IpBlock.create({'cidr':"10.0.0.0/30"})
+
+        response=self.app.put("/ipam/ip_blocks/%s/ip_addresses/192.1.1.1/inside_locals"
+                              % global_block.id,
+                              {"ip_addresses":
+                               [{"ip_block_id":local_block_1,"ip_address":"10.1.1.1"},
+                                {"ip_block_id":local_block_2,"ip_address":"10.0.0.1"}
+                                ]})
+
+        self.assertEqual(response.status, "200 OK")
+        inside_locals = [ip.address for ip in global_block.inside_locals()]
+        self.assertEqual(len(inside_locals),2)
+        self.assertTrue("10.1.1.1" in inside_locals)
+        self.assertTrue("10.0.1.1" in inside_locals)
+        local_ip = IpAddress.find_by_block_and_address(local_block_1,"10.1.1.1")
+        self.assertEqual(local_ip.inside_globals()[0].address, "192.1.1.1")
+
+    def wip_show_inside_globals(self):
+        local_block = IpBlock.create({'cidr':"10.1.1.1/30"})
+        local_ip = local_block.allocate_ip()
+        global_block_1, global_ip_1 = self._add_local_ip_to_global(local_ip,
+                                                                   cidr="192.1.1.1/30")
+        global_block_2, global_ip_2 = self._add_local_ip_to_global(local_ip,
+                                                                   cidr="169.1.1.1/30")
+
+        response = self.app.get("/ipam/ip_blocks/%s/ip_addresses/%s/inside_globals"
+                                 %(local_block.id,local_ip.address))
+
+        self.assertEqual(response.json,
+                         {'ip_addresses':[{'ip_address':global_ip_1.address},
+                                          {'ip_address':global_ip_2.address}
+                                          ]})
+
+
+    def _add_local_ip_to_global(self,local_ip,**kwargs):
+        global_block_1 = IpBlock.create(kwargs)
+        global_ip_1 = global_block_1.allocate_ip()
+        global_ip_1.add_inside_locals([local_ip])
+        return global_block_1, global_ip_1
+
+        
+
+
+        

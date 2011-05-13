@@ -158,6 +158,9 @@ class IpAddress(ModelBase):
     def find_by_block_and_address(cls,ip_block_id, address):
         return db_api.find_by(IpAddress,ip_block_id=ip_block_id,address=address)
 
+    def add_inside_locals(self,ip_addresses):
+        pass
+
 def models():
     return {'IpBlock':IpBlock,'IpAddress':IpAddress}
 

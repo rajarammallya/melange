@@ -44,7 +44,7 @@ class TestIpBlockController(unittest.TestCase):
         self.assertEqual(response.json, {'id':saved_block.id,'network_id':"300",
                                          'cidr':"10.1.1.0/2"})
 
-    def test_create_unique_public_ip_block(self):
+    def test_cannot_create_duplicate_public_cidr(self):
         self.app.post("/ipam/ip_blocks",
                       {"network_id":"300", 'cidr':"192.1.1.1/2", 'type':'public'})
         response = self.app.post("/ipam/ip_blocks",
@@ -53,7 +53,7 @@ class TestIpBlockController(unittest.TestCase):
 
         self.assertEqual(response.status, "400 Bad Request")
         self.assertTrue("[{'cidr': 'cidr for public ip is not unique'}]" in response.body)
-
+    
     def test_create_with_bad_cidr(self):
         response = self.app.post("/ipam/ip_blocks",
                                  {'network_id':"300",'cidr':"10..."}, status="*")

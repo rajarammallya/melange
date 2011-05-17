@@ -111,6 +111,12 @@ class IpBlock(ModelBase):
     def find_by_network_id(cls, network_id):
         return db_api.find_by(IpBlock,network_id=network_id)
     
+    @classmethod
+    def find_or_allocate_ip(self, ip_block_id, address):
+        block = IpBlock.find(ip_block_id)
+        return (block.find_allocated_ip(address)
+                or block.allocate_ip(address=address))
+                                       
     def allocate_ip(self, port_id=None, address=None):
         candidate_ip = None
         allocated_addresses = [ip_addr.address
@@ -139,10 +145,6 @@ class IpBlock(ModelBase):
     def find_allocated_ip(self, address):
         return IpAddress.find_by_block_and_address(self.id,address)
 
-    def find_or_allocate_ip_by_address(self, address):
-        return (self.find_allocated_ip(address)
-                or self.allocate_ip(address=address))
-                                       
     def deallocate_ip(self, address):
         ip_address = self.find_allocated_ip(address)
         return IpAddress.delete(ip_address)

@@ -75,19 +75,31 @@ class IpAddressController(BaseController):
 class NatController(BaseController):
 
     def create_locals(self,request,ip_block_id,address):
-        ip = IpBlock.find(ip_block_id).find_or_allocate_ip_by_address(address)
+        global_ip = IpBlock.find_or_allocate_ip(ip_block_id,address)
+        local_ips = self._parse_ips(request.params["ip_addresses"])
+        global_ip.add_inside_locals(local_ips)
         
-        ips = []
-        for ip_address in json.loads(request.params["ip_addresses"]):
-            block = IpBlock.find(ip_address["ip_block_id"])
-            ips.append(block.find_or_allocate_ip_by_address(ip_address["ip_address"]))
-                       
-        ip.add_inside_locals(ips)
+    def create_globals(self,request,ip_block_id,address):
+        local_ip = IpBlock.find_or_allocate_ip(ip_block_id,address)
+        global_ips = self._parse_ips(request.params["ip_addresses"])
+        local_ip.add_inside_globals(global_ips)
 
     def show_globals(self, request, ip_block_id, address):
         ip = IpAddress.find_by_block_and_address(ip_block_id, address)
-        return self._json_response(dict(ip_addresses=[ip_address.data()
-                                  for ip_address in ip.inside_globals()]))
+        return self._get_addresses(ip.inside_globals())
+
+    def show_locals(self, request, ip_block_id, address):
+        ip = IpAddress.find_by_block_and_address(ip_block_id, address)
+        return self._get_addresses(ip.inside_locals())
+
+    def _get_addresses(self,ips):
+        return self._json_response(
+            dict(ip_addresses=[ip_address.data() for ip_address in ips]))    
+    
+    def _parse_ips(self, addresses):
+        return [IpBlock.find_or_allocate_ip(address["ip_block_id"],
+                                                 address["ip_address"])
+                     for address in json.loads(addresses)]
 
 class API(wsgi.Router):                                                                
     def __init__(self, options):                                                       
@@ -98,11 +110,16 @@ class API(wsgi.Router):
         nat_controller = NatController()
         mapper.resource("ip_block", "/ipam/ip_blocks", controller=ip_block_controller)
 
-        mapper.connect("/ipam/ip_blocks/{ip_block_id}/ip_addresses/{address:.+?}/inside_locals",
-                       controller=nat_controller, action="create_locals",
-                       conditions=dict(method=["POST"]))
-        mapper.connect("/ipam/ip_blocks/{ip_block_id}/ip_addresses/{address:.+?}/inside_globals",
-                       controller=nat_controller, action="show_globals",
+        with mapper.submapper(controller=nat_controller,
+                              path_prefix="/ipam/ip_blocks/{ip_block_id}/"
+                                          "ip_addresses/{address:.+?}/") as submap:
+                  submap.connect("inside_locals", action="create_locals",
+                                 conditions=dict(method=["POST"]))
+                  submap.connect("inside_globals", action="create_globals",
+                                 conditions=dict(method=["POST"]))                  
+                  submap.connect("inside_globals", action="show_globals",
+                       conditions=dict(method=["GET"]))
+                  submap.connect("inside_locals", action="show_locals",
                        conditions=dict(method=["GET"]))
 
         mapper.connect("/ipam/ip_blocks/{ip_block_id}/ip_addresses/{address:.+}",

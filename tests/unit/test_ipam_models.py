@@ -105,10 +105,10 @@ class TestIpBlock(unittest.TestCase):
                          "10.0.0.0")
         self.assertEqual(block.allocate_ip().address,"10.0.0.1")
 
-    def test_find_or_allocate_ip_by_address(self):
+    def test_find_or_allocate_ip(self):
         block = IpBlock.create({"cidr":"10.0.0.0/30"})
 
-        block.find_or_allocate_ip_by_address('10.0.0.1')
+        IpBlock.find_or_allocate_ip(block.id, '10.0.0.1')
 
         address = IpAddress.find_by_block_and_address(block.id,'10.0.0.1')
         self.assertTrue(address is not None)

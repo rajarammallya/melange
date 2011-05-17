@@ -41,11 +41,13 @@ def delete(model):
     db_session.flush()
 
 def find_inside_globals_for(local_address_id):
-    return [nat.inside_global_address for nat in base_query(session.models()["ip_nat_relation"]).
+    return [nat.inside_global_address
+            for nat in base_query(session.models()["ip_nat_relation"]).
             filter_by(inside_local_address_id = local_address_id)]
 
 def find_inside_locals_for(global_address_id):
-    return [nat.inside_local_address for nat in base_query(session.models()["ip_nat_relation"]).
+    return [nat.inside_local_address
+            for nat in base_query(session.models()["ip_nat_relation"]).
             filter_by(inside_global_address_id = global_address_id)]
 
 def base_query(cls):

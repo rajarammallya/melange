@@ -162,6 +162,25 @@ class TestIpNatController(TestController):
         local_ip = IpAddress.find_by_block_and_address(local_block_1.id,"10.1.1.1")
         self.assertEqual(local_ip.inside_globals()[0].address, "169.1.1.1")
 
+    def test_create_inside_global_nat(self):
+        global_block = IpBlock.create({'cidr':"169.1.1.1/30"})
+        global_ip = global_block.allocate_ip()
+        local_block = IpBlock.create({'cidr':"10.1.1.1/30"})
+        local_ip = local_block.allocate_ip()
+
+        response=self.app.post("/ipam/ip_blocks/%s/ip_addresses/%s/inside_globals"
+                              % (local_block.id,local_ip.address),
+                              {"ip_addresses":json.dumps(
+                                [{"ip_block_id":global_block.id,
+                                  "ip_address":global_ip.address}
+                                 ])})
+
+        self.assertEqual(response.status, "200 OK")
+
+        self.assertEqual(len(local_ip.inside_globals()),1)
+        self.assertEqual(global_ip.id, local_ip.inside_globals()[0].id)
+        self.assertEqual(local_ip.id, global_ip.inside_locals()[0].id)        
+
     def test_show_inside_globals(self):
         local_block = IpBlock.create({'cidr':"10.1.1.1/30"})
         local_ip = local_block.allocate_ip()
@@ -174,6 +193,19 @@ class TestIpNatController(TestController):
 
         self.assertEqual(response.json,
                          {'ip_addresses': [global_ip_1.data(),global_ip_2.data()]})
+
+    def test_show_inside_locals(self):
+        global_block = IpBlock.create({'cidr':"192.1.1.1/30"})
+        global_ip = global_block.allocate_ip()
+        local_block = IpBlock.create({'cidr':"10.1.1.1/30"})
+        local_ip = local_block.allocate_ip()
+        local_ip.add_inside_globals([global_ip])
+        
+        response = self.app.get("/ipam/ip_blocks/%s/ip_addresses/%s/inside_locals"
+                                 %(global_block.id, global_ip.address))
+
+        self.assertEqual(response.json,
+                         {'ip_addresses': [local_ip.data()]})
 
     def _add_local_ip_to_global(self, local_ip, **kwargs):
         global_block_1 = IpBlock.create(kwargs)

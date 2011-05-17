@@ -1,4 +1,4 @@
-2# vim: tabstop=4 shiftwidth=4 softtabstop=4
+# vim: tabstop=4 shiftwidth=4 softtabstop=4
 
 # Copyright 2011 OpenStack LLC.
 # All Rights Reserved.
@@ -83,13 +83,26 @@ class IpAddressController(wsgi.Controller):
         return {'id':ip_address.id,
                 'address':ip_address.address,
                 'port_id':ip_address.port_id}
-    
+
+class NatController(wsgi.Controller):
+
+    def create_locals(self,request,ip_block_id,address):
+        ip = IpBlock.find(ip_block_id).find_or_allocate_ip_by_address(address)
+        
+        ips = []
+        for ip_address in json.loads(request.params["ip_addresses"]):
+            block = IpBlock.find(ip_address["ip_block_id"])
+            ips.append(block.find_or_allocate_ip_by_address(ip_address["ip_address"]))
+                       
+        ip.add_inside_locals(ips)
+
 class API(wsgi.Router):                                                                
     def __init__(self, options):                                                       
         self.options = options
         mapper = routes.Mapper()                                                       
         ip_block_controller = IpBlockController()
         ip_address_controller = IpAddressController()
+        nat_controller = NatController()
         mapper.resource("ip_block", "/ipam/ip_blocks", controller=ip_block_controller)
         mapper.connect("/ipam/ip_blocks/{ip_block_id}/ip_addresses/{address:.+}",
                        controller=ip_address_controller, action = "show",
@@ -100,6 +113,9 @@ class API(wsgi.Router):
         mapper.resource("ip_address", "ip_addresses", controller=ip_address_controller,
                          parent_resource=dict(member_name="ip_block",
                                               collection_name="/ipam/ip_blocks"))
+        mapper.connect("/ipam/ip_blocks/{ip_block_id}/ip_addresses/{address:.+?}/inside_locals",
+                       controller=nat_controller, action="create_locals")
+        
         mapper.connect("/", controller=ip_block_controller, action="version")
         super(API, self).__init__(mapper)
                                                                                       

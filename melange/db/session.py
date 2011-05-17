@@ -45,7 +45,10 @@ def configure_db(options):
 
         mappers.map(_ENGINE,options['models'])
 
-        _MODELS = options['models']
+        models = options['models']
+        models['ip_nat_relation'] = mappers.IpNat
+        
+        _MODELS = models
         if debug:
             logger.setLevel(logging.DEBUG)
         elif verbose:

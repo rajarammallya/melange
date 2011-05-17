@@ -33,7 +33,6 @@ from melange.common import exception
 from melange.db import api as db_api
 
 class ModelBase(object):
-
     @classmethod
     def create(cls, values):
         instance = cls(values)
@@ -106,27 +105,38 @@ class IpBlock(ModelBase):
     def find_by_network_id(cls, network_id):
         return db_api.find_by(IpBlock,network_id=network_id)
     
-    def allocate_ip(self, port_id=None):
+    def allocate_ip(self, port_id=None, address=None):
         candidate_ip = None
         allocated_addresses = [ip_addr.address
                                for ip_addr in
                                IpAddress.find_all_by_ip_block(self.id)]
 
+        if address and address not in allocated_addresses:
+            candidate_ip = address
+        else:
+            candidate_ip = self._generate_ip(allocated_addresses)
+        
+        if not candidate_ip:
+            raise NoMoreAdressesError()
+        
+        return IpAddress({'address':candidate_ip,'port_id':port_id,
+                          'ip_block_id':self.id}).save()
+
+    def _generate_ip(self,allocated_addresses):
         #TODO:very inefficient way to generate ips,
         #will look at better algos for this
         for ip in IPNetwork(self.cidr):
             if str(ip) not in allocated_addresses:
-                candidate_ip = str(ip)
-                break
-        if not candidate_ip:
-            raise NoMoreAdressesError()
-        return db_api.save(IpAddress.create({'address':candidate_ip,
-                                'port_id':port_id,
-                                'ip_block_id':self.id}))
+                return str(ip)
+        return None
 
     def find_allocated_ip(self, address):
         return IpAddress.find_by_block_and_address(self.id,address)
 
+    def find_or_allocate_ip_by_address(self, address):
+        return (self.find_allocated_ip(address)
+                or self.allocate_ip(address=address))
+                                       
     def deallocate_ip(self, address):
         ip_address = self.find_allocated_ip(address)
         return IpAddress.delete(ip_address)
@@ -158,8 +168,23 @@ class IpAddress(ModelBase):
     def find_by_block_and_address(cls,ip_block_id, address):
         return db_api.find_by(IpAddress,ip_block_id=ip_block_id,address=address)
 
-    def add_inside_locals(self,ip_addresses):
-        pass
+    def add_inside_locals(self,ip_addresses):        
+        return db_api.save_nat_relationships([
+            {"inside_global_address_id":self.id,
+             "inside_local_address_id":local_address.id}
+            for local_address in ip_addresses])
+
+    def inside_globals(self):
+        return db_api.find_inside_globals_for(self.id)
+
+    def add_inside_globals(self,ip_addresses):        
+        return db_api.save_nat_relationships([
+            {"inside_global_address_id":global_address.id,
+             "inside_local_address_id":self.id}
+            for global_address in ip_addresses])
+
+    def inside_locals(self):
+        return db_api.find_inside_locals_for(self.id)
 
 def models():
     return {'IpBlock':IpBlock,'IpAddress':IpAddress}

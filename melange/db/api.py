@@ -15,6 +15,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from sqlalchemy.orm import joinedload
+
 from melange.db import session
 
 def find_all_by(cls,**kwargs):
@@ -38,6 +40,23 @@ def delete(model):
     db_session.delete(model)
     db_session.flush()
 
+def find_inside_globals_for(local_address_id):
+    return [nat.inside_global_address for nat in base_query(session.models()["ip_nat_relation"]).
+            filter_by(inside_local_address_id = local_address_id)]
+
+def find_inside_locals_for(global_address_id):
+    return [nat.inside_local_address for nat in base_query(session.models()["ip_nat_relation"]).
+            filter_by(inside_global_address_id = global_address_id)]
+
 def base_query(cls):
-    return  session.get_session().query(cls)
-    
+    return session.get_session().query(cls)
+
+def update(model, values):
+    for k, v in values.iteritems():
+        model[k] = v
+
+def save_nat_relationships(nat_relationships):
+    for relationship in nat_relationships:
+        ip_nat = session.models()["ip_nat_relation"]()
+        update(ip_nat, relationship)
+        save(ip_nat)

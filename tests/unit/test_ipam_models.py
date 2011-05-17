@@ -27,11 +27,11 @@ from melange.db import api as db_api
 class TestIpBlock(unittest.TestCase):
 
     def test_create_ip_block(self):
-        IpBlock.create({"cidr":"10.0.0.1/8","network_id":'10', "type":"private"})
+        IpBlock.create({"cidr":"10.0.0.1/8","network_id":'18888', "type":"private"})
 
-        saved_block = IpBlock.find_by_network_id(10)
+        saved_block = IpBlock.find_by_network_id(18888)
         self.assertEqual(saved_block.cidr, "10.0.0.1/8")
-        self.assertEqual(saved_block.network_id, '10')
+        self.assertEqual(saved_block.network_id, '18888')
         self.assertEqual(saved_block.type, "private")
 
     def test_valid_cidr(self):
@@ -48,7 +48,7 @@ class TestIpBlock(unittest.TestCase):
         self.assertTrue(block.is_valid())
         
     def test_uniqueness_of_cidr_for_public_ip_blocks(self):
-        IpBlock.create({"cidr":"10.0.0.1/8","network_id":10, "type":"public"})
+        IpBlock.create({"cidr":"10.0.0.1/8","network_id":145, "type":"public"})
         dup_block = IpBlock({"cidr":"10.0.0.1/8", "network_id":11, "type":"public"})
 
         self.assertFalse(dup_block.is_valid())
@@ -56,10 +56,10 @@ class TestIpBlock(unittest.TestCase):
                          [{'cidr': 'cidr for public ip is not unique'}])
 
     def test_find_by_network_id(self):
-        IpBlock.create({"cidr":"10.0.0.1/8","network_id":10})
-        IpBlock.create({"cidr":"10.1.1.1/2","network_id":11})
+        IpBlock.create({"cidr":"10.0.0.1/8","network_id":999})
+        IpBlock.create({"cidr":"10.1.1.1/2","network_id":987})
 
-        block = IpBlock.find_by_network_id(11)
+        block = IpBlock.find_by_network_id(987)
 
         self.assertEqual(block.cidr,"10.1.1.1/2")
 
@@ -105,10 +105,18 @@ class TestIpBlock(unittest.TestCase):
                          "10.0.0.0")
         self.assertEqual(block.allocate_ip().address,"10.0.0.1")
 
+    def test_find_or_allocate_ip_by_address(self):
+        block = IpBlock.create({"cidr":"10.0.0.0/30"})
+
+        block.find_or_allocate_ip_by_address('10.0.0.1')
+
+        address = IpAddress.find_by_block_and_address(block.id,'10.0.0.1')
+        self.assertTrue(address is not None)
+
 class TestIpAddress(unittest.TestCase):
 
     def test_find_all_by_ip_block(self):
-        block = IpBlock.create({"cidr":"10.0.0.1/8","network_id":1})
+        block = IpBlock.create({"cidr":"10.0.0.1/8","network_id":177})
         IpAddress.create({"ip_block_id":block.id, "address":"10.0.0.1"})
         IpAddress.create({"ip_block_id":block.id, "address":"10.0.0.2"})
 
@@ -121,10 +129,31 @@ class TestIpAddress(unittest.TestCase):
         self.assertTrue("10.0.0.2" in addresses)
 
     def test_delete_ip_address(self):
-        block = IpBlock.create({"cidr":"10.0.0.1/8","network_id":1})        
+        block = IpBlock.create({"cidr":"10.0.0.1/8","network_id":188})        
         address = IpAddress.create({"ip_block_id":block.id, "address":"10.0.0.1"})
 
         address.delete()
 
         self.assertEqual(IpAddress.find(address.id), None)
+
+    def test_add_inside_locals(self):
+        global_block = IpBlock.create({"cidr":"192.0.0.1/8","network_id":121})
+        local_block = IpBlock.create({"cidr":"10.0.0.1/8","network_id":10})
         
+        global_ip = global_block.allocate_ip()
+        local_ip = local_block.allocate_ip()
+
+        global_ip.add_inside_locals([local_ip])
+
+        self.assertTrue(global_ip.id in [ip.id for ip in local_ip.inside_globals()])
+
+    def test_add_inside_globals(self):
+        global_block = IpBlock.create({"cidr":"192.0.0.1/8","network_id":121})
+        local_block = IpBlock.create({"cidr":"10.0.0.1/8","network_id":10})
+        
+        global_ip = global_block.allocate_ip()
+        local_ip = local_block.allocate_ip()
+
+        local_ip.add_inside_globals([global_ip])
+
+        self.assertTrue(local_ip.id in [ip.id for ip in global_ip.inside_locals()])

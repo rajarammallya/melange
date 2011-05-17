@@ -88,8 +88,14 @@ class ModelBase(object):
         return self.__dict__.items()
 
     def to_dict(self):
-        return self.__dict__.copy()
+        return self.__dict__()
 
+    def data(self):
+        return dict([(field, self[field]) 
+                    for field in self.data_fields()])
+
+    def data_fields(self):
+        return []
 
 class InvalidModelError(Exception):
 
@@ -157,6 +163,9 @@ class IpBlock(ModelBase):
         self.validate_cidr()
         self.validate_uniqueness_for_public_ip_block()
         return self.errors == []
+
+    def data_fields(self):
+        return ['id', 'cidr', 'network_id']
          
 class IpAddress(ModelBase):
 
@@ -185,6 +194,9 @@ class IpAddress(ModelBase):
 
     def inside_locals(self):
         return db_api.find_inside_locals_for(self.id)
+
+    def data_fields(self):
+        return ['id','ip_block_id','address', 'port_id']
 
 def models():
     return {'IpBlock':IpBlock,'IpAddress':IpAddress}

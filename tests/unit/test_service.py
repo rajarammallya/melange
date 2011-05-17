@@ -44,8 +44,7 @@ class TestIpBlockController(TestController):
         self.assertEqual(response.status,"200 OK")
         saved_block = IpBlock.find_by_network_id("300")
         self.assertEqual(saved_block.cidr, "10.1.1.0/2")
-        self.assertEqual(response.json, {'id':saved_block.id,'network_id':"300",
-                                         'cidr':"10.1.1.0/2"})
+        self.assertEqual(response.json, saved_block.data())
 
     def test_cannot_create_duplicate_public_cidr(self):
         self.app.post("/ipam/ip_blocks",
@@ -55,7 +54,8 @@ class TestIpBlockController(TestController):
                                  status="*")
 
         self.assertEqual(response.status, "400 Bad Request")
-        self.assertTrue("[{'cidr': 'cidr for public ip is not unique'}]" in response.body)
+        self.assertTrue("[{'cidr': 'cidr for public ip is not unique'}]"
+                        in response.body)
     
     def test_create_with_bad_cidr(self):
         response = self.app.post("/ipam/ip_blocks",
@@ -70,8 +70,7 @@ class TestIpBlockController(TestController):
         response = self.app.get("/ipam/ip_blocks/%s" %block.id)
 
         self.assertEqual(response.status,"200 OK")
-        self.assertEqual(response.json, {'id': block.id,'network_id':"301",
-                                         'cidr':"10.1.1.0/2"})
+        self.assertEqual(response.json, block.data())
 
 class TestIpAddressController(TestController):
     def test_create(self):
@@ -81,9 +80,7 @@ class TestIpAddressController(TestController):
         self.assertEqual(response.status,"200 OK")
         allocated_address = IpAddress.find_all_by_ip_block(block.id).first()
         self.assertEqual(allocated_address.address, "10.1.1.0")
-        self.assertEqual(response.json, {'id':allocated_address.id,
-                                         'address':allocated_address.address,
-                                         'port_id':allocated_address.port_id})
+        self.assertEqual(response.json, allocated_address.data())
 
     def test_create_when_no_more_addresses(self):
         block = IpBlock.create({'network_id':"301",'cidr':"10.1.1.0/32"})
@@ -112,9 +109,7 @@ class TestIpAddressController(TestController):
                                 (block_1.id, ip.address))
 
         self.assertEqual(response.status,"200 OK")
-        self.assertEqual(response.json, {'id': ip.id,
-                                         'address':ip.address,
-                                         'port_id':"3333"})
+        self.assertEqual(response.json, ip.data())
 
     def test_delete_ip(self):
         block_1 = IpBlock.create({'network_id':"301",'cidr':"10.1.1.0/28"})
@@ -167,20 +162,18 @@ class TestIpNatController(TestController):
         local_ip = IpAddress.find_by_block_and_address(local_block_1.id,"10.1.1.1")
         self.assertEqual(local_ip.inside_globals()[0].address, "169.1.1.1")
 
-    def wip_show_inside_globals(self):
+    def test_show_inside_globals(self):
         local_block = IpBlock.create({'cidr':"10.1.1.1/30"})
         local_ip = local_block.allocate_ip()
         global_block_1, global_ip_1 = self._add_local_ip_to_global(local_ip,
                                                                    cidr="192.1.1.1/30")
         global_block_2, global_ip_2 = self._add_local_ip_to_global(local_ip,
                                                                    cidr="169.1.1.1/30")
-
         response = self.app.get("/ipam/ip_blocks/%s/ip_addresses/%s/inside_globals"
-                                 %(local_block.id,local_ip.address))
+                                 %(local_block.id, local_ip.address))
 
         self.assertEqual(response.json,
-                         {'ip_addresses': [{'ip_address': global_ip_1.address},
-                                         {'ip_address': global_ip_2.address}]})
+                         {'ip_addresses': [global_ip_1.data(),global_ip_2.data()]})
 
     def _add_local_ip_to_global(self, local_ip, **kwargs):
         global_block_1 = IpBlock.create(kwargs)

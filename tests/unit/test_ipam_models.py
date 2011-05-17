@@ -113,6 +113,12 @@ class TestIpBlock(unittest.TestCase):
         address = IpAddress.find_by_block_and_address(block.id,'10.0.0.1')
         self.assertTrue(address is not None)
 
+    def test_ip_block_data(self):
+        ip_block_data = {"cidr":"10.0.0.1/8", 'network_id': '1122'}
+        ip_block = IpBlock.create(ip_block_data)
+        ip_block_data["id"] = ip_block.id
+        self.assertEqual(ip_block.data(),ip_block_data)
+
 class TestIpAddress(unittest.TestCase):
 
     def test_find_all_by_ip_block(self):
@@ -157,3 +163,12 @@ class TestIpAddress(unittest.TestCase):
         local_ip.add_inside_globals([global_ip])
 
         self.assertTrue(local_ip.id in [ip.id for ip in global_ip.inside_locals()])
+
+    def test_ip_address_data(self):
+        ip_block = IpBlock.create({"cidr":"10.0.0.1/8"})
+        ip_data = {"ip_block_id":ip_block.id, "address":"10.0.0.1", "port_id":"2222"}
+
+        ip = IpAddress.create(ip_data)
+
+        ip_data["id"] = ip.id
+        self.assertEqual(ip.data(),ip_data)

@@ -151,11 +151,13 @@ class TestIpAddressController(TestController):
 class TestIpNatController(TestController):
 
     def test_create_inside_local_nat(self):
-        global_block = IpBlock.create({'cidr':"169.1.1.1/30"})
-        local_block_1 = IpBlock.create({'cidr':"10.1.1.1/30"})
-        local_block_2 = IpBlock.create({'cidr':"10.0.0.0/30"})
+        global_block, local_block_1, local_block_2 =\
+                      self._create_blocks("169.1.1.1/32",
+                                          '10.1.1.1/32',
+                                          '10.0.0.1/32')
 
-        response=self.app.post("/ipam/ip_blocks/%s/ip_addresses/169.1.1.1/inside_locals"
+        response=self.app.post("/ipam/ip_blocks/%s/ip_addresses/"
+                               "169.1.1.1/inside_locals"
                               % global_block.id,
                               {"ip_addresses":json.dumps(
                                 [{"ip_block_id":local_block_1.id,
@@ -175,9 +177,8 @@ class TestIpNatController(TestController):
         self.assertEqual(local_ip.inside_globals()[0].address, "169.1.1.1")
 
     def test_create_inside_global_nat(self):
-        global_block = IpBlock.create({'cidr':"169.1.1.1/30"})
+        global_block, local_block = self._create_blocks('192.1.1.1/32', '10.1.1.1/32')
         global_ip = global_block.allocate_ip()
-        local_block = IpBlock.create({'cidr':"10.1.1.1/30"})
         local_ip = local_block.allocate_ip()
 
         response=self.app.post("/ipam/ip_blocks/%s/ip_addresses/%s/inside_globals"
@@ -191,36 +192,63 @@ class TestIpNatController(TestController):
 
         self.assertEqual(len(local_ip.inside_globals()),1)
         self.assertEqual(global_ip.id, local_ip.inside_globals()[0].id)
-        self.assertEqual(local_ip.id, global_ip.inside_locals()[0].id)        
+        self.assertEqual(local_ip.id, global_ip.inside_locals()[0].id)
 
     def test_show_inside_globals(self):
-        local_block = IpBlock.create({'cidr':"10.1.1.1/30"})
-        local_ip = local_block.allocate_ip()
-        global_block_1, global_ip_1 = self._add_local_ip_to_global(local_ip,
-                                                                   cidr="192.1.1.1/30")
-        global_block_2, global_ip_2 = self._add_local_ip_to_global(local_ip,
-                                                                   cidr="169.1.1.1/30")
+        local_block,global_block_1, global_block_2 =\
+                                    self._create_blocks("10.1.1.1/30",
+                                                        "192.1.1.1/30",
+                                                        "169.1.1.1/30")
+        [local_ip], [global_ip_1], [global_ip_2] =\
+                                    self._allocate_ips((local_block,1),
+                                                       (global_block_1,1),
+                                                       (global_block_2,1))
+        local_ip.add_inside_globals([global_ip_1,global_ip_2])
+
         response = self.app.get("/ipam/ip_blocks/%s/ip_addresses/%s/inside_globals"
                                  %(local_block.id, local_ip.address))
 
         self.assertEqual(response.json,
                          {'ip_addresses': [global_ip_1.data(),global_ip_2.data()]})
 
-    def test_show_inside_locals(self):
-        global_block = IpBlock.create({'cidr':"192.1.1.1/30"})
-        global_ip = global_block.allocate_ip()
-        local_block = IpBlock.create({'cidr':"10.1.1.1/30"})
-        local_ip = local_block.allocate_ip()
-        local_ip.add_inside_globals([global_ip])
+    def test_show_inside_globals_with_pagination(self):
+        local_block, global_block = self._create_blocks("10.1.1.1/8","192.1.1.1/8")
+        [local_ip], global_ips = self._allocate_ips((local_block,1),(global_block,5))
+        local_ip.add_inside_globals(global_ips)
+
+        response = self.app.get("/ipam/ip_blocks/%s/ip_addresses/%s/inside_globals?"
+                                "limit=2&marker=%s"
+                                %(local_block.id, local_ip.address, global_ips[1].id))
+
+        self.assertEqual(response.json,
+                         {'ip_addresses': [ip.data() for ip in global_ips[2:4]]})
+
+    def test_show_inside_locals_with_pagination(self):
+        global_block, local_block = self._create_blocks("192.1.1.1/8","10.1.1.1/8")
+        [global_ip], local_ips = self._allocate_ips((global_block,1),(local_block,5))
+        global_ip.add_inside_locals(local_ips)
         
+        response = self.app.get("/ipam/ip_blocks/%s/ip_addresses/%s/inside_locals?"
+                                "limit=2&marker=%s"
+                                %(global_block.id, global_ip.address, local_ips[1].id))
+
+        self.assertEqual(response.json,
+                         {'ip_addresses': [ip.data() for ip in local_ips[2:4]]})
+
+    def test_show_inside_locals(self):
+        global_block, local_block = self._create_blocks("192.1.1.1/8","10.1.1.1/8")
+        [global_ip], local_ips = self._allocate_ips((global_block,1),(local_block,5))
+        global_ip.add_inside_locals(local_ips)        
+
         response = self.app.get("/ipam/ip_blocks/%s/ip_addresses/%s/inside_locals"
                                  %(global_block.id, global_ip.address))
 
         self.assertEqual(response.json,
-                         {'ip_addresses': [local_ip.data()]})
+                         {'ip_addresses': [ip.data() for ip in local_ips]})
 
-    def _add_local_ip_to_global(self, local_ip, **kwargs):
-        global_block_1 = IpBlock.create(kwargs)
-        global_ip_1 = global_block_1.allocate_ip()
-        global_ip_1.add_inside_locals([local_ip])
-        return global_block_1, global_ip_1
+    def _create_blocks(self,*args):
+        return [IpBlock.create({"cidr":cidr}) for cidr in args]
+
+    def _allocate_ips(self,*args):
+        return [[ip_block.allocate_ip() for i in range(num_of_ips)]
+             for ip_block, num_of_ips in args]

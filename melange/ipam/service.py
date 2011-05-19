@@ -91,11 +91,13 @@ class NatController(BaseController):
 
     def show_globals(self, request, ip_block_id, address):
         ip = IpAddress.find_by_block_and_address(ip_block_id, address)
-        return self._get_addresses(ip.inside_globals())
+        return self._get_addresses(ip.inside_globals( \
+                                    **self._extract_limits(request.params)))
 
     def show_locals(self, request, ip_block_id, address):
         ip = IpAddress.find_by_block_and_address(ip_block_id, address)
-        return self._get_addresses(ip.inside_locals())
+        return self._get_addresses(ip.inside_locals( \
+                                    **self._extract_limits(request.params)))
 
     def _get_addresses(self,ips):
         return self._json_response(

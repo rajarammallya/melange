@@ -8,7 +8,7 @@
 #    not use this file except in compliance with the License. You may obtain
 #    a copy of the License at
 #
-#         http://www.apache.org/licenses/LICENSE-2.0
+#         http: //www.apache.org/licenses/LICENSE-2.0
 #
 #    Unless required by applicable law or agreed to in writing, software
 #    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
@@ -32,6 +32,7 @@ from melange.common import utils
 from melange.common import exception
 from melange.db import api as db_api
 
+
 class ModelBase(object):
     @classmethod
     def create(cls, values):
@@ -41,10 +42,10 @@ class ModelBase(object):
     def save(self):
         self.validate()
         return db_api.save(self)
-    
+
     def delete(self):
         db_api.delete(self)
-        
+
     def __init__(self, values):
         self.update(values)
 
@@ -56,8 +57,8 @@ class ModelBase(object):
         return True
 
     @classmethod
-    def find(cls,id):
-        return db_api.find(cls,id)
+    def find(cls, id):
+        return db_api.find(cls, id)
 
     def update(self, values):
         """dict.update() behaviour."""
@@ -91,32 +92,34 @@ class ModelBase(object):
         return self.__dict__()
 
     def data(self):
-        return dict([(field, self[field]) 
+        return dict([(field, self[field])
                     for field in self.data_fields()])
 
     def data_fields(self):
         return []
 
+
 class InvalidModelError(Exception):
 
-    def __init__(self,errors):
+    def __init__(self, errors):
         self.errors = errors
 
     def __str__(self):
         return str(self.errors)
 
+
 class IpBlock(ModelBase):
 
     @classmethod
     def find_by_network_id(cls, network_id):
-        return db_api.find_by(IpBlock,network_id=network_id)
-    
+        return db_api.find_by(IpBlock, network_id=network_id)
+
     @classmethod
     def find_or_allocate_ip(self, ip_block_id, address):
         block = IpBlock.find(ip_block_id)
         return (block.find_allocated_ip(address)
                 or block.allocate_ip(address=address))
-                                       
+
     def allocate_ip(self, port_id=None, address=None):
         candidate_ip = None
         allocated_addresses = [ip_addr.address
@@ -127,15 +130,15 @@ class IpBlock(ModelBase):
             candidate_ip = address
         else:
             candidate_ip = self._generate_ip(allocated_addresses)
-        
+
         if not candidate_ip:
             raise NoMoreAdressesError()
-        
-        return IpAddress({'address':candidate_ip,'port_id':port_id,
-                          'ip_block_id':self.id}).save()
 
-    def _generate_ip(self,allocated_addresses):
-        #TODO:very inefficient way to generate ips,
+        return IpAddress({'address': candidate_ip, 'port_id': port_id,
+                          'ip_block_id': self.id}).save()
+
+    def _generate_ip(self, allocated_addresses):
+        #TODO: very inefficient way to generate ips,
         #will look at better algos for this
         for ip in IPNetwork(self.cidr):
             if str(ip) not in allocated_addresses:
@@ -143,7 +146,7 @@ class IpBlock(ModelBase):
         return None
 
     def find_allocated_ip(self, address):
-        return IpAddress.find_by_block_and_address(self.id,address)
+        return IpAddress.find_by_block_and_address(self.id, address)
 
     def deallocate_ip(self, address):
         ip_address = self.find_allocated_ip(address)
@@ -153,13 +156,13 @@ class IpBlock(ModelBase):
         try:
             IPNetwork(self.cidr)
         except Exception:
-            self.errors.append({'cidr':'cidr is invalid'})
+            self.errors.append({'cidr': 'cidr is invalid'})
 
     def validate_uniqueness_for_public_ip_block(self):
-        if self.type=='public' and \
-        db_api.find_by(IpBlock,type=self.type, cidr=self.cidr):
+        if self.type == 'public' and \
+        db_api.find_by(IpBlock, type=self.type, cidr=self.cidr):
             self.errors.append({'cidr': 'cidr for public ip is not unique'})
-                
+
     def is_valid(self):
         self.errors = []
         self.validate_cidr()
@@ -168,40 +171,44 @@ class IpBlock(ModelBase):
 
     def data_fields(self):
         return ['id', 'cidr', 'network_id']
-         
+
+
 class IpAddress(ModelBase):
 
     @classmethod
-    def find_all_by_ip_block(cls,ip_block_id, **kwargs):
-        return db_api.find_all_by(IpAddress,ip_block_id=ip_block_id, **kwargs)
+    def find_all_by_ip_block(cls, ip_block_id, **kwargs):
+        return db_api.find_all_by(IpAddress, ip_block_id=ip_block_id, **kwargs)
 
     @classmethod
-    def find_by_block_and_address(cls,ip_block_id, address):
-        return db_api.find_by(IpAddress,ip_block_id=ip_block_id,address=address)
+    def find_by_block_and_address(cls, ip_block_id, address):
+        return db_api.find_by(IpAddress, ip_block_id=ip_block_id,
+                              address=address)
 
-    def add_inside_locals(self,ip_addresses):        
+    def add_inside_locals(self, ip_addresses):
         return db_api.save_nat_relationships([
-            {"inside_global_address_id":self.id,
-             "inside_local_address_id":local_address.id}
+            {"inside_global_address_id": self.id,
+             "inside_local_address_id": local_address.id}
             for local_address in ip_addresses])
 
-    def inside_globals(self,**kwargs):
-        return db_api.find_inside_globals_for(self.id,**kwargs)
+    def inside_globals(self, **kwargs):
+        return db_api.find_inside_globals_for(self.id, **kwargs)
 
-    def add_inside_globals(self,ip_addresses):        
+    def add_inside_globals(self, ip_addresses):
         return db_api.save_nat_relationships([
-            {"inside_global_address_id":global_address.id,
-             "inside_local_address_id":self.id}
+            {"inside_global_address_id": global_address.id,
+             "inside_local_address_id": self.id}
             for global_address in ip_addresses])
 
-    def inside_locals(self,**kwargs):
-        return db_api.find_inside_locals_for(self.id,**kwargs)
+    def inside_locals(self, **kwargs):
+        return db_api.find_inside_locals_for(self.id, **kwargs)
 
     def data_fields(self):
-        return ['id','ip_block_id','address', 'port_id']
+        return ['id', 'ip_block_id', 'address', 'port_id']
+
 
 def models():
-    return {'IpBlock':IpBlock,'IpAddress':IpAddress}
+    return {'IpBlock': IpBlock, 'IpAddress': IpAddress}
+
 
 class NoMoreAdressesError(Exception):
     pass

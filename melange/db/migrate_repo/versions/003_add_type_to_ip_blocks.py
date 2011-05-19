@@ -24,7 +24,8 @@ import datetime
 def upgrade(migrate_engine):
     meta = MetaData()
     meta.bind = migrate_engine
-    Column('type', String(7)).create(Table('ip_blocks',meta))
+    Column('type', String(7)).create(Table('ip_blocks', meta))
+
 
 def downgrade(migrate_engine):
     meta = MetaData()

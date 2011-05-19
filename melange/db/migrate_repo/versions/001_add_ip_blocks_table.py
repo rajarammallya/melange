@@ -25,19 +25,19 @@ def define_ip_blocks_table(meta):
     ip_blocks = Table('ip_blocks', meta,
         Column('id', Integer(), primary_key=True, nullable=False),
         Column('network_id', String(255)),
-        Column('cidr', String(255),nullable=False),
+        Column('cidr', String(255), nullable=False),
         Column('created_at', DateTime(),
                default=datetime.datetime.utcnow, nullable=True),
-        Column('updated_at',DateTime(),default=datetime.datetime.utcnow)
-        )
-    
+        Column('updated_at', DateTime(), default=datetime.datetime.utcnow))
     return ip_blocks
+
 
 def upgrade(migrate_engine):
     meta = MetaData()
     meta.bind = migrate_engine
     tables = [define_ip_blocks_table(meta)]
     create_tables(tables)
+
 
 def downgrade(migrate_engine):
     meta = MetaData()

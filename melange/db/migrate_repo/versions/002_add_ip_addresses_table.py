@@ -14,7 +14,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-from sqlalchemy.schema import (Column, MetaData, Table,ForeignKey)
+from sqlalchemy.schema import (Column, MetaData, Table, ForeignKey)
 
 from melange.db.migrate_repo.schema import (
     Boolean, DateTime, Integer, String, Text,
@@ -22,27 +22,28 @@ from melange.db.migrate_repo.schema import (
 
 
 def define_ip_addresses_table(meta):
-    (define_ip_blocks_table,) = from_migration_import(
+    (define_ip_blocks_table, ) = from_migration_import(
         '001_add_ip_blocks_table', ['define_ip_blocks_table'])
-    
-    ip_blocks = define_ip_blocks_table(meta)
 
+    ip_blocks = define_ip_blocks_table(meta)
 
     ip_addresses = Table('ip_addresses', meta,
         Column('id', Integer(), primary_key=True, nullable=False),
-        Column('address', String(255),nullable=False),
-        Column('port_id', String(255),nullable=True),
-        Column('ip_block_id', Integer(),ForeignKey('ip_blocks.id'),nullable=True),
+        Column('address', String(255), nullable=False),
+        Column('port_id', String(255), nullable=True),
+        Column('ip_block_id', Integer(), ForeignKey('ip_blocks.id'),
+               nullable=True),
         Column('created_at', DateTime(), nullable=True),
-        Column('updated_at', DateTime())
-        )
+        Column('updated_at', DateTime()))
     return ip_addresses
+
 
 def upgrade(migrate_engine):
     meta = MetaData()
     meta.bind = migrate_engine
     tables = [define_ip_addresses_table(meta)]
     create_tables(tables)
+
 
 def downgrade(migrate_engine):
     meta = MetaData()

@@ -15,9 +15,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-_ENGINE=None
-_MAKER=None
-_MODELS=None
+_ENGINE = None
+_MAKER = None
+_MODELS = None
 
 import logging
 
@@ -30,35 +30,37 @@ from sqlalchemy.orm import sessionmaker
 from melange.common import config
 from melange.db import mappers
 
+
 def configure_db(options):
-    global _ENGINE,_MODELS
+    global _ENGINE, _MODELS
     if not _ENGINE:
         debug = config.get_option(options,
                                   'debug', type='bool', default=False)
         verbose = config.get_option(options,
                                     'verbose', type='bool', default=False)
         timeout = config.get_option(options,
-                                    'sql_idle_timeout', type='int', default=3600)
+                                  'sql_idle_timeout', type='int', default=3600)
         _ENGINE = create_engine(options['sql_connection'],
                                 pool_recycle=timeout)
         logger = logging.getLogger('sqlalchemy.engine')
 
-        mappers.map(_ENGINE,options['models'])
+        mappers.map(_ENGINE, options['models'])
 
         models = options['models']
         models['ip_nat_relation'] = mappers.IpNat
-        
+
         _MODELS = models
         if debug:
             logger.setLevel(logging.DEBUG)
         elif verbose:
             logger.setLevel(logging.INFO)
 
+
 def models():
     global _MODELS
     assert _MODELS
     return _MODELS
-            
+
 
 def get_session(autocommit=True, expire_on_commit=False):
         """Helper method to grab session"""

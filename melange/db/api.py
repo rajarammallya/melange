@@ -17,7 +17,8 @@
 
 from melange.db import session
 
-def find_all_by(cls,limit=200,marker=0,marker_column=None,**kwargs):
+
+def find_all_by(cls, limit=200, marker=0, marker_column=None, **kwargs):
     marker_column = marker_column or cls.id
     query = base_query(cls)
     if kwargs:
@@ -27,11 +28,14 @@ def find_all_by(cls,limit=200,marker=0,marker_column=None,**kwargs):
            order_by(marker_column).\
            limit(limit)
 
+
 def find_by(cls, **kwargs):
-    return find_all_by(cls,**kwargs).first()
+    return find_all_by(cls, **kwargs).first()
+
 
 def find(cls, id):
     return base_query(cls).get(id)
+
 
 def save(model):
     db_session = session.get_session()
@@ -39,34 +43,40 @@ def save(model):
     db_session.flush()
     return model
 
+
 def delete(model):
     db_session = session.get_session()
     model = db_session.merge(model)
     db_session.delete(model)
     db_session.flush()
 
+
 def find_inside_globals_for(local_address_id, **kwargs):
     ip_nat = session.models()["ip_nat_relation"]
     kwargs["marker_column"] = ip_nat.inside_global_address_id
     kwargs["inside_local_address_id"] = local_address_id
-    query = find_all_by(ip_nat,**kwargs)
-    
+    query = find_all_by(ip_nat, **kwargs)
+
     return [nat.inside_global_address for nat in query]
 
-def find_inside_locals_for(global_address_id,**kwargs):
+
+def find_inside_locals_for(global_address_id, **kwargs):
     ip_nat = session.models()["ip_nat_relation"]
     kwargs["marker_column"] = ip_nat.inside_local_address_id
     kwargs["inside_global_address_id"] = global_address_id
-    query = find_all_by(ip_nat,**kwargs)
-    
+    query = find_all_by(ip_nat, **kwargs)
+
     return [nat.inside_local_address for nat in query]
+
 
 def base_query(cls):
     return session.get_session().query(cls)
 
+
 def update(model, values):
     for k, v in values.iteritems():
         model[k] = v
+
 
 def save_nat_relationships(nat_relationships):
     for relationship in nat_relationships:

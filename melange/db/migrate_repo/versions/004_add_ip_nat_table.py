@@ -14,7 +14,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-from sqlalchemy.schema import (Column, MetaData, Table,ForeignKey)
+from sqlalchemy.schema import (Column, MetaData, Table, ForeignKey)
 from melange.ipam import models
 from melange.db.migrate_repo.schema import (
     Boolean, DateTime, Integer, String, Text, create_tables, drop_tables,
@@ -23,29 +23,29 @@ import datetime
 
 
 def define_ip_nat_table(meta):
-    (define_ip_addresses_table,) = from_migration_import(
+    (define_ip_addresses_table, ) = from_migration_import(
         '002_add_ip_addresses_table', ['define_ip_addresses_table'])
 
-    ip_addresses=define_ip_addresses_table(meta)
-    
+    ip_addresses = define_ip_addresses_table(meta)
+
     ip_nats = Table('ip_nats', meta,
         Column('id', Integer(), primary_key=True, nullable=False),
-        Column('inside_local_address_id', Integer()
-               ,ForeignKey('ip_addresses.id'),nullable=False),
-        Column('inside_global_address_id', Integer()
-               ,ForeignKey('ip_addresses.id'),nullable=False),
+        Column('inside_local_address_id', Integer(),
+               ForeignKey('ip_addresses.id'), nullable=False),
+        Column('inside_global_address_id', Integer(),
+               ForeignKey('ip_addresses.id'), nullable=False),
         Column('created_at', DateTime(),
                default=datetime.datetime.utcnow, nullable=True),
-        Column('updated_at',DateTime(),default=datetime.datetime.utcnow)
-        )
-    
+        Column('updated_at', DateTime(), default=datetime.datetime.utcnow))
     return ip_nats
+
 
 def upgrade(migrate_engine):
     meta = MetaData()
     meta.bind = migrate_engine
     tables = [define_ip_nat_table(meta)]
     create_tables(tables)
+
 
 def downgrade(migrate_engine):
     meta = MetaData()

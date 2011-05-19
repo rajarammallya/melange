@@ -136,6 +136,18 @@ class TestIpAddressController(TestController):
         self.assertEqual(ip_addresses[0]['address'], address_1.address)
         self.assertEqual(ip_addresses[1]['address'], address_2.address)
 
+    def test_index_with_pagination(self):
+        block = IpBlock.create({'network_id':"301",'cidr':"10.1.1.0/28"})
+        ips = [ block.allocate_ip() for i in range(5)]
+
+        response = self.app.get("/ipam/ip_blocks/%s/ip_addresses?"
+                                "limit=2&marker=%s" % (block.id,ips[1].id))
+
+        ip_addresses = response.json["ip_addresses"]
+        self.assertEqual(len(ip_addresses),2)
+        self.assertEqual(ip_addresses[0]['address'], ips[2].address)
+        self.assertEqual(ip_addresses[1]['address'], ips[3].address)
+
 class TestIpNatController(TestController):
 
     def test_create_inside_local_nat(self):

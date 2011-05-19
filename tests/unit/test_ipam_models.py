@@ -134,6 +134,17 @@ class TestIpAddress(unittest.TestCase):
         self.assertTrue("10.0.0.1" in addresses)
         self.assertTrue("10.0.0.2" in addresses)
 
+    def test_limited_find_all(self):
+        block = IpBlock.create({"cidr":"10.0.0.1/8","network_id":177})
+        ips = [block.allocate_ip() for i in range(6)]
+        marker = ips[1].id
+        addrs_after_marker = [ips[i].address for i in range(2,6)]
+        
+        limited_addrs = [ip.address for ip in IpAddress.find_all_by_ip_block(block.id,
+                                             limit=3,marker=marker)]
+        self.assertEqual(len(limited_addrs),3)
+        self.assertEqual(addrs_after_marker[0:3], limited_addrs)
+
     def test_delete_ip_address(self):
         block = IpBlock.create({"cidr":"10.0.0.1/8","network_id":188})        
         address = IpAddress.create({"ip_block_id":block.id, "address":"10.0.0.1"})
@@ -164,6 +175,21 @@ class TestIpAddress(unittest.TestCase):
 
         self.assertTrue(local_ip.id in [ip.id for ip in global_ip.inside_locals()])
 
+    def test_limited_show_inside_locals(self):
+        global_block = IpBlock.create({"cidr":"192.0.0.1/8","network_id":121})
+        local_block = IpBlock.create({"cidr":"10.0.0.1/8","network_id":10})
+
+        global_ip = global_block.allocate_ip()
+        local_ips = [local_block.allocate_ip() for i in range(5)]
+        global_ip.add_inside_globals(local_ips)
+
+        limited_local_addresses = [ip.address for ip in global_ip.\
+                                   inside_globals(limit=2,marker=local_ips[1].id)]
+
+        self.assertEqual(len(limited_local_addresses),2)
+        self.assertTrue(limited_local_addresses,[local_ips[2].address
+                                                 ,local_ips[3].address])
+        
     def test_ip_address_data(self):
         ip_block = IpBlock.create({"cidr":"10.0.0.1/8"})
         ip_data = {"ip_block_id":ip_block.id, "address":"10.0.0.1", "port_id":"2222"}

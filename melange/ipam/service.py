@@ -30,6 +30,9 @@ class BaseController(wsgi.Controller):
     def _json_response(self, body):
         return Response(body=json.dumps(body), content_type="application/json")
 
+    def _extract_limits(self, params):
+        return dict([(key,params[key]) for key in params.keys()
+                     if key in ["limit", "marker"]])
 
 class IpBlockController(BaseController):
     def index(self, request):
@@ -52,7 +55,9 @@ class IpBlockController(BaseController):
 
 class IpAddressController(BaseController):
     def index(self, request, ip_block_id):
-        addresses = IpAddress.find_all_by_ip_block(ip_block_id)
+        addresses = IpAddress.\
+                    find_all_by_ip_block(ip_block_id,
+                                         **self._extract_limits(request.params))
         return self._json_response(dict(ip_addresses=[ip_address.data()
                                    for ip_address in addresses]))
     

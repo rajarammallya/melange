@@ -172,8 +172,8 @@ class IpBlock(ModelBase):
 class IpAddress(ModelBase):
 
     @classmethod
-    def find_all_by_ip_block(cls,ip_block_id):
-        return db_api.find_all_by(IpAddress,ip_block_id=ip_block_id)
+    def find_all_by_ip_block(cls,ip_block_id, **kwargs):
+        return db_api.find_all_by(IpAddress,ip_block_id=ip_block_id, **kwargs)
 
     @classmethod
     def find_by_block_and_address(cls,ip_block_id, address):
@@ -185,8 +185,8 @@ class IpAddress(ModelBase):
              "inside_local_address_id":local_address.id}
             for local_address in ip_addresses])
 
-    def inside_globals(self):
-        return db_api.find_inside_globals_for(self.id)
+    def inside_globals(self,**kwargs):
+        return db_api.find_inside_globals_for(self.id,**kwargs)
 
     def add_inside_globals(self,ip_addresses):        
         return db_api.save_nat_relationships([
@@ -194,8 +194,8 @@ class IpAddress(ModelBase):
              "inside_local_address_id":self.id}
             for global_address in ip_addresses])
 
-    def inside_locals(self):
-        return db_api.find_inside_locals_for(self.id)
+    def inside_locals(self,**kwargs):
+        return db_api.find_inside_locals_for(self.id,**kwargs)
 
     def data_fields(self):
         return ['id','ip_block_id','address', 'port_id']

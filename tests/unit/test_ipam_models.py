@@ -179,12 +179,14 @@ class TestIpAddress(unittest.TestCase):
 
     def test_delete_ip_address(self):
         block = IpBlock.create({"cidr": "10.0.0.1/8", "network_id": 188})
-        address = IpAddress.create({"ip_block_id": block.id,
+        ip = IpAddress.create({"ip_block_id": block.id,
                                     "address": "10.0.0.1"})
 
-        address.delete()
+        ip.delete()
 
-        self.assertEqual(IpAddress.find(address.id), None)
+        self.assertEqual(IpAddress.find(ip.id), None)
+        deleted_ip = session.raw_query(IpAddress).get(ip.id)
+        self.assertTrue(deleted_ip.deleted)
 
     def test_add_inside_locals(self):
         global_block = IpBlock.create({"cidr": "192.0.0.1/8",

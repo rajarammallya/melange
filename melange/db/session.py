@@ -74,6 +74,10 @@ def get_session(autocommit=True, expire_on_commit=False):
         return _MAKER()
 
 
+def raw_query(model, autocommit=True, expire_on_commit=False):
+    return get_session(autocommit, expire_on_commit).query(model)
+
+
 def clean_db():
     global _ENGINE
     meta = MetaData()

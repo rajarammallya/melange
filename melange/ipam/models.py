@@ -44,7 +44,8 @@ class ModelBase(object):
         return db_api.save(self)
 
     def delete(self):
-        db_api.delete(self)
+        self.update({'deleted': True})
+        db_api.save(self)
 
     def __init__(self, values):
         self.update(values)

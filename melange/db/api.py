@@ -15,6 +15,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from sqlalchemy import or_
 from melange.db import session
 
 
@@ -34,7 +35,7 @@ def find_by(cls, **kwargs):
 
 
 def find(cls, id):
-    return base_query(cls).get(id)
+    return base_query(cls).filter_by(id=id).first()
 
 
 def save(model):
@@ -70,7 +71,8 @@ def find_inside_locals_for(global_address_id, **kwargs):
 
 
 def base_query(cls):
-    return session.get_session().query(cls)
+    return session.get_session().query(cls).\
+           filter(or_(cls.deleted == False, cls.deleted == None))
 
 
 def update(model, values):

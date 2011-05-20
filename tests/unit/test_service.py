@@ -14,23 +14,19 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
-import os
 import json
+import os
 import unittest
 
+from tests.unit import BaseTest
 from webtest import TestApp
-from webob import Request, Response
-from webob.exc import HTTPUnprocessableEntity
-
-from melange.ipam.models import IpBlock
-from melange.ipam.models import IpAddress
 from melange.common import config
-from melange.db import session
+from melange.ipam.models import IpBlock, IpAddress
 
 
-class TestController(unittest.TestCase):
-    def setUp(self):
+class TestController(BaseTest):
+
+    def test_setup(self):
         conf, melange_app = config.load_paste_app('melange',
                 {"config_file":
                  os.path.abspath("../../etc/melange.conf.test")}, None)
@@ -76,6 +72,26 @@ class TestIpBlockController(TestController):
         self.assertEqual(response.status, "200 OK")
         self.assertEqual(response.json, block.data())
 
+    def test_index(self):
+        blocks = _create_blocks("10.1.1.0/32", '10.2.1.0/32', '10.3.1.0/32')
+        response = self.app.get("/ipam/ip_blocks")
+
+        response_blocks = response.json['ip_blocks']
+        self.assertEqual(response.status, "200 OK")
+        self.assertEqual(len(response_blocks), 3)
+        self.assertEqual(response_blocks, _data_of(*blocks))
+
+    def test_index_with_pagination(self):
+        blocks = _create_blocks("10.1.1.0/32", '10.2.1.0/32',
+                                '10.3.1.0/32', '10.4.1.0/32')
+        response = self.app.get("/ipam/ip_blocks?limit=2&marker=%s"
+                                % blocks[1].id)
+
+        response_blocks = response.json['ip_blocks']
+        self.assertEqual(response.status, "200 OK")
+        self.assertEqual(len(response_blocks), 2)
+        self.assertEqual(response_blocks, _data_of(blocks[2], blocks[3]))
+
 
 class TestIpAddressController(TestController):
 
@@ -99,7 +115,8 @@ class TestIpAddressController(TestController):
 
     def test_create_with_port(self):
         block = IpBlock.create({'network_id': "301", 'cidr': "10.1.1.0/28"})
-        response = self.app.post("/ipam/ip_blocks/%s/ip_addresses" % block.id,
+
+        self.app.post("/ipam/ip_blocks/%s/ip_addresses" % block.id,
                                  {"port_id": "1111"})
 
         allocated_address = IpAddress.find_all_by_ip_block(block.id).first()
@@ -159,7 +176,7 @@ class TestIpNatController(TestController):
 
     def test_create_inside_local_nat(self):
         global_block, local_block_1, local_block_2 =\
-                      self._create_blocks("169.1.1.1/32",
+                      _create_blocks("169.1.1.1/32",
                                           '10.1.1.1/32',
                                           '10.0.0.1/32')
 
@@ -185,7 +202,7 @@ class TestIpNatController(TestController):
         self.assertEqual(local_ip.inside_globals()[0].address, "169.1.1.1")
 
     def test_create_inside_global_nat(self):
-        global_block, local_block = self._create_blocks('192.1.1.1/32',
+        global_block, local_block = _create_blocks('192.1.1.1/32',
                                                         '10.1.1.1/32')
         global_ip = global_block.allocate_ip()
         local_ip = local_block.allocate_ip()
@@ -205,11 +222,11 @@ class TestIpNatController(TestController):
 
     def test_show_inside_globals(self):
         local_block, global_block_1, global_block_2 =\
-                                    self._create_blocks("10.1.1.1/30",
+                                    _create_blocks("10.1.1.1/30",
                                                         "192.1.1.1/30",
                                                         "169.1.1.1/30")
         [local_ip], [global_ip_1], [global_ip_2] =\
-                                    self._allocate_ips((local_block, 1),
+                                    _allocate_ips((local_block, 1),
                                                        (global_block_1, 1),
                                                        (global_block_2, 1))
         local_ip.add_inside_globals([global_ip_1, global_ip_2])
@@ -219,13 +236,13 @@ class TestIpNatController(TestController):
                                  % (local_block.id, local_ip.address))
 
         self.assertEqual(response.json,
-                         {'ip_addresses': [global_ip_1.data(),
-                                           global_ip_2.data()]})
+                         {'ip_addresses': _data_of(global_ip_1,
+                                                   global_ip_2)})
 
     def test_show_inside_globals_with_pagination(self):
-        local_block, global_block = self._create_blocks("10.1.1.1/8",
+        local_block, global_block = _create_blocks("10.1.1.1/8",
                                                         "192.1.1.1/8")
-        [local_ip], global_ips = self._allocate_ips((local_block, 1),
+        [local_ip], global_ips = _allocate_ips((local_block, 1),
                                                     (global_block, 5))
         local_ip.add_inside_globals(global_ips)
 
@@ -235,13 +252,13 @@ class TestIpNatController(TestController):
                                    global_ips[1].id))
 
         self.assertEqual(response.json,
-                        {'ip_addresses': [ip.data() for ip
-                                          in global_ips[2:4]]})
+                        {'ip_addresses': _data_of(global_ips[2],
+                                                  global_ips[3])})
 
     def test_show_inside_locals_with_pagination(self):
-        global_block, local_block = self._create_blocks("192.1.1.1/8",
+        global_block, local_block = _create_blocks("192.1.1.1/8",
                                                         "10.1.1.1/8")
-        [global_ip], local_ips = self._allocate_ips((global_block, 1),
+        [global_ip], local_ips = _allocate_ips((global_block, 1),
                                                     (local_block, 5))
         global_ip.add_inside_locals(local_ips)
 
@@ -252,13 +269,13 @@ class TestIpNatController(TestController):
                                    local_ips[1].id))
 
         self.assertEqual(response.json,
-                         {'ip_addresses': [ip.data() for ip
-                                           in local_ips[2:4]]})
+                         {'ip_addresses': _data_of(local_ips[2],
+                                                   local_ips[3])})
 
     def test_show_inside_locals(self):
-        global_block, local_block = self._create_blocks("192.1.1.1/8",
+        global_block, local_block = _create_blocks("192.1.1.1/8",
                                                         "10.1.1.1/8")
-        [global_ip], local_ips = self._allocate_ips((global_block, 1),
+        [global_ip], local_ips = _allocate_ips((global_block, 1),
                                                     (local_block, 5))
         global_ip.add_inside_locals(local_ips)
 
@@ -267,11 +284,17 @@ class TestIpNatController(TestController):
                                 % (global_block.id, global_ip.address))
 
         self.assertEqual(response.json,
-                         {'ip_addresses': [ip.data() for ip in local_ips]})
+                         {'ip_addresses': _data_of(*local_ips)})
 
-    def _create_blocks(self, *args):
-        return [IpBlock.create({"cidr": cidr}) for cidr in args]
 
-    def _allocate_ips(self, *args):
-        return [[ip_block.allocate_ip() for i in range(num_of_ips)]
-             for ip_block, num_of_ips in args]
+def _allocate_ips(*args):
+    return [[ip_block.allocate_ip() for i in range(num_of_ips)]
+            for ip_block, num_of_ips in args]
+
+
+def _create_blocks(*args):
+    return [IpBlock.create({"cidr": cidr}) for cidr in args]
+
+
+def _data_of(*args):
+    return [model.data() for model in args]

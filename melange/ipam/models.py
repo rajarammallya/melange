@@ -120,6 +120,10 @@ class IpBlock(ModelBase):
         return (block.find_allocated_ip(address)
                 or block.allocate_ip(address=address))
 
+    @classmethod
+    def find_all(self, **kwargs):
+        return db_api.find_all_by(IpBlock, **kwargs).all()
+
     def allocate_ip(self, port_id=None, address=None):
         candidate_ip = None
         allocated_addresses = [ip_addr.address

@@ -20,8 +20,9 @@ _MAKER = None
 _MODELS = None
 
 import logging
+import contextlib
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, MetaData
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import exc
 from sqlalchemy.orm import joinedload
@@ -71,3 +72,14 @@ def get_session(autocommit=True, expire_on_commit=False):
                                   autocommit=autocommit,
                                   expire_on_commit=expire_on_commit)
         return _MAKER()
+
+
+def clean_db():
+    global _ENGINE
+    meta = MetaData()
+    meta.reflect(bind=_ENGINE)
+    with contextlib.closing(_ENGINE.connect()) as con:
+        trans = con.begin()
+        for table in reversed(meta.sorted_tables):
+            con.execute(table.delete())
+        trans.commit()

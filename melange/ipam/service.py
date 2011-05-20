@@ -14,17 +14,14 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
 import json
 import routes
-from webob import Response
-from webob.exc import HTTPUnprocessableEntity, HTTPBadRequest
 
 from melange.common import wsgi
 from melange.ipam import models
-from melange.ipam.models import IpBlock
-from melange.ipam.models import IpAddress
-from melange.db import session
+from melange.ipam.models import IpBlock, IpAddress
+from webob import Response
+from webob.exc import HTTPUnprocessableEntity, HTTPBadRequest
 
 
 class BaseController(wsgi.Controller):
@@ -38,7 +35,9 @@ class BaseController(wsgi.Controller):
 
 class IpBlockController(BaseController):
     def index(self, request):
-        return "index"
+            blocks = IpBlock.find_all(**self._extract_limits(request.params))
+            return self._json_response(dict(ip_blocks=[ip_block.data()
+                                                      for ip_block in blocks]))
 
     def create(self, request):
         try:

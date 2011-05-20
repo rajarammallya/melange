@@ -18,7 +18,21 @@
 # See http://code.google.com/p/python-nose/issues/detail?id=373
 # The code below enables nosetests to work with i18n _() blocks
 import __builtin__
+import unittest
 setattr(__builtin__, '_', lambda x: x)
+
+from melange.db import session
+
+
+class BaseTest(unittest.TestCase):
+
+    def setUp(self):
+        session.clean_db()
+        self.test_setup()
+
+    def test_setup(self):
+        """ implement this in inheritors instead of using setup directly """
+        pass
 
 
 def setup():
@@ -26,7 +40,6 @@ def setup():
     import urlparse
     from melange.common import config
     from melange.db import migration
-    from melange.db import session
     from melange.ipam import models
     conf_file, conf = config.load_paste_config("melange",
                         {"config_file":

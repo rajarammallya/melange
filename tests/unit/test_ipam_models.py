@@ -16,6 +16,7 @@
 #    under the License.
 
 import unittest
+from tests.unit import BaseTest
 from webob.exc import HTTPUnprocessableEntity
 
 from melange.ipam.models import IpBlock
@@ -25,7 +26,7 @@ from melange.db import session
 from melange.db import api as db_api
 
 
-class TestIpBlock(unittest.TestCase):
+class TestIpBlock(BaseTest):
 
     def test_create_ip_block(self):
         IpBlock.create({"cidr": "10.0.0.1/8",
@@ -123,6 +124,30 @@ class TestIpBlock(unittest.TestCase):
         ip_block = IpBlock.create(ip_block_data)
         ip_block_data["id"] = ip_block.id
         self.assertEqual(ip_block.data(), ip_block_data)
+
+    def test_find_all_ip_blocks(self):
+        IpBlock.create({"cidr": "10.2.0.1/28", 'network_id': '1122'})
+        IpBlock.create({"cidr": "10.3.0.1/28", 'network_id': '1123'})
+        IpBlock.create({"cidr": "10.1.0.1/28", 'network_id': '1124'})
+
+        blocks = IpBlock.find_all()
+
+        self.assertEqual(len(blocks), 3)
+        self.assertEqual(["10.2.0.1/28", "10.3.0.1/28", "10.1.0.1/28"],
+                    [block.cidr for block in blocks])
+
+    def test_find_all_ip_blocks_with_pagination(self):
+        IpBlock.create({"cidr": "10.2.0.1/28", 'network_id': '1122'})
+        marker_block = IpBlock.create({"cidr": "10.3.0.1/28",
+                                       'network_id': '1123'})
+        IpBlock.create({"cidr": "10.1.0.1/28", 'network_id': '1124'})
+        IpBlock.create({"cidr": "10.4.0.1/28", 'network_id': '1124'})
+
+        blocks = IpBlock.find_all(limit=2, marker=marker_block.id)
+
+        self.assertEqual(len(blocks), 2)
+        self.assertEqual(["10.1.0.1/28", "10.4.0.1/28"],
+                    [block.cidr for block in blocks])
 
 
 class TestIpAddress(unittest.TestCase):

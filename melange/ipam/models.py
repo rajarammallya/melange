@@ -44,8 +44,7 @@ class ModelBase(object):
         return db_api.save(self)
 
     def delete(self):
-        self.update({'deleted': True})
-        db_api.save(self)
+        db_api.delete(self)
 
     def __init__(self, values):
         self.update(values)
@@ -206,6 +205,12 @@ class IpAddress(ModelBase):
 
     def inside_locals(self, **kwargs):
         return db_api.find_inside_locals_for(self.id, **kwargs)
+
+    def remove_inside_globals(self):
+        return db_api.remove_inside_globals(self.id)
+
+    def remove_inside_locals(self):
+        return db_api.remove_inside_locals(self.id)
 
     def data_fields(self):
         return ['id', 'ip_block_id', 'address', 'port_id']

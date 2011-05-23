@@ -104,6 +104,14 @@ class NatController(BaseController):
         return self._get_addresses(ip.inside_locals( \
                                     **self._extract_limits(request.params)))
 
+    def delete_globals(self, request, ip_block_id, address):
+        local_ip = IpAddress.find_by_block_and_address(ip_block_id, address)
+        local_ip.remove_inside_globals()
+
+    def delete_locals(self, request, ip_block_id, address):
+        global_ip = IpAddress.find_by_block_and_address(ip_block_id, address)
+        global_ip.remove_inside_locals()
+
     def _get_addresses(self, ips):
         return self._json_response(
             dict(ip_addresses=[ip_address.data() for ip_address in ips]))
@@ -135,6 +143,10 @@ class API(wsgi.Router):
                        conditions=dict(method=["GET"]))
             submap.connect("inside_locals", action="show_locals",
                        conditions=dict(method=["GET"]))
+            submap.connect("inside_globals", action="delete_globals",
+                        conditions=dict(method=["DELETE"]))
+            submap.connect("inside_locals", action="delete_locals",
+                        conditions=dict(method=["DELETE"]))
 
         mapper.connect("/ipam/ip_blocks/{ip_block_id}/"
                        "ip_addresses/{address:.+}",

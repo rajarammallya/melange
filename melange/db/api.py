@@ -46,10 +46,8 @@ def save(model):
 
 
 def delete(model):
-    db_session = session.get_session()
-    model = db_session.merge(model)
-    db_session.delete(model)
-    db_session.flush()
+    model.deleted = True
+    save(model)
 
 
 def find_inside_globals_for(local_address_id, **kwargs):
@@ -85,3 +83,19 @@ def save_nat_relationships(nat_relationships):
         ip_nat = session.models()["ip_nat_relation"]()
         update(ip_nat, relationship)
         save(ip_nat)
+
+
+def remove_inside_globals(local_address_id):
+    remove_natted_ips(inside_local_address_id=local_address_id)
+
+
+def remove_inside_locals(global_address_id):
+    remove_natted_ips(inside_global_address_id=global_address_id)
+
+
+def remove_natted_ips(**kwargs):
+
+    natted_ips = base_query(session.models()["ip_nat_relation"]).\
+                 filter_by(**kwargs).all()
+
+    for ip in natted_ips: delete(ip)

@@ -223,15 +223,61 @@ class TestIpAddress(unittest.TestCase):
 
         global_ip = global_block.allocate_ip()
         local_ips = [local_block.allocate_ip() for i in range(5)]
-        global_ip.add_inside_globals(local_ips)
+        global_ip.add_inside_locals(local_ips)
 
         limited_local_addresses = [ip.address for ip in global_ip.\
-                                   inside_globals(limit=2,
+                                   inside_locals(limit=2,
                                                   marker=local_ips[1].id)]
 
         self.assertEqual(len(limited_local_addresses), 2)
         self.assertTrue(limited_local_addresses, [local_ips[2].address,
                                                  local_ips[3].address])
+
+    def test_limited_show_inside_globals(self):
+        global_block = IpBlock.create({"cidr": "192.0.0.1/8",
+                                      "network_id": 10})
+        local_block = IpBlock.create({"cidr": "10.0.0.1/8",
+                                       "network_id": 121})
+
+        global_ips = [global_block.allocate_ip() for i in range(5)]
+        local_ip = local_block.allocate_ip()
+        local_ip.add_inside_globals(global_ips)
+
+        limited_global_addresses = [ip.address for ip in local_ip.\
+                                   inside_globals(limit=2,
+                                                  marker=global_ips[1].id)]
+
+        self.assertEqual(len(limited_global_addresses), 2)
+        self.assertTrue(limited_global_addresses, [global_ips[2].address,
+                                                 global_ips[3].address])
+
+    def test_remove_inside_globals(self):
+        global_block = IpBlock.create({"cidr": "192.0.0.1/8",
+                                      "network_id": 10})
+        local_block = IpBlock.create({"cidr": "10.0.0.1/8",
+                                       "network_id": 121})
+
+        global_ips = [global_block.allocate_ip() for i in range(5)]
+        local_ip = local_block.allocate_ip()
+        local_ip.add_inside_globals(global_ips)
+
+        local_ip.remove_inside_globals()
+
+        self.assertEqual(local_ip.inside_globals(), [])
+
+    def test_remove_inside_locals(self):
+        global_block = IpBlock.create({"cidr": "192.0.0.1/8",
+                                      "network_id": 10})
+        local_block = IpBlock.create({"cidr": "10.0.0.1/8",
+                                       "network_id": 121})
+
+        local_ips = [local_block.allocate_ip() for i in range(5)]
+        global_ip = global_block.allocate_ip()
+        global_ip.add_inside_locals(local_ips)
+
+        global_ip.remove_inside_locals()
+
+        self.assertEqual(global_ip.inside_locals(), [])
 
     def test_ip_address_data(self):
         ip_block = IpBlock.create({"cidr": "10.0.0.1/8"})

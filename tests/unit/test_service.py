@@ -220,6 +220,34 @@ class TestIpNatController(TestController):
         self.assertEqual(global_ip.id, local_ip.inside_globals()[0].id)
         self.assertEqual(local_ip.id, global_ip.inside_locals()[0].id)
 
+    def test_delete_inside_globals(self):
+        global_block, local_block = _create_blocks('192.1.1.1/32',
+                                                        '10.1.1.1/32')
+        global_ip = global_block.allocate_ip()
+        local_ip = local_block.allocate_ip()
+        local_ip.add_inside_globals([global_ip])
+
+        response = self.app.delete("/ipam/ip_blocks/%s/ip_addresses/%s/"
+                                 "inside_globals"
+                              % (local_block.id, local_ip.address))
+
+        self.assertEqual(response.status, "200 OK")
+        self.assertEqual(local_ip.inside_globals(), [])
+
+    def test_delete_inside_locals(self):
+        global_block, local_block = _create_blocks('192.1.1.1/32',
+                                                        '10.1.1.1/32')
+        global_ip = global_block.allocate_ip()
+        local_ip = local_block.allocate_ip()
+        global_ip.add_inside_locals([local_ip])
+
+        response = self.app.delete("/ipam/ip_blocks/%s/ip_addresses/%s/"
+                                 "inside_locals"
+                              % (global_block.id, global_ip.address))
+
+        self.assertEqual(response.status, "200 OK")
+        self.assertEqual(global_ip.inside_locals(), [])
+
     def test_show_inside_globals(self):
         local_block, global_block_1, global_block_2 =\
                                     _create_blocks("10.1.1.1/30",

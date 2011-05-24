@@ -33,6 +33,10 @@ import routes
 import routes.middleware
 import webob.dec
 import webob.exc
+from webob.exc import (HTTPUnprocessableEntity, HTTPBadRequest,
+                       HTTPInternalServerError)
+
+from melange.common.exception import MelangeError
 
 
 class WritableLogger(object):
@@ -214,6 +218,9 @@ class Controller(object):
     or return a dict which will be serialized by requested content type.
     """
 
+    def __init__(self, http_exception_map):
+        self.model_exception_map = self._invert_dict_list(http_exception_map)
+
     @webob.dec.wsgify
     def __call__(self, req):
         """
@@ -225,11 +232,31 @@ class Controller(object):
         del arg_dict['controller']
         del arg_dict['action']
         arg_dict['request'] = req
-        result = method(**arg_dict)
+
+        result = self._execute_action(method, arg_dict)
+
         if type(result) is dict:
             return self._serialize(result, req)
         else:
             return result
+
+    def _execute_action(self, method, arg_dict):
+        try:
+
+            return method(**arg_dict)
+
+        except MelangeError as e:
+            httpError = self._get_http_error(e)
+            raise httpError(e.message, request=arg_dict['request'],
+                            content_type="text\plain")
+
+        except Exception as e:
+            raise HTTPInternalServerError(e.message,
+                                          request=arg_dict['request'],
+                                          content_type="text\plain")
+
+    def _get_http_error(self, error):
+        return self.model_exception_map.get(type(error), HTTPBadRequest)
 
     def _serialize(self, data, request):
         """
@@ -240,6 +267,17 @@ class Controller(object):
         _metadata = getattr(type(self), "_serialization_metadata", {})
         serializer = Serializer(request.environ, _metadata)
         return serializer.to_content_type(data)
+
+    def _invert_dict_list(self, exception_dict):
+        """
+        {'x':[1,2,3],'y':[4,5,6]} converted to
+        {1:'x',2:'x',3:'x',4:'y',5:'y',6:'y'}
+        """
+        inverted_dict = {}
+        for key, value_list in exception_dict.items():
+            for value in value_list:
+                inverted_dict[value] = key
+        return inverted_dict
 
 
 class Serializer(object):

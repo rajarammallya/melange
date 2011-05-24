@@ -26,7 +26,7 @@ import netaddr
 from netaddr import IPNetwork
 
 from melange.common import config
-from melange.common import exception
+from melange.common.exception import MelangeError
 from melange.common import utils
 
 from melange.common import exception
@@ -99,15 +99,6 @@ class ModelBase(object):
         return []
 
 
-class InvalidModelError(Exception):
-
-    def __init__(self, errors):
-        self.errors = errors
-
-    def __str__(self):
-        return str(self.errors)
-
-
 class IpBlock(ModelBase):
 
     @classmethod
@@ -115,10 +106,15 @@ class IpBlock(ModelBase):
         return db_api.find_by(IpBlock, network_id=network_id)
 
     @classmethod
-    def find_or_allocate_ip(self, ip_block_id, address):
+    def find_or_allocate_ip(cls, ip_block_id, address):
         block = IpBlock.find(ip_block_id)
-        return (block.find_allocated_ip(address)
-                or block.allocate_ip(address=address))
+
+        allocated_ip = block.find_allocated_ip(address)
+
+        if allocated_ip and allocated_ip.locked():
+            raise AddressLockedError()
+
+        return (allocated_ip or block.allocate_ip(address=address))
 
     @classmethod
     def find_all(self, **kwargs):
@@ -130,16 +126,28 @@ class IpBlock(ModelBase):
                                for ip_addr in
                                IpAddress.find_all_by_ip_block(self.id)]
 
-        if address and address not in allocated_addresses:
-            candidate_ip = address
-        else:
-            candidate_ip = self._generate_ip(allocated_addresses)
+        candidate_ip = self._check_address(address, allocated_addresses) or \
+                       self._generate_ip(allocated_addresses)
 
         if not candidate_ip:
-            raise NoMoreAdressesError()
+            raise NoMoreAdressesError("IpBlock is full")
 
         return IpAddress({'address': candidate_ip, 'port_id': port_id,
                           'ip_block_id': self.id}).save()
+
+    def _check_address(self, address, allocated_addresses):
+
+        if not address:
+            return None
+
+        if address in allocated_addresses:
+            raise DuplicateAddressError()
+
+        if netaddr.IPAddress(address) not in IPNetwork(self.cidr):
+            raise AddressDoesNotBelongError(
+                "Address does not belong to IpBlock")
+
+        return address
 
     def _generate_ip(self, allocated_addresses):
         #TODO: very inefficient way to generate ips,
@@ -154,7 +162,7 @@ class IpBlock(ModelBase):
 
     def deallocate_ip(self, address):
         ip_address = self.find_allocated_ip(address)
-        return IpAddress.delete(ip_address)
+        return ip_address.deallocate()
 
     def validate_cidr(self):
         try:
@@ -194,6 +202,10 @@ class IpAddress(ModelBase):
              "inside_local_address_id": local_address.id}
             for local_address in ip_addresses])
 
+    def deallocate(self):
+        self.update({"marked_for_deallocation": True})
+        return self.save()
+
     def inside_globals(self, **kwargs):
         return db_api.find_inside_globals_for(self.id, **kwargs)
 
@@ -212,6 +224,9 @@ class IpAddress(ModelBase):
     def remove_inside_locals(self):
         return db_api.remove_inside_locals(self.id)
 
+    def locked(self):
+        return self.marked_for_deallocation
+
     def data_fields(self):
         return ['id', 'ip_block_id', 'address', 'port_id']
 
@@ -220,5 +235,38 @@ def models():
     return {'IpBlock': IpBlock, 'IpAddress': IpAddress}
 
 
-class NoMoreAdressesError(Exception):
-    pass
+class NoMoreAdressesError(MelangeError):
+
+    def _error_message(self):
+        return "no more addresses"
+
+
+class DuplicateAddressError(MelangeError):
+
+    def _error_message(self):
+        return "Address is already allocated"
+
+
+class AddressDoesNotBelongError(MelangeError):
+
+    def _error_message(self):
+        return "Address does not belong here"
+
+
+class AddressLockedError(MelangeError):
+
+    def _error_message(self):
+        return "Address is locked"
+
+
+class InvalidModelError(MelangeError):
+
+    def __init__(self, errors, message=None):
+        self.errors = errors
+        super(InvalidModelError, self).__init__(message)
+
+    def __str__(self):
+        return "The following values are invalid: %s" % str(self.errors)
+
+    def _error_message(self):
+        return str(self)

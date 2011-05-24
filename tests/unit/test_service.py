@@ -76,8 +76,8 @@ class TestIpBlockController(TestController):
         blocks = _create_blocks("10.1.1.0/32", '10.2.1.0/32', '10.3.1.0/32')
         response = self.app.get("/ipam/ip_blocks")
 
-        response_blocks = response.json['ip_blocks']
         self.assertEqual(response.status, "200 OK")
+        response_blocks = response.json['ip_blocks']
         self.assertEqual(len(response_blocks), 3)
         self.assertEqual(response_blocks, _data_of(*blocks))
 
@@ -104,6 +104,16 @@ class TestIpAddressController(TestController):
         self.assertEqual(allocated_address.address, "10.1.1.0")
         self.assertEqual(response.json, allocated_address.data())
 
+    def test_create_with_given_address(self):
+        block = IpBlock.create({'network_id': "301", 'cidr': "10.1.1.0/28"})
+        response = self.app.post("/ipam/ip_blocks/%s/ip_addresses"
+                                 % block.id,
+                                 {"address": '10.1.1.2'})
+
+        self.assertEqual(response.status, "200 OK")
+        self.assertNotEqual(IpAddress.find_by_block_and_address(block.id,
+                                                             "10.1.1.2"), None)
+
     def test_create_when_no_more_addresses(self):
         block = IpBlock.create({'network_id': "301", 'cidr': "10.1.1.0/32"})
         block.allocate_ip()
@@ -111,7 +121,26 @@ class TestIpAddressController(TestController):
         response = self.app.post("/ipam/ip_blocks/%s/ip_addresses" % block.id,
                                  status="*")
         self.assertEqual(response.status, "422 Unprocessable Entity")
-        self.assertTrue("ip block is full" in response.body)
+        self.assertTrue("IpBlock is full" in response.body)
+
+    def test_create_fails_when_addresses_are_duplicated(self):
+        block = IpBlock.create({'network_id': "301", 'cidr': "10.1.1.0/29"})
+        block.allocate_ip(address='10.1.1.2')
+
+        response = self.app.post("/ipam/ip_blocks/%s/ip_addresses" % block.id,
+                                 {'address': '10.1.1.2'},
+                                 status="*")
+        self.assertEqual(response.status, "422 Unprocessable Entity")
+        self.assertTrue("Address is already allocated" in response.body)
+
+    def test_create_fails_when_address_doesnt_belong_to_block(self):
+        block = IpBlock.create({'network_id': "301", 'cidr': "10.1.1.0/32"})
+
+        response = self.app.post("/ipam/ip_blocks/%s/ip_addresses" % block.id,
+                                 {'address': '10.1.1.2'},
+                                 status="*")
+        self.assertEqual(response.status, "422 Unprocessable Entity")
+        self.assertTrue("Address does not belong to IpBlock" in response.body)
 
     def test_create_with_port(self):
         block = IpBlock.create({'network_id': "301", 'cidr': "10.1.1.0/28"})
@@ -144,7 +173,8 @@ class TestIpAddressController(TestController):
                                 (block_1.id, ip.address))
 
         self.assertEqual(response.status, "200 OK")
-        self.assertEqual(IpAddress.find(ip.id), None)
+        self.assertNotEqual(IpAddress.find(ip.id), None)
+        self.assertTrue(IpAddress.find(ip.id).marked_for_deallocation)
 
     def test_index(self):
         block = IpBlock.create({'network_id': "301", 'cidr': "10.1.1.0/28"})

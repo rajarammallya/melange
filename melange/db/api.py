@@ -94,8 +94,7 @@ def remove_inside_locals(global_address_id):
 
 
 def remove_natted_ips(**kwargs):
-
     natted_ips = base_query(session.models()["ip_nat_relation"]).\
                  filter_by(**kwargs).all()
-
-    for ip in natted_ips: delete(ip)
+    for ip in natted_ips:
+        delete(ip)

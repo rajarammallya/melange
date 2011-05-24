@@ -38,35 +38,39 @@ class ProcessExecutionError(IOError):
         IOError.__init__(self, message)
 
 
-class Error(Exception):
+class MelangeError(Exception):
+
     def __init__(self, message=None):
-        super(Error, self).__init__(message)
+        super(MelangeError, self).__init__(message or self._error_message())
+
+    def _error_message(self):
+        pass
 
 
-class ApiError(Error):
+class ApiError(MelangeError):
     def __init__(self, message='Unknown', code='Unknown'):
         self.message = message
         self.code = code
         super(ApiError, self).__init__('%s: %s' % (code, message))
 
 
-class NotFound(Error):
+class NotFound(MelangeError):
     pass
 
 
-class Duplicate(Error):
+class Duplicate(MelangeError):
     pass
 
 
-class NotAuthorized(Error):
+class NotAuthorized(MelangeError):
     pass
 
 
-class NotEmpty(Error):
+class NotEmpty(MelangeError):
     pass
 
 
-class Invalid(Error):
+class Invalid(MelangeError):
     pass
 
 
@@ -75,11 +79,11 @@ class BadInputError(Exception):
     pass
 
 
-class MissingArgumentError(Error):
+class MissingArgumentError(MelangeError):
     pass
 
 
-class DatabaseMigrationError(Error):
+class DatabaseMigrationError(MelangeError):
     pass
 
 

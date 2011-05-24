@@ -25,6 +25,17 @@ from webob.exc import HTTPUnprocessableEntity, HTTPBadRequest
 
 
 class BaseController(wsgi.Controller):
+
+    def __init__(self):
+        exception_map = {HTTPUnprocessableEntity:
+                         [models.NoMoreAdressesError,
+                          models.DuplicateAddressError,
+                          models.AddressDoesNotBelongError,
+                          models.AddressLockedError],
+                         HTTPBadRequest: [models.InvalidModelError]}
+
+        super(BaseController, self).__init__(exception_map)
+
     def _json_response(self, body):
         return Response(body=json.dumps(body), content_type="application/json")
 
@@ -32,21 +43,19 @@ class BaseController(wsgi.Controller):
         return dict([(key, params[key]) for key in params.keys()
                      if key in ["limit", "marker"]])
 
+    def _get_optionals(self, params, *args):
+        return [params.get(key, None) for key in args]
+
 
 class IpBlockController(BaseController):
     def index(self, request):
-            blocks = IpBlock.find_all(**self._extract_limits(request.params))
-            return self._json_response(dict(ip_blocks=[ip_block.data()
-                                                      for ip_block in blocks]))
+        blocks = IpBlock.find_all(**self._extract_limits(request.params))
+        return self._json_response(dict(ip_blocks=[ip_block.data()
+                                                   for ip_block in blocks]))
 
     def create(self, request):
-        try:
-            block = IpBlock.create(request.params)
-            return self._json_response(block.data())
-        except models.InvalidModelError, e:
-            raise HTTPBadRequest("block parameters are invalid : %s" % e,
-                                 request=request,
-                                 content_type="text\plain")
+        block = IpBlock.create(request.params)
+        return self._json_response(block.data())
 
     def show(self, request, id):
         return self._json_response(IpBlock.find(id).data())
@@ -71,15 +80,12 @@ class IpAddressController(BaseController):
         IpBlock.find(ip_block_id).deallocate_ip(address)
 
     def create(self, request, ip_block_id):
-        try:
-            ip_block = IpBlock.find(ip_block_id)
-            ip_address = ip_block.allocate_ip(request.params.get('port_id',
-                                                                 None))
-            return self._json_response(ip_address.data())
-        except models.NoMoreAdressesError:
-            raise HTTPUnprocessableEntity("ip block is full",
-                                          request=request,
-                                          content_type="text\plain")
+        ip_block = IpBlock.find(ip_block_id)
+        address, port_id = self._get_optionals(request.params,
+                                               *['address', 'port_id'])
+        ip_address = ip_block.allocate_ip(address=address,
+                                          port_id=port_id)
+        return self._json_response(ip_address.data())
 
 
 class NatController(BaseController):

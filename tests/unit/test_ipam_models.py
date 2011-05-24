@@ -91,12 +91,30 @@ class TestIpBlock(BaseTest):
         self.assertEqual(ip.address, saved_ip.address)
         self.assertEqual(ip.port_id, "1234")
 
+    def test_allocate_ip_from_outside_cidr(self):
+        block = IpBlock.create({"cidr": "10.1.1.1/32"})
+
+        self.assertRaises(models.AddressDoesNotBelongError, block.allocate_ip,
+                          address="192.1.1.1")
+
     def test_deallocate_ip(self):
         block = IpBlock.create({"cidr": "10.0.0.0/31"})
         ip = block.allocate_ip(port_id="1234")
 
         block.deallocate_ip(ip.address)
-        self.assertEqual(IpAddress.find(ip.id), None)
+
+        self.assertRaises(models.AddressLockedError,
+                          IpBlock.find_or_allocate_ip, block.id, ip.address)
+
+        self.assertRaises(models.DuplicateAddressError, block.allocate_ip,
+                          address=ip.address)
+
+    def test_allocating_duplicate_address(self):
+        block = IpBlock.create({"cidr": "10.0.0.0/29"})
+        block.allocate_ip(address='10.0.0.0')
+
+        self.assertRaises(models.DuplicateAddressError, block.allocate_ip,
+                          address="10.0.0.0")
 
     def test_allocate_ip_when_no_more_ips(self):
         block = IpBlock.create({"cidr": "10.0.0.0/32"})
@@ -288,3 +306,12 @@ class TestIpAddress(unittest.TestCase):
 
         ip_data["id"] = ip.id
         self.assertEqual(ip.data(), ip_data)
+
+    def test_deallocate(self):
+        ip_block = IpBlock.create({"cidr": "10.0.0.1/8"})
+        ip_address = ip_block.allocate_ip()
+
+        ip_address.deallocate()
+
+        self.assertNotEqual(IpAddress.find(ip_address.id), None)
+        self.assertTrue(IpAddress.find(ip_address.id).marked_for_deallocation)

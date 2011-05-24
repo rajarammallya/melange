@@ -175,29 +175,26 @@ class TestIpAddressController(TestController):
 class TestIpNatController(TestController):
 
     def test_create_inside_local_nat(self):
-        global_block, local_block_1, local_block_2 =\
-                      _create_blocks("169.1.1.1/32",
-                                          '10.1.1.1/32',
-                                          '10.0.0.1/32')
+        global_block, = _create_blocks("169.1.1.1/32")
+        local_block1, = _create_blocks("10.1.1.1/32")
+        local_block2, = _create_blocks("10.0.0.1/32")
 
-        response = self.app.post("/ipam/ip_blocks/%s/ip_addresses/"
-                               "169.1.1.1/inside_locals"
-                              % global_block.id,
-                              {"ip_addresses": json.dumps(
-                                [{"ip_block_id": local_block_1.id,
-                                  "ip_address": "10.1.1.1"},
-                                 {"ip_block_id": local_block_2.id,
-                                  "ip_address": "10.0.0.1"}])})
+        url = "/ipam/ip_blocks/%s/ip_addresses/169.1.1.1/inside_locals"
+        json_data = [
+            {'ip_block_id': local_block1.id, 'ip_address': "10.1.1.1"},
+            {'ip_block_id': local_block2.id, 'ip_address': "10.0.0.1"},
+        ]
+        request_data = {'ip_addresses': json.dumps(json_data)}
+        response = self.app.post(url % global_block.id, request_data)
 
         self.assertEqual(response.status, "200 OK")
-        inside_locals = [ip.address for ip in
-                         global_block.find_allocated_ip("169.1.1.1").\
-                                                             inside_locals()]
+        ips = global_block.find_allocated_ip("169.1.1.1").inside_locals()
+        inside_locals = [ip.address for ip in ips]
 
         self.assertEqual(len(inside_locals), 2)
         self.assertTrue("10.1.1.1" in inside_locals)
         self.assertTrue("10.0.0.1" in inside_locals)
-        local_ip = IpAddress.find_by_block_and_address(local_block_1.id,
+        local_ip = IpAddress.find_by_block_and_address(local_block1.id,
                                                        "10.1.1.1")
         self.assertEqual(local_ip.inside_globals()[0].address, "169.1.1.1")
 

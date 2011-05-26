@@ -130,7 +130,7 @@ class IpBlock(ModelBase):
                        self._generate_ip(allocated_addresses)
 
         if not candidate_ip:
-            raise NoMoreAdressesError("IpBlock is full")
+            raise NoMoreAddressesError("IpBlock is full")
 
         return IpAddress({'address': candidate_ip, 'port_id': port_id,
                           'ip_block_id': self.id}).save()
@@ -196,6 +196,10 @@ class IpAddress(ModelBase):
         return db_api.find_by(IpAddress, ip_block_id=ip_block_id,
                               address=address)
 
+    @classmethod
+    def delete_deallocated_addresses(self):
+        return db_api.delete_deallocated_addresses()
+
     def add_inside_locals(self, ip_addresses):
         return db_api.save_nat_relationships([
             {"inside_global_address_id": self.id,
@@ -205,6 +209,10 @@ class IpAddress(ModelBase):
     def deallocate(self):
         self.update({"marked_for_deallocation": True})
         return self.save()
+
+    def restore(self):
+        self.update({"marked_for_deallocation": False})
+        self.save()
 
     def inside_globals(self, **kwargs):
         return db_api.find_inside_globals_for(self.id, **kwargs)
@@ -235,7 +243,7 @@ def models():
     return {'IpBlock': IpBlock, 'IpAddress': IpAddress}
 
 
-class NoMoreAdressesError(MelangeError):
+class NoMoreAddressesError(MelangeError):
 
     def _error_message(self):
         return "no more addresses"

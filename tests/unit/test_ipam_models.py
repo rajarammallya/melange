@@ -119,7 +119,7 @@ class TestIpBlock(BaseTest):
     def test_allocate_ip_when_no_more_ips(self):
         block = IpBlock.create({"cidr": "10.0.0.0/32"})
         block.allocate_ip()
-        self.assertRaises(models.NoMoreAdressesError, block.allocate_ip)
+        self.assertRaises(models.NoMoreAddressesError, block.allocate_ip)
 
     def test_allocate_ip_is_not_duplicated(self):
         block = IpBlock.create({"cidr": "10.0.0.0/30"})
@@ -308,10 +308,30 @@ class TestIpAddress(unittest.TestCase):
         self.assertEqual(ip.data(), ip_data)
 
     def test_deallocate(self):
-        ip_block = IpBlock.create({"cidr": "10.0.0.1/8"})
+        ip_block = IpBlock.create({'cidr': "10.0.0.1/8"})
         ip_address = ip_block.allocate_ip()
 
         ip_address.deallocate()
 
         self.assertNotEqual(IpAddress.find(ip_address.id), None)
         self.assertTrue(IpAddress.find(ip_address.id).marked_for_deallocation)
+
+    def test_restore(self):
+        ip_block = IpBlock.create({'cidr': "10.0.0.1/29"})
+        ip_address = ip_block.allocate_ip()
+        ip_address.deallocate()
+
+        ip_address.restore()
+
+        self.assertFalse(ip_address.marked_for_deallocation)
+
+    def test_delete_deallocated_addresses(self):
+        ip_block = IpBlock.create({'cidr': "10.0.1.1/29"})
+        ip_1 = ip_block.allocate_ip()
+        ip_2 = ip_block.allocate_ip()
+        ip_1.deallocate()
+        ip_2.deallocate()
+
+        IpAddress.delete_deallocated_addresses()
+
+        self.assertEqual(IpAddress.find_all_by_ip_block(ip_block.id).all(), [])

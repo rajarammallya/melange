@@ -28,7 +28,7 @@ class BaseController(wsgi.Controller):
 
     def __init__(self):
         exception_map = {HTTPUnprocessableEntity:
-                         [models.NoMoreAdressesError,
+                         [models.NoMoreAddressesError,
                           models.DuplicateAddressError,
                           models.AddressDoesNotBelongError,
                           models.AddressLockedError],
@@ -60,6 +60,9 @@ class IpBlockController(BaseController):
     def show(self, request, id):
         return self._json_response(IpBlock.find(id).data())
 
+    def delete(self, request, id):
+        IpBlock.find(id).delete()
+
     def version(self, request):
         return "Melange version 0.1"
 
@@ -86,6 +89,10 @@ class IpAddressController(BaseController):
         ip_address = ip_block.allocate_ip(address=address,
                                           port_id=port_id)
         return self._json_response(ip_address.data())
+
+    def restore(self, request, ip_block_id, address):
+        ip_address = IpBlock.find(ip_block_id).find_allocated_ip(address)
+        ip_address.restore()
 
 
 class NatController(BaseController):
@@ -162,6 +169,10 @@ class API(wsgi.Router):
                        "ip_addresses/{address:.+}",
                        controller=ip_address_controller, action="delete",
                        conditions=dict(method=["DELETE"]))
+        mapper.connect("/ipam/ip_blocks/{ip_block_id}/"
+                       "ip_addresses/{address:.+?}/restore",
+                       controller=ip_address_controller, action="restore",
+                       conditions=dict(method=["PUT"]))
         mapper.resource("ip_address", "ip_addresses",
                         controller=ip_address_controller,
                         parent_resource=dict(member_name="ip_block",

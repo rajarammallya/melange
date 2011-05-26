@@ -72,6 +72,13 @@ class TestIpBlockController(TestController):
         self.assertEqual(response.status, "200 OK")
         self.assertEqual(response.json, block.data())
 
+    def test_delete(self):
+        block = IpBlock.create({'network_id': "301", 'cidr': "10.1.1.0/2"})
+        response = self.app.delete("/ipam/ip_blocks/%s" % block.id)
+
+        self.assertEqual(response.status, "200 OK")
+        self.assertEqual(IpBlock.find(block.id), None)
+
     def test_index(self):
         blocks = _create_blocks("10.1.1.0/32", '10.2.1.0/32', '10.3.1.0/32')
         response = self.app.get("/ipam/ip_blocks")
@@ -200,6 +207,19 @@ class TestIpAddressController(TestController):
         self.assertEqual(len(ip_addresses), 2)
         self.assertEqual(ip_addresses[0]['address'], ips[2].address)
         self.assertEqual(ip_addresses[1]['address'], ips[3].address)
+
+    def test_restore_deallocated_ip(self):
+        block = IpBlock.create({'network_id': '312', 'cidr': "10.1.1.2/29"})
+        ips = [block.allocate_ip() for i in range(5)]
+        block.deallocate_ip(ips[0].address)
+
+        response = self.app.put("/ipam/ip_blocks/%s/ip_addresses/"
+                                "%s/restore" % (block.id, ips[0].address))
+
+        ip_addresses = [ip.address for ip in
+                        IpAddress.find_all_by_ip_block(block.id)]
+        self.assertEqual(response.status, "200 OK")
+        self.assertEqual(ip_addresses, [ip.address for ip in ips])
 
 
 class TestIpNatController(TestController):

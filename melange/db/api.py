@@ -94,7 +94,15 @@ def remove_inside_locals(global_address_id):
 
 
 def remove_natted_ips(**kwargs):
-    natted_ips = base_query(session.models()["ip_nat_relation"]).\
-                 filter_by(**kwargs).all()
-    for ip in natted_ips:
-        delete(ip)
+    bulk_delete(base_query(session.models()["ip_nat_relation"]).\
+                filter_by(**kwargs).all())
+
+
+def delete_deallocated_addresses():
+    bulk_delete(base_query(session.models()["IpAddress"]).\
+                filter_by(marked_for_deallocation=True).all())
+
+
+def bulk_delete(models):
+    for model in models:
+        delete(model)

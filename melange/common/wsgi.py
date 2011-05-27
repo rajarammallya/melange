@@ -34,7 +34,7 @@ import routes.middleware
 import webob.dec
 import webob.exc
 from webob.exc import (HTTPUnprocessableEntity, HTTPBadRequest,
-                       HTTPInternalServerError)
+                       HTTPInternalServerError, HTTPNotFound)
 
 from melange.common.exception import MelangeError
 
@@ -247,13 +247,14 @@ class Controller(object):
 
         except MelangeError as e:
             httpError = self._get_http_error(e)
-            raise httpError(e.message, request=arg_dict['request'],
-                            content_type="text\plain")
+            self.raiseHTTPError(httpError, e.message, arg_dict['request'])
 
         except Exception as e:
-            raise HTTPInternalServerError(e.message,
-                                          request=arg_dict['request'],
-                                          content_type="text\plain")
+            self.raiseHTTPError(HTTPInternalServerError, e.message,
+                                arg_dict['request'])
+
+    def raiseHTTPError(self, error, error_message, request):
+        raise error(error_message, request=request, content_type="text\plain")
 
     def _get_http_error(self, error):
         return self.model_exception_map.get(type(error), HTTPBadRequest)

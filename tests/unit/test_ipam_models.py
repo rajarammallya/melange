@@ -76,11 +76,20 @@ class TestIpBlock(BaseTest):
 
         self.assertEqual(found_block.cidr, block_1.cidr)
 
+    def test_find_ip_block_for_nonexistent_block(self):
+        self.assertRaises(models.ModelNotFoundError, IpBlock.find, 123)
+
     def test_find_allocated_ip(self):
         block = IpBlock.create({"cidr": "10.0.0.1/8", "network_id": 10})
         ip = block.allocate_ip(port_id="111")
         self.assertEqual(block.find_allocated_ip(ip.address).id,
                          ip.id)
+
+    def test_find_allocated_ip_for_nonexistent_address(self):
+        block = IpBlock.create({"cidr": "10.0.0.1/8", "network_id": 10})
+
+        self.assertRaises(models.ModelNotFoundError, block.find_allocated_ip,
+                         '10.0.0.1')
 
     def test_allocate_ip(self):
         block = IpBlock.create({"cidr": "10.0.0.0/31"})
@@ -195,6 +204,16 @@ class TestIpAddress(unittest.TestCase):
         self.assertEqual(len(limited_addrs), 3)
         self.assertEqual(addrs_after_marker[0: 3], limited_addrs)
 
+    def test_find_ip_address(self):
+        block = IpBlock.create({"cidr": "10.0.0.1/8", "network_id": 177})
+        ip_address = IpAddress.create({"ip_block_id": block.id,
+                                       "address": "10.0.0.1"})
+
+        self.assertNotEqual(IpAddress.find(ip_address.id), None)
+
+    def test_find_ip_address_for_nonexistent_address(self):
+        self.assertRaises(models.ModelNotFoundError, IpAddress.find, 123)
+
     def test_delete_ip_address(self):
         block = IpBlock.create({"cidr": "10.0.0.1/8", "network_id": 188})
         ip = IpAddress.create({"ip_block_id": block.id,
@@ -202,7 +221,7 @@ class TestIpAddress(unittest.TestCase):
 
         ip.delete()
 
-        self.assertEqual(IpAddress.find(ip.id), None)
+        self.assertEqual(db_api.find(IpAddress, ip.id), None)
         deleted_ip = session.raw_query(IpAddress).get(ip.id)
         self.assertTrue(deleted_ip.deleted)
 
@@ -282,6 +301,36 @@ class TestIpAddress(unittest.TestCase):
         local_ip.remove_inside_globals()
 
         self.assertEqual(local_ip.inside_globals(), [])
+
+    def test_remove_inside_global_for_specific_address(self):
+        global_block = IpBlock.create({"cidr": "192.0.0.1/8",
+                                      "network_id": 10})
+        local_block = IpBlock.create({"cidr": "10.0.0.1/8",
+                                       "network_id": 121})
+
+        global_ips = [global_block.allocate_ip() for i in range(5)]
+        local_ip = local_block.allocate_ip()
+        local_ip.add_inside_globals(global_ips)
+
+        local_ip.remove_inside_globals(global_ips[0].address)
+
+        globals_left = [ip.address for ip in local_ip.inside_globals()]
+        self.assertEqual(globals_left, [ip.address for ip in global_ips[1:5]])
+
+    def test_remove_inside_global_for_specific_address(self):
+        global_block = IpBlock.create({"cidr": "192.0.0.1/8",
+                                      "network_id": 10})
+        local_block = IpBlock.create({"cidr": "10.0.0.1/8",
+                                       "network_id": 121})
+
+        global_ip = global_block.allocate_ip()
+        local_ips = [local_block.allocate_ip() for i in range(5)]
+        global_ip.add_inside_locals(local_ips)
+
+        global_ip.remove_inside_locals(local_ips[0].address)
+
+        locals_left = [ip.address for ip in global_ip.inside_locals()]
+        self.assertEqual(locals_left, [ip.address for ip in local_ips[1:5]])
 
     def test_remove_inside_locals(self):
         global_block = IpBlock.create({"cidr": "192.0.0.1/8",

@@ -58,7 +58,10 @@ class ModelBase(object):
 
     @classmethod
     def find(cls, id):
-        return db_api.find(cls, id)
+        model = db_api.find(cls, id)
+        if model == None:
+            raise ModelNotFoundError("%s Not Found" % cls.__name__)
+        return model
 
     def update(self, values):
         """dict.update() behaviour."""
@@ -108,8 +111,7 @@ class IpBlock(ModelBase):
     @classmethod
     def find_or_allocate_ip(cls, ip_block_id, address):
         block = IpBlock.find(ip_block_id)
-
-        allocated_ip = block.find_allocated_ip(address)
+        allocated_ip = IpAddress.find_by_block_and_address(block.id, address)
 
         if allocated_ip and allocated_ip.locked():
             raise AddressLockedError()
@@ -158,11 +160,15 @@ class IpBlock(ModelBase):
         return None
 
     def find_allocated_ip(self, address):
-        return IpAddress.find_by_block_and_address(self.id, address)
+        ip_address = IpAddress.find_by_block_and_address(self.id, address)
+        if ip_address == None:
+            raise ModelNotFoundError("IpAddress Not Found")
+        return ip_address
 
     def deallocate_ip(self, address):
-        ip_address = self.find_allocated_ip(address)
-        return ip_address.deallocate()
+        ip_address = IpAddress.find_by_block_and_address(self.id, address)
+        if ip_address != None:
+            ip_address.deallocate()
 
     def validate_cidr(self):
         try:
@@ -226,11 +232,11 @@ class IpAddress(ModelBase):
     def inside_locals(self, **kwargs):
         return db_api.find_inside_locals_for(self.id, **kwargs)
 
-    def remove_inside_globals(self):
-        return db_api.remove_inside_globals(self.id)
+    def remove_inside_globals(self, inside_global_address=None):
+        return db_api.remove_inside_globals(self.id, inside_global_address)
 
-    def remove_inside_locals(self):
-        return db_api.remove_inside_locals(self.id)
+    def remove_inside_locals(self, inside_local_address=None):
+        return db_api.remove_inside_locals(self.id, inside_local_address)
 
     def locked(self):
         return self.marked_for_deallocation
@@ -265,6 +271,12 @@ class AddressLockedError(MelangeError):
 
     def _error_message(self):
         return "Address is locked"
+
+
+class ModelNotFoundError(MelangeError):
+
+    def _error_message(self):
+        return "Not Found"
 
 
 class InvalidModelError(MelangeError):

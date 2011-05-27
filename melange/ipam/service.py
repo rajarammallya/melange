@@ -21,7 +21,8 @@ from melange.common import wsgi
 from melange.ipam import models
 from melange.ipam.models import IpBlock, IpAddress
 from webob import Response
-from webob.exc import HTTPUnprocessableEntity, HTTPBadRequest
+from webob.exc import (HTTPUnprocessableEntity, HTTPBadRequest,
+                       HTTPNotFound)
 
 
 class BaseController(wsgi.Controller):
@@ -32,7 +33,8 @@ class BaseController(wsgi.Controller):
                           models.DuplicateAddressError,
                           models.AddressDoesNotBelongError,
                           models.AddressLockedError],
-                         HTTPBadRequest: [models.InvalidModelError]}
+                         HTTPBadRequest: [models.InvalidModelError],
+                         HTTPNotFound: [models.ModelNotFoundError]}
 
         super(BaseController, self).__init__(exception_map)
 
@@ -48,6 +50,7 @@ class BaseController(wsgi.Controller):
 
 
 class IpBlockController(BaseController):
+
     def index(self, request):
         blocks = IpBlock.find_all(**self._extract_limits(request.params))
         return self._json_response(dict(ip_blocks=[ip_block.data()
@@ -68,6 +71,7 @@ class IpBlockController(BaseController):
 
 
 class IpAddressController(BaseController):
+
     def index(self, request, ip_block_id):
         addresses = IpAddress.\
                     find_all_by_ip_block(ip_block_id,
@@ -108,22 +112,24 @@ class NatController(BaseController):
         local_ip.add_inside_globals(global_ips)
 
     def show_globals(self, request, ip_block_id, address):
-        ip = IpAddress.find_by_block_and_address(ip_block_id, address)
-        return self._get_addresses(ip.inside_globals( \
+        ip = IpBlock.find(ip_block_id).find_allocated_ip(address)
+        return self._get_addresses(ip.inside_globals(
                                     **self._extract_limits(request.params)))
 
     def show_locals(self, request, ip_block_id, address):
-        ip = IpAddress.find_by_block_and_address(ip_block_id, address)
-        return self._get_addresses(ip.inside_locals( \
+        ip = IpBlock.find(ip_block_id).find_allocated_ip(address)
+        return self._get_addresses(ip.inside_locals(
                                     **self._extract_limits(request.params)))
 
-    def delete_globals(self, request, ip_block_id, address):
-        local_ip = IpAddress.find_by_block_and_address(ip_block_id, address)
-        local_ip.remove_inside_globals()
+    def delete_globals(self, request, ip_block_id, address,
+                       inside_global_address=None):
+        local_ip = IpBlock.find(ip_block_id).find_allocated_ip(address)
+        local_ip.remove_inside_globals(inside_global_address)
 
-    def delete_locals(self, request, ip_block_id, address):
-        global_ip = IpAddress.find_by_block_and_address(ip_block_id, address)
-        global_ip.remove_inside_locals()
+    def delete_locals(self, request, ip_block_id, address,
+                      inside_local_address=None):
+        global_ip = IpBlock.find(ip_block_id).find_allocated_ip(address)
+        global_ip.remove_inside_locals(inside_local_address)
 
     def _get_addresses(self, ips):
         return self._json_response(
@@ -160,6 +166,12 @@ class API(wsgi.Router):
                         conditions=dict(method=["DELETE"]))
             submap.connect("inside_locals", action="delete_locals",
                         conditions=dict(method=["DELETE"]))
+            submap.connect("inside_globals/{inside_global_address:.+?}",
+                           action="delete_globals",
+                           conditions=dict(method=["DELETE"]))
+            submap.connect("inside_locals/{inside_local_address:.+?}",
+                           action="delete_locals",
+                           conditions=dict(method=["DELETE"]))
 
         mapper.connect("/ipam/ip_blocks/{ip_block_id}/"
                        "ip_addresses/{address:.+}",

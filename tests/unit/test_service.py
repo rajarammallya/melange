@@ -32,6 +32,11 @@ class TestController(BaseTest):
                  os.path.abspath("../../etc/melange.conf.test")}, None)
         self.app = TestApp(melange_app)
 
+    def assertErrorResponse(self, response, expected_status,
+                            expected_error):
+        self.assertEqual(response.status, expected_status)
+        self.assertTrue(expected_error in response.body)
+
 
 class TestIpBlockController(TestController):
 
@@ -170,6 +175,22 @@ class TestIpAddressController(TestController):
         self.assertEqual(response.status, "200 OK")
         self.assertEqual(response.json, ip.data())
 
+    def test_show_fails_for_nonexistent_address(self):
+        block = IpBlock.create({'network_id': "301", 'cidr': "10.1.1.0/28"})
+
+        response = self.app.get("/ipam/ip_blocks/%s/ip_addresses/%s" %
+                                (block.id, '10.1.1.0'), status="*")
+
+        self.assertEqual(response.status, "404 Not Found")
+        self.assertTrue("IpAddress Not Found" in response.body)
+
+    def test_show_fails_for_nonexistent_block(self):
+        response = self.app.get("/ipam/ip_blocks/%s/ip_addresses/%s" %
+                                (1111111111, '10.1.1.0'), status="*")
+
+        self.assertEqual(response.status, "404 Not Found")
+        self.assertTrue("IpBlock Not Found" in response.body)
+
     def test_delete_ip(self):
         block_1 = IpBlock.create({'network_id': "301", 'cidr': "10.1.1.0/28"})
         block_2 = IpBlock.create({'network_id': "301", 'cidr': "10.1.1.0/28"})
@@ -281,6 +302,38 @@ class TestIpNatController(TestController):
         self.assertEqual(response.status, "200 OK")
         self.assertEqual(local_ip.inside_globals(), [])
 
+    def test_delete_inside_global_for_specific_address(self):
+        global_block, local_block = _create_blocks('192.1.1.1/28',
+                                                    '10.1.1.1/28')
+        global_ips, = _allocate_ips((global_block, 3))
+        local_ip = local_block.allocate_ip()
+        local_ip.add_inside_globals(global_ips)
+
+        response = self.app.delete("/ipam/ip_blocks/%s/ip_addresses/%s/"
+                                 "inside_globals/%s"
+                                   % (local_block.id, local_ip.address,
+                                      global_ips[1].address))
+
+        globals_left = [ip.address for ip in local_ip.inside_globals()]
+        self.assertEqual(globals_left, [global_ips[0].address,
+                                        global_ips[2].address])
+
+    def test_delete_inside_local_for_specific_address(self):
+        global_block, local_block = _create_blocks('192.1.1.1/28',
+                                                    '10.1.1.1/28')
+        local_ips, = _allocate_ips((local_block, 3))
+        global_ip = global_block.allocate_ip()
+        global_ip.add_inside_locals(local_ips)
+
+        response = self.app.delete("/ipam/ip_blocks/%s/ip_addresses/%s/"
+                                 "inside_locals/%s"
+                                   % (global_block.id, global_ip.address,
+                                      local_ips[1].address))
+
+        locals_left = [ip.address for ip in global_ip.inside_locals()]
+        self.assertEqual(locals_left, [local_ips[0].address,
+                                        local_ips[2].address])
+
     def test_delete_inside_locals(self):
         global_block, local_block = _create_blocks('192.1.1.1/32',
                                                         '10.1.1.1/32')
@@ -316,9 +369,9 @@ class TestIpNatController(TestController):
 
     def test_show_inside_globals_with_pagination(self):
         local_block, global_block = _create_blocks("10.1.1.1/8",
-                                                        "192.1.1.1/8")
+                                                   "192.1.1.1/8")
         [local_ip], global_ips = _allocate_ips((local_block, 1),
-                                                    (global_block, 5))
+                                               (global_block, 5))
         local_ip.add_inside_globals(global_ips)
 
         response = self.app.get("/ipam/ip_blocks/%s/ip_addresses/%s/"
@@ -349,9 +402,9 @@ class TestIpNatController(TestController):
 
     def test_show_inside_locals(self):
         global_block, local_block = _create_blocks("192.1.1.1/8",
-                                                        "10.1.1.1/8")
+                                                   "10.1.1.1/8")
         [global_ip], local_ips = _allocate_ips((global_block, 1),
-                                                    (local_block, 5))
+                                               (local_block, 5))
         global_ip.add_inside_locals(local_ips)
 
         response = self.app.get("/ipam/ip_blocks/%s/ip_addresses/%s/"
@@ -360,6 +413,47 @@ class TestIpNatController(TestController):
 
         self.assertEqual(response.json,
                          {'ip_addresses': _data_of(*local_ips)})
+
+    def test_show_nats_for_nonexistent_block(self):
+        for action in ["inside_locals", "inside_globals"]:
+            non_existant_block_id = 12122
+            url = "/ipam/ip_blocks/%s/ip_addresses/%s/%s"
+            response = self.app.get(url % (non_existant_block_id,
+                                           "10.1.1.2", action),
+                                    status='*')
+
+            self.assertErrorResponse(response, "404 Not Found",
+                                     "IpBlock Not Found")
+
+    def test_show_nats_for_nonexistent_address(self):
+        for action in ["inside_locals", "inside_globals"]:
+            ip_block, = _create_blocks("191.1.1.1/10")
+            url = "/ipam/ip_blocks/%s/ip_addresses/%s/%s"
+            response = self.app.get(url % (ip_block.id, '10.1.1.2', action),
+                                    status='*')
+
+            self.assertErrorResponse(response, "404 Not Found",
+                                     "IpAddress Not Found")
+
+    def test_delete_nats_for_nonexistent_block(self):
+        for action in ["inside_locals", "inside_globals"]:
+            non_existant_block_id = 12122
+            url = "/ipam/ip_blocks/%s/ip_addresses/%s/%s"
+            response = self.app.delete(url % (non_existant_block_id,
+                                              '10.1.1.2', action), status='*')
+
+            self.assertErrorResponse(response, "404 Not Found",
+                                     "IpBlock Not Found")
+
+    def test_delete_nats_for_nonexistent_address(self):
+        for action in ["inside_locals", "inside_globals"]:
+            ip_block, = _create_blocks("191.1.1.1/10")
+            url = "/ipam/ip_blocks/%s/ip_addresses/%s/%s"
+            response = self.app.delete(url % (ip_block.id, '10.1.1.2', action),
+                                    status='*')
+
+            self.assertErrorResponse(response, "404 Not Found",
+                                     "IpAddress Not Found")
 
 
 def _allocate_ips(*args):

@@ -14,7 +14,6 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
 from sqlalchemy import or_
 from melange.db import session
 
@@ -51,19 +50,17 @@ def delete(model):
 
 
 def find_inside_globals_for(local_address_id, **kwargs):
-    ip_nat = session.models()["ip_nat_relation"]
-    kwargs["marker_column"] = ip_nat.inside_global_address_id
+    kwargs["marker_column"] = _ip_nat().inside_global_address_id
     kwargs["inside_local_address_id"] = local_address_id
-    query = find_all_by(ip_nat, **kwargs)
+    query = find_all_by(_ip_nat(), **kwargs)
 
     return [nat.inside_global_address for nat in query]
 
 
 def find_inside_locals_for(global_address_id, **kwargs):
-    ip_nat = session.models()["ip_nat_relation"]
-    kwargs["marker_column"] = ip_nat.inside_local_address_id
+    kwargs["marker_column"] = _ip_nat().inside_local_address_id
     kwargs["inside_global_address_id"] = global_address_id
-    query = find_all_by(ip_nat, **kwargs)
+    query = find_all_by(_ip_nat(), **kwargs)
 
     return [nat.inside_local_address for nat in query]
 
@@ -79,30 +76,56 @@ def update(model, values):
 
 
 def save_nat_relationships(nat_relationships):
+    ip_nat_table = _ip_nat()
+
     for relationship in nat_relationships:
-        ip_nat = session.models()["ip_nat_relation"]()
+        ip_nat = ip_nat_table()
         update(ip_nat, relationship)
         save(ip_nat)
 
 
-def remove_inside_globals(local_address_id):
-    remove_natted_ips(inside_local_address_id=local_address_id)
+def remove_inside_globals(local_address_id, inside_global_address=None):
+
+    def _filter_inside_global_address(natted_ips, inside_global_address):
+        return natted_ips.\
+               join((_ip_address(),
+                     _ip_nat().inside_global_address_id == _ip_address().id)).\
+                     filter(_ip_address().address == inside_global_address)
+
+    remove_natted_ips(_filter_inside_global_address, inside_global_address,
+                      inside_local_address_id=local_address_id)
 
 
-def remove_inside_locals(global_address_id):
-    remove_natted_ips(inside_global_address_id=global_address_id)
+def remove_inside_locals(global_address_id, inside_local_address=None):
+
+    def _filter_inside_local_address(natted_ips, inside_local_address):
+        return natted_ips.\
+               join((_ip_address(),
+                     _ip_nat().inside_local_address_id == _ip_address().id)).\
+                     filter(_ip_address().address == inside_local_address)
+
+    remove_natted_ips(_filter_inside_local_address, inside_local_address,
+                      inside_global_address_id=global_address_id)
 
 
-def remove_natted_ips(**kwargs):
-    bulk_delete(base_query(session.models()["ip_nat_relation"]).\
-                filter_by(**kwargs).all())
+def remove_natted_ips(_filter_by_natted_address, natted_address, **kwargs):
+    natted_ips = find_natted_ips(**kwargs)
+
+    if natted_address != None:
+        natted_ips = _filter_by_natted_address(natted_ips, natted_address)
+
+    for ip in natted_ips:
+        delete(ip)
 
 
-def delete_deallocated_addresses():
-    bulk_delete(base_query(session.models()["IpAddress"]).\
-                filter_by(marked_for_deallocation=True).all())
+def find_natted_ips(**kwargs):
+    return base_query(_ip_nat()).\
+                 filter_by(**kwargs)
 
 
-def bulk_delete(models):
-    for model in models:
-        delete(model)
+def _ip_nat():
+    return session.models()["ip_nat_relation"]
+
+
+def _ip_address():
+    return session.models()["IpAddress"]

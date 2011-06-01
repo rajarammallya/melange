@@ -48,6 +48,15 @@ class BaseController(wsgi.Controller):
     def _get_optionals(self, params, *args):
         return [params.get(key, None) for key in args]
 
+    def _parse_ips(self, addresses):
+        return [IpBlock.find_or_allocate_ip(address["ip_block_id"],
+                                                 address["ip_address"])
+                     for address in json.loads(addresses)]
+
+    def _get_addresses(self, ips):
+        return self._json_response(
+            dict(ip_addresses=[ip_address.data() for ip_address in ips]))
+
 
 class IpBlockController(BaseController):
 
@@ -101,11 +110,6 @@ class IpAddressController(BaseController):
 
 class NatController(BaseController):
 
-    def create_locals(self, request, ip_block_id, address):
-        global_ip = IpBlock.find_or_allocate_ip(ip_block_id, address)
-        local_ips = self._parse_ips(request.params["ip_addresses"])
-        global_ip.add_inside_locals(local_ips)
-
     def create_globals(self, request, ip_block_id, address):
         local_ip = IpBlock.find_or_allocate_ip(ip_block_id, address)
         global_ips = self._parse_ips(request.params["ip_addresses"])
@@ -116,29 +120,28 @@ class NatController(BaseController):
         return self._get_addresses(ip.inside_globals(
                                     **self._extract_limits(request.params)))
 
-    def show_locals(self, request, ip_block_id, address):
-        ip = IpBlock.find(ip_block_id).find_allocated_ip(address)
-        return self._get_addresses(ip.inside_locals(
-                                    **self._extract_limits(request.params)))
-
     def delete_globals(self, request, ip_block_id, address,
                        inside_global_address=None):
         local_ip = IpBlock.find(ip_block_id).find_allocated_ip(address)
         local_ip.remove_inside_globals(inside_global_address)
 
-    def delete_locals(self, request, ip_block_id, address,
-                      inside_local_address=None):
+
+class NatLocalIpAddressesController(BaseController):
+
+    def create(self, request, ip_block_id, address):
+        global_ip = IpBlock.find_or_allocate_ip(ip_block_id, address)
+        local_ips = self._parse_ips(request.params["ip_addresses"])
+        global_ip.add_inside_locals(local_ips)        
+
+    def show(self, request, ip_block_id, address):
+        ip = IpBlock.find(ip_block_id).find_allocated_ip(address)
+        return self._get_addresses(ip.inside_locals(
+                                    **self._extract_limits(request.params)))
+
+    def delete(self, request, ip_block_id, address, 
+               inside_local_address=None):
         global_ip = IpBlock.find(ip_block_id).find_allocated_ip(address)
         global_ip.remove_inside_locals(inside_local_address)
-
-    def _get_addresses(self, ips):
-        return self._json_response(
-            dict(ip_addresses=[ip_address.data() for ip_address in ips]))
-
-    def _parse_ips(self, addresses):
-        return [IpBlock.find_or_allocate_ip(address["ip_block_id"],
-                                                 address["ip_address"])
-                     for address in json.loads(addresses)]
 
 
 class API(wsgi.Router):
@@ -148,30 +151,26 @@ class API(wsgi.Router):
         ip_block_controller = IpBlockController()
         ip_address_controller = IpAddressController()
         nat_controller = NatController()
+        local_ip_nat_controller = NatLocalIpAddressesController()
         mapper.resource("ip_block", "/ipam/ip_blocks",
                         controller=ip_block_controller)
 
         with mapper.submapper(controller=nat_controller,
                         path_prefix="/ipam/ip_blocks/{ip_block_id}/"
                                    "ip_addresses/{address:.+?}/") as submap:
-            submap.connect("inside_locals", action="create_locals",
-                                 conditions=dict(method=["POST"]))
             submap.connect("inside_globals", action="create_globals",
                                  conditions=dict(method=["POST"]))
             submap.connect("inside_globals", action="show_globals",
                        conditions=dict(method=["GET"]))
-            submap.connect("inside_locals", action="show_locals",
-                       conditions=dict(method=["GET"]))
             submap.connect("inside_globals", action="delete_globals",
-                        conditions=dict(method=["DELETE"]))
-            submap.connect("inside_locals", action="delete_locals",
                         conditions=dict(method=["DELETE"]))
             submap.connect("inside_globals/{inside_global_address:.+?}",
                            action="delete_globals",
                            conditions=dict(method=["DELETE"]))
-            submap.connect("inside_locals/{inside_local_address:.+?}",
-                           action="delete_locals",
-                           conditions=dict(method=["DELETE"]))
+
+        mapper.resource("inside_local", "inside_locals",
+                        controller=local_ip_nat_controller,
+                        path_prefix="/ipam/ip_blocks/{ip_block_id}/ip_addresses/{address:.+?}/")
 
         mapper.connect("/ipam/ip_blocks/{ip_block_id}/"
                        "ip_addresses/{address:.+}",

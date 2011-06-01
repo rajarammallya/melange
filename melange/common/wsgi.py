@@ -250,6 +250,7 @@ class Controller(object):
             self.raiseHTTPError(httpError, e.message, arg_dict['request'])
 
         except Exception as e:
+            logging.getLogger('eventlet.wsgi.server').exception(e)
             self.raiseHTTPError(HTTPInternalServerError, e.message,
                                 arg_dict['request'])
 

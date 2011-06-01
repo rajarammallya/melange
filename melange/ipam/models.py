@@ -19,17 +19,9 @@
 """
 SQLAlchemy models for Melange data
 """
-
-import sys
-import datetime
 import netaddr
-from netaddr import IPNetwork
-
-from melange.common import config
+from netaddr import IPNetwork, IPAddress
 from melange.common.exception import MelangeError
-from melange.common import utils
-
-from melange.common import exception
 from melange.db import api as db_api
 
 
@@ -58,10 +50,14 @@ class ModelBase(object):
 
     @classmethod
     def find(cls, id):
-        model = db_api.find(cls, id)
+        model = cls.find_by_id(id)
         if model == None:
             raise ModelNotFoundError("%s Not Found" % cls.__name__)
         return model
+
+    @classmethod
+    def find_by_id(cls, id):
+        return db_api.find(cls, id)
 
     def update(self, values):
         """dict.update() behaviour."""
@@ -75,8 +71,13 @@ class ModelBase(object):
         return getattr(self, key)
 
     def __iter__(self):
-        self._i = iter(object_mapper(self).columns)
+        self._i = iter(db_api.columns_of(self))
         return self
+
+    def __eq__(self, other):
+        if not hasattr(other, 'id'):
+            return False
+        return type(other) == type(self) and other.id == self.id
 
     def next(self):
         n = self._i.next().name
@@ -122,6 +123,9 @@ class IpBlock(ModelBase):
     def find_all(self, **kwargs):
         return db_api.find_all_by(IpBlock, **kwargs).all()
 
+    def policy(self):
+        return Policy.find_by_id(self.policy_id)
+
     def allocate_ip(self, port_id=None, address=None):
         candidate_ip = None
         allocated_addresses = [ip_addr.address
@@ -140,7 +144,7 @@ class IpBlock(ModelBase):
     def _check_address(self, address, allocated_addresses):
 
         if not address:
-            return None
+            return
 
         if address in allocated_addresses:
             raise DuplicateAddressError()
@@ -148,6 +152,10 @@ class IpBlock(ModelBase):
         if netaddr.IPAddress(address) not in IPNetwork(self.cidr):
             raise AddressDoesNotBelongError(
                 "Address does not belong to IpBlock")
+
+        if not self._allowed_by_policy(address):
+            raise AddressDisallowedByPolicyError(
+                "Block policy does not allow this address")
 
         return address
 
@@ -158,6 +166,10 @@ class IpBlock(ModelBase):
             if str(ip) not in allocated_addresses:
                 return str(ip)
         return None
+
+    def _allowed_by_policy(self, address):
+        policy = self.policy()
+        return policy == None or policy.allows(self.cidr, address)
 
     def find_allocated_ip(self, address):
         ip_address = IpAddress.find_by_block_and_address(self.id, address)
@@ -245,8 +257,34 @@ class IpAddress(ModelBase):
         return ['id', 'ip_block_id', 'address', 'port_id']
 
 
+class Policy(ModelBase):
+
+    @classmethod
+    def find_by_name(cls, name):
+        return db_api.find_by(Policy, name=name)
+
+    def ip_rules(self):
+        return IpRange.find_all_by_policy(self.id)
+
+    def allows(self, cidr, address):
+        ip_rules = self.ip_rules()
+        return not ip_rules[0].contains(cidr, address)
+
+
+class IpRange(ModelBase):
+
+    @classmethod
+    def find_all_by_policy(cls, policy_id):
+        return db_api.find_all_by(cls, policy_id=policy_id)
+
+    def contains(self, cidr, address):
+        return IPAddress(address) in IPNetwork(cidr)[self.offset:
+                                                     self.offset + self.length]
+
+
 def models():
-    return {'IpBlock': IpBlock, 'IpAddress': IpAddress}
+    return {'IpBlock': IpBlock, 'IpAddress': IpAddress, 'Policy': Policy,
+            'IpRange': IpRange}
 
 
 class NoMoreAddressesError(MelangeError):
@@ -277,6 +315,12 @@ class ModelNotFoundError(MelangeError):
 
     def _error_message(self):
         return "Not Found"
+
+
+class AddressDisallowedByPolicyError(MelangeError):
+
+    def _error_message(self):
+        return "Policy does not allow this address"
 
 
 class InvalidModelError(MelangeError):

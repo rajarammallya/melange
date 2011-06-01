@@ -163,7 +163,8 @@ class IpBlock(ModelBase):
         #TODO: very inefficient way to generate ips,
         #will look at better algos for this
         for ip in IPNetwork(self.cidr):
-            if str(ip) not in allocated_addresses:
+            if self._allowed_by_policy(str(ip)) and (str(ip)
+                                                   not in allocated_addresses):
                 return str(ip)
         return None
 
@@ -267,8 +268,8 @@ class Policy(ModelBase):
         return IpRange.find_all_by_policy(self.id)
 
     def allows(self, cidr, address):
-        ip_rules = self.ip_rules()
-        return not ip_rules[0].contains(cidr, address)
+        return not any(ip_rule.contains(cidr, address)
+                       for ip_rule in self.ip_rules())
 
 
 class IpRange(ModelBase):
@@ -278,8 +279,12 @@ class IpRange(ModelBase):
         return db_api.find_all_by(cls, policy_id=policy_id)
 
     def contains(self, cidr, address):
-        return IPAddress(address) in IPNetwork(cidr)[self.offset:
-                                                     self.offset + self.length]
+        end_index = self.offset + self.length
+        end_index_overshoots_length_for_negative_offset = (self.offset < 0
+                                                           and end_index >= 0)
+        if end_index_overshoots_length_for_negative_offset:
+            end_index = None
+        return IPAddress(address) in IPNetwork(cidr)[self.offset:end_index]
 
 
 def models():

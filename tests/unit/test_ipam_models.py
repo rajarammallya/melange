@@ -118,6 +118,14 @@ class TestIpBlock(BaseTest):
         self.assertRaises(models.DuplicateAddressError, block.allocate_ip,
                           address="10.0.0.0")
 
+    def test_allocate_ip_skips_ips_disallowed_by_policy(self):
+        policy = Policy.create({'name': "blah"})
+        IpRange.create({'policy_id': policy.id, 'offset': 1, 'length': 1})
+        block = IpBlock.create({'cidr': "10.0.0.0/29", 'policy_id': policy.id})
+
+        self.assertEqual(block.allocate_ip().address, "10.0.0.0")
+        self.assertEqual(block.allocate_ip().address, "10.0.0.2")
+
     def test_allocating_ip_fails_due_to_policy(self):
         policy = Policy.create({'name': "blah"})
         IpRange.create({'policy_id': policy.id, 'offset': 0, 'length': 1})
@@ -412,11 +420,15 @@ class TestPolicy(BaseTest):
         self.assertEqual(policy.name, "new policy")
         self.assertEqual(policy.description, "desc")
 
-    def wip_allows_addresses_not_in_ip_range(self):
+    def test_allows_addresses_not_in_ip_range(self):
         policy = Policy.create({'name': "blah"})
-        ip_block = IpBlock.create({'cidr': "10.0.0.0/29",
-                                   'policy_id': policy.id})
-        IpRange.create({'offset': 3, 'length': 10, 'policy_id': policy.id})
+        IpRange.create({'offset': 0, 'length': 2, 'policy_id': policy.id})
+        IpRange.create({'offset': 3, 'length': 2, 'policy_id': policy.id})
+
+        self.assertFalse(policy.allows("10.0.0.0/29", "10.0.0.1"))
+        self.assertTrue(policy.allows("10.0.0.0/29", "10.0.0.2"))
+        self.assertFalse(policy.allows("10.0.0.0/29", "10.0.0.4"))
+        self.assertTrue(policy.allows("10.0.0.0/29", "10.0.0.6"))
 
 
 class TestIpRange(BaseTest):
@@ -448,3 +460,11 @@ class TestIpRange(BaseTest):
 
         self.assertTrue(ip_range.contains("10.0.0.0/29", "10.0.0.0"))
         self.assertFalse(ip_range.contains("10.0.0.0/29", "10.0.0.1"))
+
+    def test_range_contains_for_reverse_offset(self):
+        ip_range1 = IpRange.create({'offset': -3, 'length': 2})
+        ip_range2 = IpRange.create({'offset': -3, 'length': 3})
+
+        self.assertTrue(ip_range1.contains("10.0.0.0/29", "10.0.0.5"))
+        self.assertFalse(ip_range1.contains("10.0.0.0/29", "10.0.0.7"))
+        self.assertTrue(ip_range2.contains("10.0.0.0/29", "10.0.0.7"))

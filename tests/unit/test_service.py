@@ -21,7 +21,7 @@ from webtest import TestApp
 
 from tests.unit import BaseTest
 from melange.common import config
-from melange.ipam.models import IpBlock, IpAddress
+from melange.ipam.models import IpBlock, IpAddress, Policy
 from melange.ipam import models
 from melange.db import session
 
@@ -464,6 +464,19 @@ class TestPoliciesController(TestController):
         response = self.app.post("/ipam/policies", {'name': "infrastructure"})
 
         self.assertEqual(response.status, "201 Created")
+        self.assertEqual(response.json['name'], "infrastructure")
+
+    def test_index(self):
+        Policy.create({'name': "infrastructure"})
+        Policy.create({'name': "unstable"})
+
+        response = self.app.get("/ipam/policies")
+
+        self.assertEqual(response.status, "200 OK")
+        response_policies = response.json['policies']
+        policies = Policy.find_all()
+        self.assertEqual(len(policies), 2)
+        self.assertEqual(response_policies, _data_of(*policies))
 
 
 def _allocate_ips(*args):

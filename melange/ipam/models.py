@@ -59,6 +59,10 @@ class ModelBase(object):
     def find_by_id(cls, id):
         return db_api.find(cls, id)
 
+    @classmethod
+    def find_all(cls, **kwargs):
+        return db_api.find_all_by(cls, **kwargs).all()
+
     def update(self, values):
         """dict.update() behaviour."""
         for k, v in values.iteritems():
@@ -118,10 +122,6 @@ class IpBlock(ModelBase):
             raise AddressLockedError()
 
         return (allocated_ip or block.allocate_ip(address=address))
-
-    @classmethod
-    def find_all(cls, **kwargs):
-        return db_api.find_all_by(cls, **kwargs).all()
 
     @classmethod
     def allowed_by_policy(cls, ip_block, policy, address):

@@ -439,12 +439,20 @@ class TestPolicy(BaseTest):
 
         self.assertEqual(policy.ip_rules(), [ip_range1, ip_range2])
 
-    def test_data_for_policy(self):
+    def test_data(self):
         policy_data = {'name': 'Infrastructure'}
         policy = Policy.create(policy_data)
         policy_data['id'] = policy.id
 
         self.assertEqual(policy.data(), policy_data)
+
+    def test_find_all_to_return_all_policies(self):
+        policy1 = Policy.create({'name': "physically unstable"})
+        policy2 = Policy.create({'name': "host"})
+
+        policies = Policy.find_all()
+
+        self.assertEqual(policies, [policy1, policy2])
 
 
 class TestIpRange(BaseTest):

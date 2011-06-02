@@ -147,6 +147,11 @@ class NatLocalIpAddressesController(BaseController):
 
 class PoliciesController(BaseController):
 
+    def index(self, request):
+        policies = Policy.find_all()
+        return self._json_response(body=dict(
+                policies=[policy.data() for policy in policies]))
+
     def create(self, request):
         policy = Policy.create(request.params)
         return self._json_response(policy.data(), status=201)

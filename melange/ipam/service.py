@@ -19,7 +19,7 @@ import routes
 
 from melange.common import wsgi
 from melange.ipam import models
-from melange.ipam.models import IpBlock, IpAddress
+from melange.ipam.models import IpBlock, IpAddress, Policy
 from webob import Response
 from webob.exc import (HTTPUnprocessableEntity, HTTPBadRequest,
                        HTTPNotFound)
@@ -38,8 +38,9 @@ class BaseController(wsgi.Controller):
 
         super(BaseController, self).__init__(exception_map)
 
-    def _json_response(self, body):
-        return Response(body=json.dumps(body), content_type="application/json")
+    def _json_response(self, body, status=200):
+        return Response(body=json.dumps(body), content_type="application/json",
+                        status=status)
 
     def _extract_limits(self, params):
         return dict([(key, params[key]) for key in params.keys()
@@ -67,7 +68,7 @@ class IpBlockController(BaseController):
 
     def create(self, request):
         block = IpBlock.create(request.params)
-        return self._json_response(block.data())
+        return self._json_response(block.data(), status=201)
 
     def show(self, request, id):
         return self._json_response(IpBlock.find(id).data())
@@ -101,7 +102,7 @@ class IpAddressController(BaseController):
                                                *['address', 'port_id'])
         ip_address = ip_block.allocate_ip(address=address,
                                           port_id=port_id)
-        return self._json_response(ip_address.data())
+        return self._json_response(ip_address.data(), status=201)
 
     def restore(self, request, ip_block_id, address):
         ip_address = IpBlock.find(ip_block_id).find_allocated_ip(address)
@@ -144,6 +145,13 @@ class NatLocalIpAddressesController(BaseController):
         global_ip.remove_inside_locals(inside_local_address)
 
 
+class PoliciesController(BaseController):
+
+    def create(self, request):
+        policy = Policy.create(request.params)
+        return self._json_response(policy.data(), status=201)
+
+
 class API(wsgi.Router):
     def __init__(self, options={}):
         self.options = options
@@ -154,6 +162,8 @@ class API(wsgi.Router):
         local_ip_nat_controller = NatLocalIpAddressesController()
         mapper.resource("ip_block", "/ipam/ip_blocks",
                         controller=ip_block_controller)
+        mapper.resource("policy", "/ipam/policies",
+                        controller=PoliciesController())
 
         with mapper.submapper(controller=nat_controller,
                         path_prefix="/ipam/ip_blocks/{ip_block_id}/"

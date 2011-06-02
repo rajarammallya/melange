@@ -17,11 +17,13 @@
 import json
 import os
 import unittest
+from webtest import TestApp
 
 from tests.unit import BaseTest
-from webtest import TestApp
 from melange.common import config
 from melange.ipam.models import IpBlock, IpAddress
+from melange.ipam import models
+from melange.db import session
 
 
 class TestController(BaseTest):
@@ -44,7 +46,7 @@ class TestIpBlockController(TestController):
         response = self.app.post("/ipam/ip_blocks",
                                  {'network_id': "300", 'cidr': "10.1.1.0/2"})
 
-        self.assertEqual(response.status, "200 OK")
+        self.assertEqual(response.status, "201 Created")
         saved_block = IpBlock.find_by_network_id("300")
         self.assertEqual(saved_block.cidr, "10.1.1.0/2")
         self.assertEqual(response.json, saved_block.data())
@@ -82,7 +84,7 @@ class TestIpBlockController(TestController):
         response = self.app.delete("/ipam/ip_blocks/%s" % block.id)
 
         self.assertEqual(response.status, "200 OK")
-        self.assertEqual(IpBlock.find(block.id), None)
+        self.assertRaises(models.ModelNotFoundError, IpBlock.find, block.id)
 
     def test_index(self):
         blocks = _create_blocks("10.1.1.0/32", '10.2.1.0/32', '10.3.1.0/32')
@@ -111,7 +113,7 @@ class TestIpAddressController(TestController):
         block = IpBlock.create({'network_id': "301", 'cidr': "10.1.1.0/28"})
         response = self.app.post("/ipam/ip_blocks/%s/ip_addresses" % block.id)
 
-        self.assertEqual(response.status, "200 OK")
+        self.assertEqual(response.status, "201 Created")
         allocated_address = IpAddress.find_all_by_ip_block(block.id).first()
         self.assertEqual(allocated_address.address, "10.1.1.0")
         self.assertEqual(response.json, allocated_address.data())
@@ -122,7 +124,7 @@ class TestIpAddressController(TestController):
                                  % block.id,
                                  {"address": '10.1.1.2'})
 
-        self.assertEqual(response.status, "200 OK")
+        self.assertEqual(response.status, "201 Created")
         self.assertNotEqual(IpAddress.find_by_block_and_address(block.id,
                                                              "10.1.1.2"), None)
 
@@ -456,32 +458,12 @@ class TestIpNatController(TestController):
                                      "IpAddress Not Found")
 
 
-class TestLocalIpAddressNatController(TestController):
+class TestPoliciesController(TestController):
 
     def test_create(self):
-        global_block, = _create_blocks("169.1.1.1/32")
-        local_block1, = _create_blocks("10.1.1.1/32")
-        local_block2, = _create_blocks("10.0.0.1/32")
+        response = self.app.post("/ipam/policies", {'name': "infrastructure"})
 
-        url = "/ipam/ip_blocks/%s/ip_addresses/169.1.1.1/inside_locals"
-        json_data = [
-            {'ip_block_id': local_block1.id, 'ip_address': "10.1.1.1"},
-            {'ip_block_id': local_block2.id, 'ip_address': "10.0.0.1"},
-        ]
-        request_data = {'ip_addresses': json.dumps(json_data)}
-        response = self.app.post(url % global_block.id, request_data)
-
-        self.assertEqual(response.status, "200 OK")
-        ips = global_block.find_allocated_ip("169.1.1.1").inside_locals()
-        inside_locals = [ip.address for ip in ips]
-
-        self.assertEqual(len(inside_locals), 2)
-        self.assertTrue("10.1.1.1" in inside_locals)
-        self.assertTrue("10.0.0.1" in inside_locals)
-        local_ip = IpAddress.find_by_block_and_address(local_block1.id,
-                                                       "10.1.1.1")
-        self.assertEqual(local_ip.inside_globals()[0].address, "169.1.1.1")
-        
+        self.assertEqual(response.status, "201 Created")
 
 
 def _allocate_ips(*args):

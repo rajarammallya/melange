@@ -439,6 +439,13 @@ class TestPolicy(BaseTest):
 
         self.assertEqual(policy.ip_rules(), [ip_range1, ip_range2])
 
+    def test_data_for_policy(self):
+        policy_data = {'name': 'Infrastructure'}
+        policy = Policy.create(policy_data)
+        policy_data['id'] = policy.id
+
+        self.assertEqual(policy.data(), policy_data)
+
 
 class TestIpRange(BaseTest):
 

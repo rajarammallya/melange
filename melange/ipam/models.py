@@ -290,6 +290,9 @@ class Policy(ModelBase):
     def _find_ip_range_rules(self):
         return IpRange.find_all_by_policy(self.id).all()
 
+    def data_fields(self):
+        return ['id', 'name']
+
 
 class IpRange(ModelBase):
 

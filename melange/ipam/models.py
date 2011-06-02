@@ -107,7 +107,7 @@ class IpBlock(ModelBase):
 
     @classmethod
     def find_by_network_id(cls, network_id):
-        return db_api.find_by(IpBlock, network_id=network_id)
+        return db_api.find_by(cls, network_id=network_id)
 
     @classmethod
     def find_or_allocate_ip(cls, ip_block_id, address):
@@ -120,11 +120,20 @@ class IpBlock(ModelBase):
         return (allocated_ip or block.allocate_ip(address=address))
 
     @classmethod
-    def find_all(self, **kwargs):
-        return db_api.find_all_by(IpBlock, **kwargs).all()
+    def find_all(cls, **kwargs):
+        return db_api.find_all_by(cls, **kwargs).all()
 
-    def policy(self):
-        return Policy.find_by_id(self.policy_id)
+    @classmethod
+    def allowed_by_policy(cls, ip_block, policy, address):
+        return policy == None or policy.allows(ip_block.cidr, address)
+
+    def policy(self, eager_load_children=[]):
+        policy = Policy.find_by_id(self.policy_id)
+        if policy == None:
+            return None
+        if eager_load_children:
+            policy.eager_load(children=eager_load_children)
+        return policy
 
     def allocate_ip(self, port_id=None, address=None):
         candidate_ip = None
@@ -153,7 +162,8 @@ class IpBlock(ModelBase):
             raise AddressDoesNotBelongError(
                 "Address does not belong to IpBlock")
 
-        if not self._allowed_by_policy(address):
+        policy = self.policy(eager_load_children=["ip_rules"])
+        if not IpBlock.allowed_by_policy(self, policy, address):
             raise AddressDisallowedByPolicyError(
                 "Block policy does not allow this address")
 
@@ -162,15 +172,12 @@ class IpBlock(ModelBase):
     def _generate_ip(self, allocated_addresses):
         #TODO: very inefficient way to generate ips,
         #will look at better algos for this
+        policy = self.policy(eager_load_children=["ip_rules"])
         for ip in IPNetwork(self.cidr):
-            if self._allowed_by_policy(str(ip)) and (str(ip)
+            if IpBlock.allowed_by_policy(self, policy, str(ip)) and (str(ip)
                                                    not in allocated_addresses):
                 return str(ip)
         return None
-
-    def _allowed_by_policy(self, address):
-        policy = self.policy()
-        return policy == None or policy.allows(self.cidr, address)
 
     def find_allocated_ip(self, address):
         ip_address = IpAddress.find_by_block_and_address(self.id, address)
@@ -265,11 +272,23 @@ class Policy(ModelBase):
         return db_api.find_by(Policy, name=name)
 
     def ip_rules(self):
-        return IpRange.find_all_by_policy(self.id)
+        if hasattr(self, 'ip_range_rules'):
+            return self.ip_range_rules
+        return self._find_ip_range_rules()
 
     def allows(self, cidr, address):
         return not any(ip_rule.contains(cidr, address)
                        for ip_rule in self.ip_rules())
+
+    def eager_load(self, children):
+        return self._load_ip_range_rules()
+
+    def _load_ip_range_rules(self):
+        self.ip_range_rules = self._find_ip_range_rules()
+        return self
+
+    def _find_ip_range_rules(self):
+        return IpRange.find_all_by_policy(self.id).all()
 
 
 class IpRange(ModelBase):

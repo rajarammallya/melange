@@ -430,6 +430,15 @@ class TestPolicy(BaseTest):
         self.assertFalse(policy.allows("10.0.0.0/29", "10.0.0.4"))
         self.assertTrue(policy.allows("10.0.0.0/29", "10.0.0.6"))
 
+    def test_ip_rules_for_policy(self):
+        policy = Policy.create({'name': "blah"})
+        ip_range1 = IpRange.create({'offset': 0, 'length': 2,
+                                    'policy_id': policy.id})
+        ip_range2 = IpRange.create({'offset': 3, 'length': 2,
+                                    'policy_id': policy.id})
+
+        self.assertEqual(policy.ip_rules(), [ip_range1, ip_range2])
+
 
 class TestIpRange(BaseTest):
 

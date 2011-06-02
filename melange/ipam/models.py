@@ -127,12 +127,12 @@ class IpBlock(ModelBase):
     def allowed_by_policy(cls, ip_block, policy, address):
         return policy == None or policy.allows(ip_block.cidr, address)
 
-    def policy(self, eager_load_children=[]):
+    def policy(self, eager_load_rules=False):
         policy = Policy.find_by_id(self.policy_id)
         if policy == None:
             return None
-        if eager_load_children:
-            policy.eager_load(children=eager_load_children)
+        if eager_load_rules:
+            policy.eager_load()
         return policy
 
     def allocate_ip(self, port_id=None, address=None):
@@ -162,7 +162,7 @@ class IpBlock(ModelBase):
             raise AddressDoesNotBelongError(
                 "Address does not belong to IpBlock")
 
-        policy = self.policy(eager_load_children=["ip_rules"])
+        policy = self.policy(eager_load_rules=True)
         if not IpBlock.allowed_by_policy(self, policy, address):
             raise AddressDisallowedByPolicyError(
                 "Block policy does not allow this address")
@@ -172,7 +172,7 @@ class IpBlock(ModelBase):
     def _generate_ip(self, allocated_addresses):
         #TODO: very inefficient way to generate ips,
         #will look at better algos for this
-        policy = self.policy(eager_load_children=["ip_rules"])
+        policy = self.policy(eager_load_rules=True)
         for ip in IPNetwork(self.cidr):
             if IpBlock.allowed_by_policy(self, policy, str(ip)) and (str(ip)
                                                    not in allocated_addresses):
@@ -280,12 +280,12 @@ class Policy(ModelBase):
         return not any(ip_rule.contains(cidr, address)
                        for ip_rule in self.ip_rules())
 
-    def eager_load(self, children):
-        return self._load_ip_range_rules()
+    def eager_load(self):
+        self._load_ip_range_rules()
+        return self
 
     def _load_ip_range_rules(self):
         self.ip_range_rules = self._find_ip_range_rules()
-        return self
 
     def _find_ip_range_rules(self):
         return IpRange.find_all_by_policy(self.id).all()

@@ -13,3 +13,6 @@ bind_host = 0.0.0.0
 
 # Port the bind the API server to
 bind_port = 9292
+
+# Relative Path to the extensions
+api_extensions_path = extensions

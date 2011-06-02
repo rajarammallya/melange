@@ -31,6 +31,7 @@ import eventlet.wsgi
 eventlet.patcher.monkey_patch(all=False, socket=True)
 import routes
 import routes.middleware
+import webob
 import webob.dec
 import webob.exc
 from webob.exc import (HTTPUnprocessableEntity, HTTPBadRequest,
@@ -54,6 +55,39 @@ def run_server(application, port):
     """Run a WSGI server with the given application."""
     sock = eventlet.listen(('0.0.0.0', port))
     eventlet.wsgi.server(sock, application)
+
+
+class Request(webob.Request):
+
+    def best_match_content_type(self):
+        """Determine the most acceptable content-type.
+
+        Based on the query extension then the Accept header.
+
+        """
+        parts = self.path.rsplit('.', 1)
+
+        if len(parts) > 1:
+            format = parts[1]
+            if format in ['json', 'xml']:
+                return 'application/{0}'.format(parts[1])
+
+        ctypes = ['application/json', 'application/xml']
+        bm = self.accept.best_match(ctypes)
+
+        return bm or 'application/json'
+
+    def get_content_type(self):
+        allowed_types = ("application/xml", "application/json")
+        if not "Content-Type" in self.headers:
+            msg = _("Missing Content-Type")
+            LOG.debug(msg)
+            raise webob.exc.HTTPBadRequest(msg)
+        type = self.content_type
+        if type in allowed_types:
+            return type
+        LOG.debug(_("Wrong Content-Type: %s") % type)
+        raise webob.exc.HTTPBadRequest("Invalid content type")
 
 
 class Server(object):

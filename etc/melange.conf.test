@@ -27,3 +27,6 @@ sql_connection = sqlite:///melange_tests.sqlite
 # notice this, you can lower this value to ensure that SQLAlchemy reconnects
 # before MySQL can drop the connection.
 sql_idle_timeout = 3600
+
+# Relative Path to the extensions
+api_extensions_path = tests/unit/extensions

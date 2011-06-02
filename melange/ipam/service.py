@@ -145,7 +145,7 @@ class NatLocalIpAddressesController(BaseController):
 
 
 class API(wsgi.Router):
-    def __init__(self, options):
+    def __init__(self, options={}):
         self.options = options
         mapper = routes.Mapper()
         ip_block_controller = IpBlockController()

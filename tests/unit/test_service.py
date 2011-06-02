@@ -478,6 +478,20 @@ class TestPoliciesController(TestController):
         self.assertEqual(len(policies), 2)
         self.assertEqual(response_policies, _data_of(*policies))
 
+    def test_show_when_requested_policy_exists(self):
+        policy = Policy.create({'name': "DRAC"})
+
+        response = self.app.get("/ipam/policies/%s" % policy.id)
+
+        self.assertEqual(response.status, "200 OK")
+        self.assertEqual(response.json, policy.data())
+
+    def test_show_when_requested_policy_does_not_exist(self):
+        response = self.app.get("/ipam/policies/invalid_id", status="*")
+
+        self.assertErrorResponse(response, "404 Not Found",
+                                 "Policy Not Found")
+
 
 def _allocate_ips(*args):
     return [[ip_block.allocate_ip() for i in range(num_of_ips)]

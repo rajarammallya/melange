@@ -152,6 +152,9 @@ class PoliciesController(BaseController):
         return self._json_response(body=dict(
                 policies=[policy.data() for policy in policies]))
 
+    def show(self, request, id):
+        return self._json_response(Policy.find(id).data())
+
     def create(self, request):
         policy = Policy.create(request.params)
         return self._json_response(policy.data(), status=201)

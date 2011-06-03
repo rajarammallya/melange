@@ -21,7 +21,7 @@ from webtest import TestApp
 
 from tests.unit import BaseTest
 from melange.common import config
-from melange.ipam.models import IpBlock, IpAddress, Policy
+from melange.ipam.models import IpBlock, IpAddress, Policy, IpRange
 from melange.ipam import models
 from melange.db import session
 
@@ -461,14 +461,14 @@ class TestIpNatController(TestController):
 class TestPoliciesController(TestController):
 
     def test_create(self):
-        response = self.app.post("/ipam/policies", {'name': "infrastructure"})
+        response = self.app.post("/ipam/policies", {'name': "ServiceNet"})
 
         self.assertEqual(response.status, "201 Created")
-        self.assertEqual(response.json['name'], "infrastructure")
+        self.assertEqual(response.json['name'], "ServiceNet")
 
     def test_index(self):
-        Policy.create({'name': "infrastructure"})
-        Policy.create({'name': "unstable"})
+        _create_policy("PublicNet")
+        _create_policy("DedicatedServiceNet")
 
         response = self.app.get("/ipam/policies")
 
@@ -479,7 +479,7 @@ class TestPoliciesController(TestController):
         self.assertEqual(response_policies, _data_of(*policies))
 
     def test_show_when_requested_policy_exists(self):
-        policy = Policy.create({'name': "DRAC"})
+        policy = _create_policy("DRAC")
 
         response = self.app.get("/ipam/policies/%s" % policy.id)
 
@@ -493,6 +493,19 @@ class TestPoliciesController(TestController):
                                  "Policy Not Found")
 
 
+class TestUnusableIpRangesController(TestController):
+
+    def test_create(self):
+        policy = _create_policy("ServiceNet")
+
+        response = self.app.post("/ipam/policies/%s/unusable_ip_ranges"
+                                 % policy.id, {'offset': 1, 'length': 2})
+
+        unusable_range = IpRange.find_all_by_policy(policy.id).first()
+        self.assertEqual(response.status, "201 Created")
+        self.assertEqual(response.json, unusable_range.data())
+
+
 def _allocate_ips(*args):
     return [[ip_block.allocate_ip() for i in range(num_of_ips)]
             for ip_block, num_of_ips in args]
@@ -500,6 +513,10 @@ def _allocate_ips(*args):
 
 def _create_blocks(*args):
     return [IpBlock.create({"cidr": cidr}) for cidr in args]
+
+
+def _create_policy(name):
+    return Policy.create({"name": name})
 
 
 def _data_of(*args):

@@ -160,6 +160,14 @@ class PoliciesController(BaseController):
         return self._json_response(policy.data(), status=201)
 
 
+class UnusableIpRangesController(BaseController):
+
+    def create(self, request, policy_id):
+        policy = Policy.find(policy_id)
+        ip_range = policy.create_unusable_range(request.params.copy())
+        return self._json_response(ip_range.data(), status=201)
+
+
 class API(wsgi.Router):
     def __init__(self, options):
         self.options = options
@@ -215,6 +223,10 @@ class API(wsgi.Router):
                         controller=ip_address_controller,
                         parent_resource=dict(member_name="ip_block",
                                            collection_name="/ipam/ip_blocks"))
+        mapper.resource("unusable_ip_range", "unusable_ip_ranges",
+                        controller=UnusableIpRangesController(),
+                        parent_resource=dict(member_name="policy",
+                                           collection_name="/ipam/policies"))
         mapper.connect("/", controller=ip_block_controller, action="version")
         super(API, self).__init__(mapper)
 

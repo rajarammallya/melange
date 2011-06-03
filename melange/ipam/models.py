@@ -127,13 +127,8 @@ class IpBlock(ModelBase):
     def allowed_by_policy(cls, ip_block, policy, address):
         return policy == None or policy.allows(ip_block.cidr, address)
 
-    def policy(self, eager_load_rules=False):
-        policy = Policy.find_by_id(self.policy_id)
-        if policy == None:
-            return None
-        if eager_load_rules:
-            policy.eager_load()
-        return policy
+    def policy(self):
+        return Policy.find_by_id(self.policy_id)
 
     def allocate_ip(self, port_id=None, address=None):
         candidate_ip = None
@@ -162,7 +157,7 @@ class IpBlock(ModelBase):
             raise AddressDoesNotBelongError(
                 "Address does not belong to IpBlock")
 
-        policy = self.policy(eager_load_rules=True)
+        policy = self.policy()
         if not IpBlock.allowed_by_policy(self, policy, address):
             raise AddressDisallowedByPolicyError(
                 "Block policy does not allow this address")
@@ -172,7 +167,7 @@ class IpBlock(ModelBase):
     def _generate_ip(self, allocated_addresses):
         #TODO: very inefficient way to generate ips,
         #will look at better algos for this
-        policy = self.policy(eager_load_rules=True)
+        policy = self.policy()
         for ip in IPNetwork(self.cidr):
             if IpBlock.allowed_by_policy(self, policy, str(ip)) and (str(ip)
                                                    not in allocated_addresses):
@@ -271,24 +266,24 @@ class Policy(ModelBase):
     def find_by_name(cls, name):
         return db_api.find_by(Policy, name=name)
 
-    def ip_rules(self):
-        if hasattr(self, 'ip_range_rules'):
-            return self.ip_range_rules
-        return self._find_ip_range_rules()
+    def create_unusable_range(self, attributes):
+        attributes['policy_id'] = self.id
+        ip_range = IpRange.create(attributes)
+        if hasattr(self, '_unusable_ip_ranges'):
+            self._unusable_ip_ranges.append(ip_range)
+        return ip_range
+
+    def unusable_ip_ranges(self):
+        if not hasattr(self, '_unusable_ip_ranges'):
+            self._load_unusable_ip_ranges()
+        return self._unusable_ip_ranges
 
     def allows(self, cidr, address):
-        return not any(ip_rule.contains(cidr, address)
-                       for ip_rule in self.ip_rules())
+        return not any(ip_range.contains(cidr, address)
+                       for ip_range in self.unusable_ip_ranges())
 
-    def eager_load(self):
-        self._load_ip_range_rules()
-        return self
-
-    def _load_ip_range_rules(self):
-        self.ip_range_rules = self._find_ip_range_rules()
-
-    def _find_ip_range_rules(self):
-        return IpRange.find_all_by_policy(self.id).all()
+    def _load_unusable_ip_ranges(self):
+        self._unusable_ip_ranges = IpRange.find_all_by_policy(self.id).all()
 
     def data_fields(self):
         return ['id', 'name']

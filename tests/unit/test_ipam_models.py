@@ -430,14 +430,14 @@ class TestPolicy(BaseTest):
         self.assertFalse(policy.allows("10.0.0.0/29", "10.0.0.4"))
         self.assertTrue(policy.allows("10.0.0.0/29", "10.0.0.6"))
 
-    def test_ip_rules_for_policy(self):
+    def test_unusable_ip_ranges_for_policy(self):
         policy = Policy.create({'name': "blah"})
         ip_range1 = IpRange.create({'offset': 0, 'length': 2,
                                     'policy_id': policy.id})
         ip_range2 = IpRange.create({'offset': 3, 'length': 2,
                                     'policy_id': policy.id})
 
-        self.assertEqual(policy.ip_rules(), [ip_range1, ip_range2])
+        self.assertEqual(policy.unusable_ip_ranges(), [ip_range1, ip_range2])
 
     def test_data(self):
         policy_data = {'name': 'Infrastructure'}
@@ -454,6 +454,23 @@ class TestPolicy(BaseTest):
 
         self.assertEqual(policies, [policy1, policy2])
 
+    def test_create_unusable_ip_range(self):
+        policy = Policy.create({'name': "BLAH"})
+
+        ip_range = policy.create_unusable_range({'offset': 1, 'length': 2})
+
+        self.assertEqual(ip_range,
+                         IpRange.find_all_by_policy(policy.id).first())
+        self.assertEqual(ip_range.offset, 1)
+        self.assertEqual(ip_range.length, 2)
+
+    def test_unusable_ip_ranges_include_newly_created_ip_ranges(self):
+        policy = Policy.create({'name': "BLAH"})
+        policy.unusable_ip_ranges()
+        ip_range = policy.create_unusable_range({'offset': 1, 'length': 2})
+
+        self.assertTrue(ip_range in policy.unusable_ip_ranges())
+
 
 class TestIpRange(BaseTest):
 
@@ -461,7 +478,7 @@ class TestIpRange(BaseTest):
         policy = Policy.create({'name': 'blah'})
         IpRange.create({'offset': 3, 'length': 10, 'policy_id': policy.id})
 
-        ip_range = policy.ip_rules()[0]
+        ip_range = policy.unusable_ip_ranges()[0]
 
         self.assertEqual(ip_range.offset, 3)
         self.assertEqual(ip_range.length, 10)

@@ -28,5 +28,12 @@ sql_connection = sqlite:///melange_tests.sqlite
 # before MySQL can drop the connection.
 sql_idle_timeout = 3600
 
-# Relative Path to the extensions
-api_extensions_path = tests/unit/extensions
+
+[app:extensions_test_app]
+paste.app_factory = tests.unit.test_extensions:app_factory
+
+# Path to the extensions
+api_extensions_path = extensions
+
+[filter:extensions]
+paste.filter_factory = melange.common.extensions:ExtensionMiddleware.factory

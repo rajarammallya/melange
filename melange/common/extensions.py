@@ -17,18 +17,14 @@
 #    under the License.
 
 import imp
-import inspect
 import os
-import sys
 import routes
 import logging
 import webob.dec
 import webob.exc
 
-from paste import deploy
 from melange.common import exception
 from melange.common import wsgi
-from melange.common import config
 from gettext import gettext as _
 
 LOG = logging.getLogger('melange.common.extensions')
@@ -121,15 +117,16 @@ class ActionExtensionController(wsgi.Controller):
     def add_action(self, action_name, handler):
         self.action_handlers[action_name] = handler
 
-    def action(self, req, id):
+    def action(self, request, id):
 
-        input_dict = self._deserialize(req.body, req.get_content_type())
+        input_dict = self._deserialize(request.body,
+                                       request.get_content_type())
         for action_name, handler in self.action_handlers.iteritems():
             if action_name in input_dict:
-                return handler(input_dict, req, id)
+                return handler(input_dict, request, id)
         # no action handler found (bump to downstream application)
-        res = self.application
-        return res
+        response = self.application
+        return response
 
 
 class RequestExtensionController(wsgi.Controller):
@@ -141,11 +138,11 @@ class RequestExtensionController(wsgi.Controller):
     def add_handler(self, handler):
         self.handlers.append(handler)
 
-    def process(self, req, *args, **kwargs):
-        res = req.get_response(self.application)
+    def process(self, request, *args, **kwargs):
+        res = request.get_response(self.application)
         # currently request handlers are un-ordered
         for handler in self.handlers:
-            res = handler(req, res)
+            res = handler(request, res)
         return res
 
 
@@ -164,21 +161,21 @@ class ExtensionController(wsgi.Controller):
         ext_data['links'] = []  # TODO(dprince): implement extension links
         return ext_data
 
-    def index(self, req):
+    def index(self, request):
         extensions = []
         for _alias, ext in self.extension_manager.extensions.iteritems():
             extensions.append(self._translate(ext))
         return dict(extensions=extensions)
 
-    def show(self, req, id):
+    def show(self, request, id):
         # NOTE(dprince): the extensions alias is used as the 'id' for show
         ext = self.extension_manager.extensions[id]
         return self._translate(ext)
 
-    def delete(self, req, id):
+    def delete(self, request, id):
         raise webob.exc.HTTPNotFound()
 
-    def create(self, req):
+    def create(self, request):
         raise webob.exc.HTTPNotFound()
 
 
@@ -229,18 +226,17 @@ class ExtensionMiddleware(wsgi.Middleware):
 
         return request_ext_controllers
 
-    def __init__(self, application, ext_mgr=None):
+    def __init__(self, application, config_params,
+                 ext_mgr=None):
 
-        if ext_mgr is None:
-            config_file = config.find_config_file({}, [])
-            config_params = deploy.appconfig("config:%s" % config_file, name='melange')
-            ext_mgr = ExtensionManager(config_params['api_extensions_path'])
-        self.ext_mgr = ext_mgr
+        self.ext_mgr = (ext_mgr
+                   or ExtensionManager(config_params.get('api_extensions_path',
+                                                         '')))
 
         mapper = routes.Mapper()
 
         # extended resources
-        for resource in ext_mgr.get_resources():
+        for resource in self.ext_mgr.get_resources():
             LOG.debug(_('Extended resource: %s'),
                         resource.collection)
             mapper.resource(resource.collection, resource.collection,
@@ -250,17 +246,17 @@ class ExtensionMiddleware(wsgi.Middleware):
                             parent_resource=resource.parent)
 
         # extended actions
-        action_controllers = self._action_ext_controllers(application, ext_mgr,
-                                                        mapper)
-        for action in ext_mgr.get_actions():
+        action_controllers = self._action_ext_controllers(application,
+                                                          self.ext_mgr, mapper)
+        for action in self.ext_mgr.get_actions():
             LOG.debug(_('Extended action: %s'), action.action_name)
             controller = action_controllers[action.collection]
             controller.add_action(action.action_name, action.handler)
 
         # extended requests
-        req_controllers = self._request_ext_controllers(application, ext_mgr,
-                                                            mapper)
-        for request_ext in ext_mgr.get_request_extensions():
+        req_controllers = self._request_ext_controllers(application,
+                                                        self.ext_mgr, mapper)
+        for request_ext in self.ext_mgr.get_request_extensions():
             LOG.debug(_('Extended request: %s'), request_ext.key)
             controller = req_controllers[request_ext.key]
             controller.add_handler(request_ext.handler)
@@ -271,23 +267,23 @@ class ExtensionMiddleware(wsgi.Middleware):
         super(ExtensionMiddleware, self).__init__(application)
 
     @webob.dec.wsgify(RequestClass=wsgi.Request)
-    def __call__(self, req):
+    def __call__(self, request):
         """Route the incoming request with router."""
-        req.environ['extended.app'] = self.application
+        request.environ['extended.app'] = self.application
         return self._router
 
     @staticmethod
     @webob.dec.wsgify(RequestClass=wsgi.Request)
-    def _dispatch(req):
+    def _dispatch(request):
         """Dispatch the request.
 
         Returns the routed WSGI app's response or defers to the extended
         application.
 
         """
-        match = req.environ['wsgiorg.routing_args'][1]
+        match = request.environ['wsgiorg.routing_args'][1]
         if not match:
-            return req.environ['extended.app']
+            return request.environ['extended.app']
         app = match['controller']
         return app
 
@@ -403,7 +399,8 @@ class ExtensionManager(object):
         self._check_extension(ext)
 
         if alias in self.extensions:
-            raise exception.MelangeError("Found duplicate extension: %s" % alias)
+            raise exception.MelangeError("Found duplicate extension: %s"
+                                         % alias)
         self.extensions[alias] = ext
 
 

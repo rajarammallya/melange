@@ -15,7 +15,6 @@
 #    under the License.
 import json
 import unittest
-import webob
 import routes
 import os.path
 from tests.unit import BaseTest
@@ -33,9 +32,7 @@ class ExtensionControllerTest(unittest.TestCase):
 
     def setUp(self):
         super(ExtensionControllerTest, self).setUp()
-        conf, app = setup_extensions_test_app()
-        ext_middleware = extensions.ExtensionMiddleware(app, conf)
-        self.test_app = TestApp(ext_middleware)
+        self.test_app = setup_extensions_test_app()
 
     def test_index(self):
         response = self.test_app.get("/extensions")
@@ -48,43 +45,26 @@ class ExtensionControllerTest(unittest.TestCase):
 
 class ResourceExtensionTest(unittest.TestCase):
 
-    def setUp(self):
-        super(ResourceExtensionTest, self).setUp()
-        self.conf, self.app = setup_extensions_test_app()
-
     def test_no_extension_present(self):
-        test_app = self.get_app(self.conf, self.app,
-                                StubExtensionManager(None))
+        test_app = setup_extensions_test_app(StubExtensionManager(None))
         response = test_app.get("/blah", status='*')
         self.assertEqual(404, response.status_int)
 
     def test_get_resources(self):
         res_ext = extensions.ResourceExtension('tweedles',
                                                StubController(response_body))
-        test_app = self.get_app(self.conf, self.app,
-                                     StubExtensionManager(res_ext))
+        test_app = setup_extensions_test_app(StubExtensionManager(res_ext))
 
         response = test_app.get("/tweedles")
         self.assertEqual(200, response.status_int)
         self.assertEqual(response_body, response.body)
 
-    def get_app(self, conf, app, manager):
-        ext_midware = extensions.ExtensionMiddleware(app, conf, manager)
-        return TestApp(ext_midware)
-
 
 class ExtensionManagerTest(unittest.TestCase):
 
-    response_body = "Try to say this Mr. Knox, sir..."
-
-    def setUp(self):
-        super(ExtensionManagerTest, self).setUp()
-        self.conf, self.app = setup_extensions_test_app()
-
     def test_get_resources(self):
-        ext_midware = extensions.ExtensionMiddleware(self.app, self.conf)
-        request = webob.Request.blank("/foxnsocks")
-        response = request.get_response(ext_midware)
+        test_app = setup_extensions_test_app()
+        response = test_app.get('/foxnsocks')
 
         self.assertEqual(200, response.status_int)
         self.assertEqual(response_body, response.body)
@@ -94,9 +74,7 @@ class ActionExtensionTest(unittest.TestCase):
 
     def setUp(self):
         super(ActionExtensionTest, self).setUp()
-        self.conf, self.app = setup_extensions_test_app()
-        ext_midware = extensions.ExtensionMiddleware(self.app, self.conf)
-        self.test_app = TestApp(ext_midware)
+        self.test_app = setup_extensions_test_app()
 
     def _send_server_action_request(self, url, body):
         return self.test_app.post(url, json.dumps(body),
@@ -132,10 +110,6 @@ class ActionExtensionTest(unittest.TestCase):
 
 class RequestExtensionTest(BaseTest):
 
-    def setUp(self):
-        super(RequestExtensionTest, self).setUp()
-        self.conf, self.app = setup_extensions_test_app()
-
     def test_get_resources_with_stub_mgr(self):
 
         def _req_handler(req, res):
@@ -150,20 +124,20 @@ class RequestExtensionTest(BaseTest):
                                                 _req_handler)
 
         manager = StubExtensionManager(None, None, req_ext)
-        ext_midware = extensions.ExtensionMiddleware(self.app,
-                                                     self.conf, manager)
+        app = setup_extensions_test_app(manager)
 
-        request = webob.Request.blank("/dummy_resources/1?chewing=bluegoo")
-        request.environ['api.version'] = '1.1'
-        response = request.get_response(ext_midware)
+        response = app.get("/dummy_resources/1?chewing=bluegoos",
+                           extra_environ={'api.version': '1.1'})
+
         self.assertEqual(200, response.status_int)
         response_data = json.loads(response.body)
-        self.assertEqual('bluegoo', response_data['googoose'])
+        self.assertEqual('bluegoos', response_data['googoose'])
+        self.assertEqual('knox', response_data['fort'])
 
     def test_get_resources_with_mgr(self):
-        ext_midware = extensions.ExtensionMiddleware(self.app, self.conf)
+        app = setup_extensions_test_app()
 
-        response = TestApp(ext_midware).get("/dummy_resources/1?"
+        response = app.get("/dummy_resources/1?"
                                             "chewing=newblue", status='*')
 
         self.assertEqual(200, response.status_int)
@@ -200,13 +174,11 @@ def app_factory(global_conf, **local_conf):
     return ExtensionsTestApp(conf)
 
 
-def setup_extensions_test_app():
-        conf, app = config.load_paste_app('extensions_test_app',
-                {'config_file':
-                 os.path.abspath("../../etc/melange.conf.test")}, None)
-        conf['api_extensions_path'] = os.path.join(os.path.dirname(__file__),
-                                                    "extensions")
-        return conf, app
+def setup_extensions_test_app(extension_manager=None):
+    options = {'config_file': os.path.abspath("../../etc/melange.conf.test"),
+               'extension_manager': extension_manager}
+    conf, app = config.load_paste_app('extensions_test_app', options, None)
+    return TestApp(app)
 
 
 class StubExtensionManager(object):

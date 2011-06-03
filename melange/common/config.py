@@ -32,6 +32,7 @@ import sys
 from paste import deploy
 
 import melange.common.exception as exception
+from melange.common import extensions
 
 DEFAULT_LOG_FORMAT = "%(asctime)s %(levelname)8s [%(name)s] %(message)s"
 DEFAULT_LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
@@ -300,6 +301,10 @@ def load_paste_app(app_name, options, args):
                 logger.debug("%(key)-30s %(value)s" % locals())
             logger.debug("*" * 80)
         app = deploy.loadapp("config:%s" % conf_file, name=app_name)
+        extension_manager = options.get('extension_manager')
+        app = extensions.ExtensionMiddleware(app, conf,
+                                             ext_mgr=extension_manager)
+
     except (LookupError, ImportError), e:
         raise RuntimeError("Unable to load %(app_name)s from "
                            "configuration file %(conf_file)s."

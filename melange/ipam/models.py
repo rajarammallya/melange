@@ -299,6 +299,12 @@ class Policy(ModelBase):
         return not any(ip_range.contains(cidr, address)
                        for ip_range in self.unusable_ip_ranges())
 
+    def find_ip_range(self, ip_range_id):
+        ip_range = db_api.find_by(IpRange, id=ip_range_id, policy_id=self.id)
+        if ip_range is None:
+            raise ModelNotFoundError("Can't find IpRange for policy")
+        return ip_range
+
     def _load_unusable_ip_ranges(self):
         self._unusable_ip_ranges = IpRange.find_all_by_policy(self.id).all()
 

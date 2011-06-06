@@ -453,6 +453,22 @@ class TestPolicy(BaseTest):
 
         self.assertEqual(policies, [policy1, policy2])
 
+    def test_find_ip_range(self):
+        policy = Policy.create({'name': 'infra'})
+        ip_range = policy.create_unusable_range({'offset': 10, 'length': 1})
+        noise_ip_range = IpRange.create({'offset': 1, 'length': 22})
+
+        self.assertEqual(policy.find_ip_range(ip_range.id).data(),
+                         ip_range.data())
+
+    def test_find_invalid_ip_range(self):
+        policy = Policy.create({'name': 'infra'})
+        noise_ip_range = policy.create_unusable_range({'offset': 10,
+                                                       'length': 1})
+
+        self.assertRaises(models.ModelNotFoundError, policy.find_ip_range,
+                          ip_range_id=122222)
+
     def test_create_unusable_ip_range(self):
         policy = Policy.create({'name': "BLAH"})
 

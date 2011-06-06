@@ -512,6 +512,49 @@ class TestUnusableIpRangesController(TestController):
         self.assertErrorResponse(response, "404 Not Found",
                                  "Policy Not Found")
 
+    def test_show(self):
+        policy = _create_policy("ServiceNet")
+        ip_range = _create_ip_range(policy.id)
+
+        response = self.app.get("/ipam/policies/%s/unusable_ip_ranges/%s"
+                                 % (policy.id, ip_range.id))
+
+        self.assertEqual(response.status_int, 200)
+        self.assertEqual(response.json, ip_range.data())
+
+    def test_show_when_ip_range_does_not_exists(self):
+        policy = _create_policy("ServiceNet")
+
+        response = self.app.get("/ipam/policies/%s/unusable_ip_ranges/%s"
+                                 % (policy.id, 1000000), status="*")
+
+        self.assertErrorResponse(response, "404 Not Found",
+                                  "Can't find IpRange for policy")
+
+    def test_index(self):
+        policy = _create_policy("ServiceNet")
+        for i in range(0, 3):
+            _create_ip_range(policy.id)
+
+        response = self.app.get("/ipam/policies/%s/unusable_ip_ranges"
+                                 % policy.id)
+
+        response_ranges = response.json["ip_ranges"]
+        self.assertEqual(len(response_ranges), 3)
+        self.assertEqual(response_ranges,
+                         _data_of(*policy.unusable_ip_ranges()))
+
+    def test_delete(self):
+        policy = _create_policy("ServiceNet")
+        ip_range = _create_ip_range(policy.id)
+
+        response = self.app.delete("/ipam/policies/%s/unusable_ip_ranges/%s"
+                                 % (policy.id, ip_range.id))
+
+        self.assertEqual(response.status_int, 200)
+        self.assertRaises(models.ModelNotFoundError,
+                          policy.find_ip_range, ip_range_id=ip_range.id)
+
 
 def _allocate_ips(*args):
     return [[ip_block.allocate_ip() for i in range(num_of_ips)]
@@ -524,6 +567,10 @@ def _create_blocks(*args):
 
 def _create_policy(name):
     return Policy.create({"name": name})
+
+
+def _create_ip_range(policy_id):
+    return IpRange.create({'offset': 10, 'length': 11, 'policy_id': policy_id})
 
 
 def _data_of(*args):

@@ -39,8 +39,7 @@ class TestIpBlock(BaseTest):
         block = IpBlock({'cidr': "10.1.1.1////", 'network_id': 111})
 
         self.assertFalse(block.is_valid())
-        self.assertEqual(block.errors, [{'cidr': 'cidr is invalid'}])
-        self.assertRaises(models.InvalidModelError, block.validate)
+        self.assertEqual(block.errors, {'cidr': ['cidr is invalid']})
         self.assertRaises(models.InvalidModelError, block.save)
         self.assertRaises(models.InvalidModelError, IpBlock.create,
                           {'cidr': "10.1.0.0/33", 'network_id': 111})
@@ -56,7 +55,7 @@ class TestIpBlock(BaseTest):
 
         self.assertFalse(dup_block.is_valid())
         self.assertEqual(dup_block.errors,
-                         [{'cidr': 'cidr for public ip is not unique'}])
+                         {'cidr': ['cidr for public ip is not unique']})
 
     def test_find_by_network_id(self):
         IpBlock.create({'cidr': "10.0.0.1/8", 'network_id': 999})
@@ -495,6 +494,27 @@ class TestIpRange(BaseTest):
 
         self.assertEqual(IpRange.find_all_by_policy(policy1.id).all(),
                          [ip_range1, ip_range2])
+
+    def test_ip_range_offset_is_an_integer(self):
+        ip_range = IpRange({'offset': 'spdoe', 'length': 10})
+
+        self.assertFalse(ip_range.is_valid())
+        self.assertTrue('offset should be an integer' in
+                        ip_range.errors['offset'])
+
+    def test_ip_range_length_is_an_integer(self):
+        ip_range = IpRange({'offset': '23', 'length': 'blah'})
+
+        self.assertFalse(ip_range.is_valid())
+        self.assertTrue('length should be a positive integer' in
+                        ip_range.errors['length'])
+
+    def test_ip_range_length_is_a_natural_number(self):
+        ip_range = IpRange({'offset': 11, 'length': '-1'})
+
+        self.assertFalse(ip_range.is_valid())
+        self.assertTrue('length should be a positive integer' in
+                        ip_range.errors['length'])
 
     def test_range_contains_address(self):
         ip_range = IpRange.create({'offset': 0, 'length': 1})

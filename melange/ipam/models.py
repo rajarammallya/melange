@@ -23,6 +23,7 @@ import netaddr
 from netaddr import IPNetwork, IPAddress
 from melange.common.exception import MelangeError
 from melange.db import api as db_api
+from melange.common.utils import parse_int
 
 
 class ModelBase(object):
@@ -32,7 +33,8 @@ class ModelBase(object):
         return instance.save()
 
     def save(self):
-        self.validate()
+        if not self.is_valid():
+            raise InvalidModelError(self.errors)
         return db_api.save(self)
 
     def delete(self):
@@ -41,12 +43,13 @@ class ModelBase(object):
     def __init__(self, values):
         self.update(values)
 
-    def validate(self):
-        if not self.is_valid():
-            raise InvalidModelError(self.errors)
+    def _validate(self):
+        pass
 
     def is_valid(self):
-        return True
+        self.errors = {}
+        self._validate()
+        return self.errors == {}
 
     @classmethod
     def find(cls, id):
@@ -105,6 +108,21 @@ class ModelBase(object):
 
     def data_fields(self):
         return []
+
+    def _validate_integer(self, attribute_name):
+        if(parse_int(self[attribute_name]) == None):
+            self._add_error(attribute_name,
+                            "{0} should be an integer".format(attribute_name))
+
+    def _validate_positive_integer(self, attribute_name):
+        if(parse_int(self[attribute_name]) < 0):
+            self._add_error(attribute_name,
+                            "{0} should be a positive "
+                            "integer".format(attribute_name))
+
+    def _add_error(self, attribute_name, error_message):
+        self.errors[attribute_name] = self.errors.get(attribute_name, [])
+        self.errors[attribute_name].append(error_message)
 
 
 class IpBlock(ModelBase):
@@ -189,18 +207,17 @@ class IpBlock(ModelBase):
         try:
             IPNetwork(self.cidr)
         except Exception:
-            self.errors.append({'cidr': 'cidr is invalid'})
+            self._add_error('cidr', 'cidr is invalid')
 
     def validate_uniqueness_for_public_ip_block(self):
-        if self.type == 'public' and \
-        db_api.find_by(IpBlock, type=self.type, cidr=self.cidr):
-            self.errors.append({'cidr': 'cidr for public ip is not unique'})
+        if (self.type == 'public' and
+                         db_api.find_by(IpBlock,
+                                        type=self.type, cidr=self.cidr)):
+            self._add_error('cidr', 'cidr for public ip is not unique')
 
-    def is_valid(self):
-        self.errors = []
+    def _validate(self):
         self.validate_cidr()
         self.validate_uniqueness_for_public_ip_block()
-        return self.errors == []
 
     def data_fields(self):
         return ['id', 'cidr', 'network_id']
@@ -302,6 +319,10 @@ class IpRange(ModelBase):
         if end_index_overshoots_length_for_negative_offset:
             end_index = None
         return IPAddress(address) in IPNetwork(cidr)[self.offset:end_index]
+
+    def _validate(self):
+        self._validate_integer('offset')
+        self._validate_positive_integer('length')
 
 
 def models():

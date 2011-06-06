@@ -61,7 +61,7 @@ class TestIpBlockController(TestController):
                        'type': 'public'}, status="*")
 
         self.assertEqual(response.status, "400 Bad Request")
-        self.assertTrue("[{'cidr': 'cidr for public ip is not unique'}]"
+        self.assertTrue("cidr for public ip is not unique"
                         in response.body)
 
     def test_create_with_bad_cidr(self):
@@ -70,7 +70,7 @@ class TestIpBlockController(TestController):
                                  status="*")
 
         self.assertEqual(response.status, "400 Bad Request")
-        self.assertTrue("[{'cidr': 'cidr is invalid'}]" in response.body)
+        self.assertTrue('cidr is invalid' in response.body)
 
     def test_show(self):
         block = IpBlock.create({'network_id': "301", 'cidr': "10.1.1.0/2"})
@@ -499,11 +499,18 @@ class TestUnusableIpRangesController(TestController):
         policy = _create_policy("ServiceNet")
 
         response = self.app.post("/ipam/policies/%s/unusable_ip_ranges"
-                                 % policy.id, {'offset': 1, 'length': 2})
+                                 % policy.id, {'offset': '10', 'length': '2'})
 
         unusable_range = IpRange.find_all_by_policy(policy.id).first()
         self.assertEqual(response.status, "201 Created")
         self.assertEqual(response.json, unusable_range.data())
+
+    def test_create_on_non_existent_policy(self):
+        response = self.app.post("/ipam/policies/10000/unusable_ip_ranges"
+                                 % {'offset': '1', 'length': '2'}, status="*")
+
+        self.assertErrorResponse(response, "404 Not Found",
+                                 "Policy Not Found")
 
 
 def _allocate_ips(*args):

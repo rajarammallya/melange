@@ -67,6 +67,13 @@ def bool_from_string(subject):
     return False
 
 
+def parse_int(subject):
+    try:
+        return int(subject)
+    except ValueError:
+        return None
+
+
 def import_class(import_str):
     """Returns a class from a string including module and class"""
     mod_str, _sep, class_str = import_str.rpartition('.')
@@ -164,12 +171,6 @@ def generate_uid(topic, size=8):
     return '%s-%s' % (topic, ''.join(
         [random.choice('01234567890abcdefghijklmnopqrstuvwxyz')
          for x in xrange(size)]))
-
-
-def generate_mac():
-    mac = [0x02, 0x16, 0x3e, random.randint(0x00, 0x7f),
-           random.randint(0x00, 0xff), random.randint(0x00, 0xff)]
-    return ':'.join(map(lambda x: "%02x" % x, mac))
 
 
 def last_octet(address):

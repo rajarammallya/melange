@@ -176,6 +176,11 @@ class UnusableIpRangesController(BaseController):
         return self._json_response(body=dict(
                 ip_ranges=[ip_range.data() for ip_range in ip_ranges]))
 
+    def update(self, request, policy_id, id):
+        ip_range = Policy.find(policy_id).find_ip_range(id)
+        ip_range.update(request.params)
+        return self._json_response(ip_range.data())
+
     def delete(self, request, policy_id, id):
         ip_range = Policy.find(policy_id).find_ip_range(id)
         ip_range.delete()

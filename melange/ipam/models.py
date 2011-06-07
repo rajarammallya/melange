@@ -41,7 +41,7 @@ class ModelBase(object):
         db_api.delete(self)
 
     def __init__(self, values):
-        self.update(values)
+        self.merge_attributes(values)
 
     def _validate(self):
         pass
@@ -66,10 +66,14 @@ class ModelBase(object):
     def find_all(cls, **kwargs):
         return db_api.find_all_by(cls, **kwargs).all()
 
-    def update(self, values):
+    def merge_attributes(self, values):
         """dict.update() behaviour."""
         for k, v in values.iteritems():
             self[k] = v
+
+    def update(self, values):
+        self.merge_attributes(values)
+        return self.save()
 
     def __setitem__(self, key, value):
         setattr(self, key, value)
@@ -245,12 +249,10 @@ class IpAddress(ModelBase):
             for local_address in ip_addresses])
 
     def deallocate(self):
-        self.update({"marked_for_deallocation": True})
-        return self.save()
+        return self.update({"marked_for_deallocation": True})
 
     def restore(self):
         self.update({"marked_for_deallocation": False})
-        self.save()
 
     def inside_globals(self, **kwargs):
         return db_api.find_inside_globals_for(self.id, **kwargs)

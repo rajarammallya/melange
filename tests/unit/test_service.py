@@ -582,6 +582,16 @@ class TestUnusableIpRangesController(TestController):
         self.assertEqual(updated_range.length, 2222)
         self.assertEqual(response.json, updated_range.data())
 
+    def test_update_when_ip_range_does_not_exists(self):
+        policy = PolicyFactory()
+
+        response = self.app.put("/ipam/policies/%s/unusable_ip_ranges/%s"
+                                 % (policy.id, "invalid_id"),
+                                 {'offset': 1111, 'length': 222}, status="*")
+
+        self.assertErrorResponse(response, "404 Not Found",
+                                  "Can't find IpRange for policy")
+
     def test_index(self):
         policy = PolicyFactory()
         for i in range(0, 3):
@@ -637,6 +647,26 @@ class TestPoliciesController(TestController):
 
     def test_show_when_requested_policy_does_not_exist(self):
         response = self.app.get("/ipam/policies/invalid_id", status="*")
+
+        self.assertErrorResponse(response, "404 Not Found",
+                                 "Policy Not Found")
+
+    def test_update(self):
+        policy = PolicyFactory(name="DRAC", description='description')
+
+        response = self.app.put("/ipam/policies/%s" % policy.id,
+                                {'name': "Updated Name",
+                                 'description': "Updated Des"})
+
+        self.assertEqual(response.status, "200 OK")
+        updated_policy = Policy.find(policy.id)
+        self.assertEqual(updated_policy.name, "Updated Name")
+        self.assertEqual(updated_policy.description, "Updated Des")
+        self.assertEqual(response.json, updated_policy.data())
+
+    def test_update_fails_for_invalid_policy_id(self):
+        response = self.app.put("/ipam/policies/invalid",
+                                {'name': "Updated Name"}, status="*")
 
         self.assertErrorResponse(response, "404 Not Found",
                                  "Policy Not Found")

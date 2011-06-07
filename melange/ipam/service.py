@@ -186,8 +186,28 @@ class UnusableIpRangesController(BaseController):
         ip_range.delete()
 
 
+class PoliciesController(BaseController):
+
+    def index(self, request):
+        policies = Policy.find_all()
+        return self._json_response(body=dict(
+                policies=[policy.data() for policy in policies]))
+
+    def show(self, request, id):
+        return self._json_response(Policy.find(id).data())
+
+    def create(self, request):
+        policy = Policy.create(request.params)
+        return self._json_response(policy.data(), status=201)
+
+    def update(self, request, id):
+        policy = Policy.find(id)
+        policy.update(request.params)
+        return self._json_response(policy.data())
+
+
 class API(wsgi.Router):
-    def __init__(self, options):
+    def __init__(self, options={}):
         self.options = options
         mapper = routes.Mapper()
         ip_block_controller = IpBlockController()

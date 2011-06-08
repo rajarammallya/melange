@@ -203,6 +203,7 @@ def find_config_file(options, args):
 
     # Handle standard directory search for glance.conf
     config_file_dirs = [fix_path(os.getcwd()),
+                        fix_path(os.path.join(os.getcwd(), "etc")),
                         fix_path(os.path.join('~', '.melange')),
                         fix_path('~'),
                         '/etc/melange/',
@@ -301,10 +302,6 @@ def load_paste_app(app_name, options, args):
                 logger.debug("%(key)-30s %(value)s" % locals())
             logger.debug("*" * 80)
         app = deploy.loadapp("config:%s" % conf_file, name=app_name)
-        extension_manager = options.get('extension_manager')
-        app = extensions.ExtensionMiddleware(app, conf,
-                                             ext_mgr=extension_manager)
-
     except (LookupError, ImportError), e:
         raise RuntimeError("Unable to load %(app_name)s from "
                            "configuration file %(conf_file)s."

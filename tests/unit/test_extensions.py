@@ -178,7 +178,8 @@ def setup_extensions_test_app(extension_manager=None):
     options = {'config_file': os.path.abspath("../../etc/melange.conf.test"),
                'extension_manager': extension_manager}
     conf, app = config.load_paste_app('extensions_test_app', options, None)
-    return TestApp(app)
+    extended_app = extensions.ExtensionMiddleware(app, conf, extension_manager)
+    return TestApp(extended_app)
 
 
 class StubExtensionManager(object):

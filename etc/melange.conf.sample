@@ -5,14 +5,38 @@ verbose = True
 # Show debugging output in logs (sets DEBUG log level output)
 debug = False
 
-[app:melange]
-paste.app_factory = melange.ipam.service:app_factory
-
 # Address to bind the API server
 bind_host = 0.0.0.0
 
 # Port the bind the API server to
 bind_port = 9292
 
-# Relative Path to the extensions
+# SQLAlchemy connection string for the reference implementation          
+# registry server. Any valid SQLAlchemy connection string is fine. 
+# See: http://www.sqlalchemy.org/docs/05/reference/sqlalchemy/connections.html#sqlalchemy.create_engine
+sql_connection = sqlite:///melange_tests.sqlite
+
+# Period in seconds after which SQLAlchemy should reestablish its connection
+# to the database.
+#
+# MySQL uses a default `wait_timeout` of 8 hours, after which it will drop
+# idle connections. This can result in 'MySQL Gone Away' exceptions. If you
+# notice this, you can lower this value to ensure that SQLAlchemy reconnects
+# before MySQL can drop the connection.
+sql_idle_timeout = 3600
+
+# Path to the extensions
 api_extensions_path = extensions
+
+[composite:melange]
+use = egg:Paste#urlmap
+/: melangeapi
+
+[pipeline:melangeapi]
+pipeline = extensions melangeapp
+
+[filter:extensions]
+paste.filter_factory = melange.common.extensions:ExtensionMiddleware.factory
+
+[app:melangeapp]
+paste.app_factory = melange.ipam.service:app_factory

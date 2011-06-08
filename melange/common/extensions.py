@@ -185,7 +185,7 @@ class ExtensionMiddleware(wsgi.Middleware):
     def factory(cls, global_config, **local_config):
         """Paste factory."""
         def _factory(app):
-            return cls(app, **local_config)
+            return cls(app, global_config, **local_config)
         return _factory
 
     def _action_ext_controllers(self, application, ext_mgr, mapper):
@@ -291,7 +291,7 @@ class ExtensionMiddleware(wsgi.Middleware):
 class ExtensionManager(object):
     """Load extensions from the configured extension path.
 
-    See nova/tests/api/openstack/extensions/foxinsocks/extension.py for an
+    See melange/tests/unit/extensions/foxinsocks.py for an
     example extension implementation.
 
     """
@@ -362,7 +362,7 @@ class ExtensionManager(object):
 
         In addition, extensions are loaded from the 'contrib' directory.
 
-        See nova/tests/api/openstack/extensions/foxinsocks.py for an example
+        See melange/tests/unit/extensions/foxinsocks.py for an example
         extension implementation.
 
         """
@@ -405,10 +405,10 @@ class ExtensionManager(object):
 
 
 class RequestExtension(object):
-    """Extend requests and responses of core nova OpenStack API controllers.
+    """Extend requests and responses of core melange OpenStack API controllers.
 
     Provide a way to add data to responses and handle custom request data
-    that is sent to core nova OpenStack API controllers.
+    that is sent to core melange OpenStack API controllers.
 
     """
     def __init__(self, method, url_route, handler):
@@ -419,7 +419,7 @@ class RequestExtension(object):
 
 
 class ActionExtension(object):
-    """Add custom actions to core nova OpenStack API controllers."""
+    """Add custom actions to core melange OpenStack API controllers."""
 
     def __init__(self, collection, action_name, handler):
         self.collection = collection
@@ -428,7 +428,7 @@ class ActionExtension(object):
 
 
 class ResourceExtension(object):
-    """Add top level resources to the OpenStack API in nova."""
+    """Add top level resources to the OpenStack API in melange."""
 
     def __init__(self, collection, controller, parent=None,
                  collection_actions={}, member_actions={}):

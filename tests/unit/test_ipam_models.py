@@ -22,6 +22,7 @@ from melange.ipam.models import IpBlock, IpAddress, Policy, IpRange
 from melange.ipam import models
 from melange.db import session
 from melange.db import api as db_api
+from tests.unit.factories.models import IpBlockFactory, IpAddressFactory
 
 
 class TestIpBlock(BaseTest):
@@ -179,7 +180,7 @@ class TestIpBlock(BaseTest):
         IpBlock.create({'cidr': "10.3.0.1/28", 'network_id': '1123'})
         IpBlock.create({'cidr': "10.1.0.1/28", 'network_id': '1124'})
 
-        blocks = IpBlock.find_all()
+        blocks = IpBlock.find_all().all()
 
         self.assertEqual(len(blocks), 3)
         self.assertEqual(["10.2.0.1/28", "10.3.0.1/28", "10.1.0.1/28"],
@@ -192,11 +193,28 @@ class TestIpBlock(BaseTest):
         IpBlock.create({'cidr': "10.1.0.1/28", 'network_id': '1124'})
         IpBlock.create({'cidr': "10.4.0.1/28", 'network_id': '1124'})
 
-        blocks = IpBlock.find_all(limit=2, marker=marker_block.id)
+        blocks = IpBlock.with_limits(IpBlock.find_all(),
+                                     limit=2, marker=marker_block.id).all()
 
         self.assertEqual(len(blocks), 2)
         self.assertEqual(["10.1.0.1/28", "10.4.0.1/28"],
                     [block.cidr for block in blocks])
+
+    def test_delete(self):
+        ip_block = IpBlockFactory(cidr="10.0.0.0/29")
+        ip_block.delete()
+        self.assertTrue(IpBlock.find_by_id(ip_block.id) is None)
+
+    def test_delete_to_cascade_delete_ip_addresses(self):
+        ip_block = IpBlockFactory(cidr="10.0.0.0/29")
+        ipa_1 = IpAddressFactory(ip_block_id=ip_block.id, address="10.0.0.0")
+        ipa_2 = IpAddressFactory(ip_block_id=ip_block.id, address="10.0.0.1")
+        self.assertTrue(len(IpAddress.
+                            find_all_by_ip_block(ip_block.id).all()) is 2)
+
+        ip_block.delete()
+        self.assertTrue(len(IpAddress.
+                            find_all_by_ip_block(ip_block.id).all()) is 0)
 
 
 class TestIpAddress(unittest.TestCase):
@@ -220,9 +238,10 @@ class TestIpAddress(unittest.TestCase):
         marker = ips[1].id
         addrs_after_marker = [ips[i].address for i in range(2, 6)]
 
-        limited_addrs = [ip.address
-                         for ip in IpAddress.find_all_by_ip_block(block.id,
-                                             limit=3, marker=marker)]
+        ip_addresses = IpAddress.with_limits(
+                                 IpAddress.find_all_by_ip_block(block.id),
+                                 limit=3, marker=marker)
+        limited_addrs = [ip.address for ip in ip_addresses]
         self.assertEqual(len(limited_addrs), 3)
         self.assertEqual(addrs_after_marker[0: 3], limited_addrs)
 
@@ -436,7 +455,8 @@ class TestPolicy(BaseTest):
         ip_range2 = IpRange.create({'offset': 3, 'length': 2,
                                     'policy_id': policy.id})
 
-        self.assertEqual(policy.unusable_ip_ranges(), [ip_range1, ip_range2])
+        self.assertEqual(policy.unusable_ip_ranges().all(),
+                         [ip_range1, ip_range2])
 
     def test_data(self):
         policy_data = {'name': 'Infrastructure'}
@@ -449,7 +469,7 @@ class TestPolicy(BaseTest):
         policy1 = Policy.create({'name': "physically unstable"})
         policy2 = Policy.create({'name': "host"})
 
-        policies = Policy.find_all()
+        policies = Policy.find_all().all()
 
         self.assertEqual(policies, [policy1, policy2])
 

@@ -18,10 +18,16 @@
 # See http://code.google.com/p/python-nose/issues/detail?id=373
 # The code below enables nosetests to work with i18n _() blocks
 import __builtin__
-import unittest
 setattr(__builtin__, '_', lambda x: x)
 
+import unittest
+import os
+import urlparse
+
 from melange.db import session
+from melange.common import config
+from melange.db import migration
+from melange.ipam import models
 
 
 class BaseTest(unittest.TestCase):
@@ -35,15 +41,13 @@ class BaseTest(unittest.TestCase):
         pass
 
 
+def test_config_path():
+    return os.path.abspath("../etc/melange.conf.test")
+
+
 def setup():
-    import os
-    import urlparse
-    from melange.common import config
-    from melange.db import migration
-    from melange.ipam import models
     conf_file, conf = config.load_paste_config("melange",
-                        {"config_file":
-                         os.path.abspath("../../etc/melange.conf.test")}, None)
+                        {"config_file": test_config_path()}, None)
     conn_string = conf["sql_connection"]
     conn_pieces = urlparse.urlparse(conn_string)
     testdb = conn_pieces.path.strip('/')

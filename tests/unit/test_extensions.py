@@ -17,7 +17,7 @@ import json
 import unittest
 import routes
 import os.path
-from tests.unit import BaseTest
+from tests.unit import BaseTest, test_config_path
 
 from webtest import TestApp
 from melange.common import extensions
@@ -26,9 +26,6 @@ from melange.common import config
 
 
 response_body = "Try to say this Mr. Knox, sir..."
-conf_file = os.path.join(os.path.dirname(__file__),
-                         os.pardir, os.pardir,
-                         "etc", "melange.conf.test")
 
 
 class ExtensionControllerTest(unittest.TestCase):
@@ -111,7 +108,7 @@ class ActionExtensionTest(unittest.TestCase):
         self.assertEqual(404, response.status_int)
 
 
-class RequestExtensionTest(unittest.TestCase):
+class RequestExtensionTest(BaseTest):
 
     def test_get_resources_with_stub_mgr(self):
 
@@ -149,17 +146,6 @@ class RequestExtensionTest(unittest.TestCase):
         self.assertEqual("Pig Bands!", response_data['big_bands'])
 
 
-class TestExtensionMiddlewareFactory(unittest.TestCase):
-
-    def test_app_configured_with_extensions_as_filter(self):
-        conf, melange_app = config.load_paste_app('extensions_app_with_filter',
-                                                  {"config_file": conf_file},
-                                                  None)
-
-        response = TestApp(melange_app).get("/extensions")
-        self.assertEqual(response.status_int, 200)
-
-
 class ExtensionsTestApp(wsgi.Router):
 
     def __init__(self, options={}):
@@ -189,11 +175,10 @@ def app_factory(global_conf, **local_conf):
 
 
 def setup_extensions_test_app(extension_manager=None):
-    options = {'config_file': conf_file,
+    options = {'config_file': test_config_path(),
                'extension_manager': extension_manager}
     conf, app = config.load_paste_app('extensions_test_app', options, None)
-    extended_app = extensions.ExtensionMiddleware(app, conf, extension_manager)
-    return TestApp(extended_app)
+    return TestApp(app)
 
 
 class StubExtensionManager(object):

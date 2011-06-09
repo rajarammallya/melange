@@ -18,13 +18,16 @@ from sqlalchemy import or_
 from melange.db import session
 
 
-def find_all_by(cls, limit=200, marker=0, marker_column=None, **kwargs):
-    marker_column = marker_column or cls.id
+def find_all_by(cls, **kwargs):
     query = base_query(cls)
     if kwargs:
         query = query.filter_by(**kwargs)
-    return query.\
-           filter(marker_column > marker).\
+    return query
+
+
+def limits(cls, query, limit=200, marker=0, marker_column=None):
+    marker_column = marker_column or cls.id
+    return query.filter(marker_column > marker).\
            order_by(marker_column).\
            limit(limit)
 
@@ -50,17 +53,25 @@ def delete(model):
 
 
 def find_inside_globals_for(local_address_id, **kwargs):
-    kwargs["marker_column"] = _ip_nat().inside_global_address_id
+    marker_column = _ip_nat().inside_global_address_id
+    limit = kwargs.pop('limit', 200)
+    marker = kwargs.pop('marker', 0)
+
     kwargs["inside_local_address_id"] = local_address_id
-    query = find_all_by(_ip_nat(), **kwargs)
+    query = limits(_ip_nat(), find_all_by(_ip_nat(), **kwargs),
+                   limit, marker, marker_column)
 
     return [nat.inside_global_address for nat in query]
 
 
 def find_inside_locals_for(global_address_id, **kwargs):
-    kwargs["marker_column"] = _ip_nat().inside_local_address_id
+    marker_column = _ip_nat().inside_local_address_id
+    limit = kwargs.pop('limit', 200)
+    marker = kwargs.pop('marker', 0)
+
     kwargs["inside_global_address_id"] = global_address_id
-    query = find_all_by(_ip_nat(), **kwargs)
+    query = limits(_ip_nat(), find_all_by(_ip_nat(), **kwargs),
+                   limit, marker, marker_column)
 
     return [nat.inside_local_address for nat in query]
 

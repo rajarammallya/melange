@@ -64,7 +64,11 @@ class ModelBase(object):
 
     @classmethod
     def find_all(cls, **kwargs):
-        return db_api.find_all_by(cls, **kwargs).all()
+        return db_api.find_all_by(cls, **kwargs)
+
+    @classmethod
+    def with_limits(cls, query, **kwargs):
+        return db_api.limits(cls, query, **kwargs)
 
     def merge_attributes(self, values):
         """dict.update() behaviour."""
@@ -148,6 +152,10 @@ class IpBlock(ModelBase):
     @classmethod
     def allowed_by_policy(cls, ip_block, policy, address):
         return policy == None or policy.allows(ip_block.cidr, address)
+
+    def delete(self):
+        db_api.delete_all(IpAddress.find_all_by_ip_block(self.id))
+        super(IpBlock, self).delete()
 
     def policy(self):
         return Policy.find_by_id(self.policy_id)
@@ -242,6 +250,9 @@ class IpAddress(ModelBase):
     def delete_deallocated_addresses(self):
         return db_api.delete_deallocated_addresses()
 
+    def ip_block(self):
+        return IpBlock.find_by_id(self.ip_block_id)
+
     def add_inside_locals(self, ip_addresses):
         return db_api.save_nat_relationships([
             {"inside_global_address_id": self.id,
@@ -308,7 +319,7 @@ class Policy(ModelBase):
         return ip_range
 
     def _load_unusable_ip_ranges(self):
-        self._unusable_ip_ranges = IpRange.find_all_by_policy(self.id).all()
+        self._unusable_ip_ranges = IpRange.find_all_by_policy(self.id)
 
     def data_fields(self):
         return ['id', 'name']

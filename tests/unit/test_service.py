@@ -18,7 +18,7 @@ import json
 import os
 from webtest import TestApp
 
-from tests.unit import BaseTest
+from tests.unit import BaseTest, test_config_path
 from melange.common import config
 from melange.ipam import models
 from melange.ipam.models import IpBlock, IpAddress, Policy, IpRange
@@ -30,8 +30,7 @@ class TestController(BaseTest):
     def setUp(self):
         super(TestController, self).setUp()
         conf, melange_app = config.load_paste_app('melange',
-                {"config_file":
-                 os.path.abspath("../../etc/melange.conf.test")}, None)
+                {"config_file": test_config_path()}, None)
         self.app = TestApp(melange_app)
 
     def assertErrorResponse(self, response, expected_status,
@@ -633,7 +632,7 @@ class TestPoliciesController(TestController):
 
         self.assertEqual(response.status, "200 OK")
         response_policies = response.json['policies']
-        policies = Policy.find_all()
+        policies = Policy.find_all().all()
         self.assertEqual(len(policies), 2)
         self.assertEqual(response_policies, _data_of(*policies))
 

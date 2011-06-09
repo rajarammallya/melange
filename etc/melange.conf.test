@@ -5,8 +5,8 @@ verbose = False
 # Show debugging output in logs (sets DEBUG log level output)
 debug = False
 
-# Path to the extensions
-api_extensions_path = extensions
+[app:melange]
+paste.app_factory = melange.ipam.service:app_factory
 
 # Address to bind the API server
 bind_host = 0.0.0.0
@@ -28,14 +28,12 @@ sql_connection = sqlite:///melange_tests.sqlite
 # before MySQL can drop the connection.
 sql_idle_timeout = 3600
 
-[pipeline:extensions_app_with_filter]
-pipeline = extensions extensions_test_app
-
-[filter:extensions]
-paste.filter_factory = melange.common.extensions:ExtensionMiddleware.factory
 
 [app:extensions_test_app]
 paste.app_factory = tests.unit.test_extensions:app_factory
 
-[app:melange]
-paste.app_factory = melange.ipam.service:app_factory
+# Path to the extensions
+api_extensions_path = unit/extensions
+
+[filter:extensions]
+paste.filter_factory = melange.common.extensions:ExtensionMiddleware.factory

@@ -19,7 +19,7 @@ import routes
 
 from melange.common import wsgi
 from melange.ipam import models
-from melange.ipam.models import IpBlock, IpAddress, Policy
+from melange.ipam.models import IpBlock, IpAddress, Policy, IpRange
 from webob import Response
 from webob.exc import (HTTPUnprocessableEntity, HTTPBadRequest,
                        HTTPNotFound)
@@ -62,7 +62,8 @@ class BaseController(wsgi.Controller):
 class IpBlockController(BaseController):
 
     def index(self, request):
-        blocks = IpBlock.find_all(**self._extract_limits(request.params))
+        blocks = IpBlock.with_limits(IpBlock.find_all(),
+                                     **self._extract_limits(request.params))
         return self._json_response(dict(ip_blocks=[ip_block.data()
                                                    for ip_block in blocks]))
 
@@ -83,9 +84,10 @@ class IpBlockController(BaseController):
 class IpAddressController(BaseController):
 
     def index(self, request, ip_block_id):
-        addresses = IpAddress.\
-                    find_all_by_ip_block(ip_block_id,
-                                    **self._extract_limits(request.params))
+        find_all_query = IpAddress.find_all_by_ip_block(ip_block_id)
+        addresses = IpAddress.with_limits(find_all_query,
+                                       **self._extract_limits(request.params))
+
         return self._json_response(dict(ip_addresses=[ip_address.data()
                                    for ip_address in addresses]))
 
@@ -119,7 +121,7 @@ class InsideGlobalsController(BaseController):
     def index(self, request, ip_block_id, address):
         ip = IpBlock.find(ip_block_id).find_allocated_ip(address)
         return self._get_addresses(ip.inside_globals(
-                                    **self._extract_limits(request.params)))
+                                      **self._extract_limits(request.params)))
 
     def delete(self, request, ip_block_id, address,
                inside_global_address=None):
@@ -145,21 +147,6 @@ class InsideLocalsController(BaseController):
         global_ip.remove_inside_locals(inside_local_address)
 
 
-class PoliciesController(BaseController):
-
-    def index(self, request):
-        policies = Policy.find_all()
-        return self._json_response(body=dict(
-                policies=[policy.data() for policy in policies]))
-
-    def show(self, request, id):
-        return self._json_response(Policy.find(id).data())
-
-    def create(self, request):
-        policy = Policy.create(request.params)
-        return self._json_response(policy.data(), status=201)
-
-
 class UnusableIpRangesController(BaseController):
 
     def create(self, request, policy_id):
@@ -172,7 +159,9 @@ class UnusableIpRangesController(BaseController):
         return self._json_response(ip_range.data())
 
     def index(self, request, policy_id):
-        ip_ranges = Policy.find(policy_id).unusable_ip_ranges()
+        ip_range_all = Policy.find(policy_id).unusable_ip_ranges()
+        ip_ranges = IpRange.with_limits(ip_range_all,
+                                        **self._extract_limits(request.params))
         return self._json_response(body=dict(
                 ip_ranges=[ip_range.data() for ip_range in ip_ranges]))
 
@@ -189,7 +178,8 @@ class UnusableIpRangesController(BaseController):
 class PoliciesController(BaseController):
 
     def index(self, request):
-        policies = Policy.find_all()
+        policies = Policy.with_limits(Policy.find_all(),
+                                      **self._extract_limits(request.params))
         return self._json_response(body=dict(
                 policies=[policy.data() for policy in policies]))
 

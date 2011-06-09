@@ -28,11 +28,7 @@ sql_idle_timeout = 3600
 # Path to the extensions
 api_extensions_path = extensions
 
-[composite:melange]
-use = egg:Paste#urlmap
-/: melangeapi
-
-[pipeline:melangeapi]
+[pipeline:melange]
 pipeline = extensions melangeapp
 
 [filter:extensions]

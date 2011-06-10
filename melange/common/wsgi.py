@@ -20,24 +20,23 @@
 """
 Utility methods for working with WSGI servers
 """
-
+import datetime
 import json
 import logging
 import sys
-import datetime
-
-import eventlet
 import eventlet.wsgi
-eventlet.patcher.monkey_patch(all=False, socket=True)
-import routes
 import routes.middleware
-import webob
 import webob.dec
 import webob.exc
-from webob.exc import (HTTPUnprocessableEntity, HTTPBadRequest,
-                       HTTPInternalServerError, HTTPNotFound)
+from xml.dom import minidom
+from webob.exc import HTTPBadRequest, HTTPInternalServerError
 
-from melange.common.exception import MelangeError
+from webob import Response
+from melange.common.exception import MelangeError, InvalidContentType
+
+eventlet.patcher.monkey_patch(all=False, socket=True)
+
+LOG = logging.getLogger('melange.wsgi')
 
 
 class WritableLogger(object):
@@ -80,13 +79,13 @@ class Request(webob.Request):
     def get_content_type(self):
         allowed_types = ("application/xml", "application/json")
         if not "Content-Type" in self.headers:
-            msg = _("Missing Content-Type")
+            msg = "Missing Content-Type"
             LOG.debug(msg)
             raise webob.exc.HTTPBadRequest(msg)
         type = self.content_type
         if type in allowed_types:
             return type
-        LOG.debug(_("Wrong Content-Type: %s") % type)
+        LOG.debug("Wrong Content-Type: %s" % type)
         raise webob.exc.HTTPBadRequest("Invalid content type")
 
 
@@ -252,10 +251,10 @@ class Controller(object):
     or return a dict which will be serialized by requested content type.
     """
 
-    def __init__(self, http_exception_map):
+    def __init__(self, http_exception_map={}):
         self.model_exception_map = self._invert_dict_list(http_exception_map)
 
-    @webob.dec.wsgify
+    @webob.dec.wsgify(RequestClass=Request)
     def __call__(self, req):
         """
         Call the method specified in req.environ by RoutesMiddleware.
@@ -270,19 +269,17 @@ class Controller(object):
         result = self._execute_action(method, arg_dict)
 
         if type(result) is dict:
-            return self._serialize(result, req)
+            return Response(body=self._serialize(result, req),
+                            content_type=req.best_match_content_type())
         else:
             return result
 
     def _execute_action(self, method, arg_dict):
         try:
-
             return method(**arg_dict)
-
         except MelangeError as e:
             httpError = self._get_http_error(e)
             self.raiseHTTPError(httpError, e.message, arg_dict['request'])
-
         except Exception as e:
             logging.getLogger('eventlet.wsgi.server').exception(e)
             self.raiseHTTPError(HTTPInternalServerError, e.message,
@@ -302,7 +299,18 @@ class Controller(object):
         """
         _metadata = getattr(type(self), "_serialization_metadata", {})
         serializer = Serializer(request.environ, _metadata)
-        return serializer.to_content_type(data)
+        return serializer.serialize(data, request.best_match_content_type())
+
+    def _deserialize(self, data, content_type):
+        """Deserialize the request body to the specefied content type.
+
+        Uses self._serialization_metadata if it exists, which is a dict mapping
+        MIME types to information needed to serialize to that type.
+
+        """
+        _metadata = getattr(type(self), '_serialization_metadata', {})
+        serializer = Serializer(_metadata)
+        return serializer.deserialize(data, content_type)
 
     def _invert_dict_list(self, exception_dict):
         """
@@ -333,17 +341,13 @@ class Serializer(object):
             'application/json': self._to_json,
             'application/xml': self._to_xml}
 
-    def to_content_type(self, data):
+    def serialize(self, data, content_type):
         """
         Serialize a dictionary into a string.  The format of the string
         will be decided based on the Content Type requested in self.environ:
         by Accept: header, or by URL suffix.
         """
-        # FIXME(sirp): for now, supporting json only
-        #mimetype = 'application/xml'
-        mimetype = 'application/json'
-        # TODO(gundlach): determine mimetype from request
-        return self._methods.get(mimetype, repr)(data)
+        return self._methods.get(content_type, repr)(data)
 
     def _to_json(self, data):
         def sanitizer(obj):
@@ -357,7 +361,6 @@ class Serializer(object):
         metadata = self.metadata.get('application/xml', {})
         # We expect data to contain a single key which is the XML root.
         root_key = data.keys()[0]
-        from xml.dom import minidom
         doc = minidom.Document()
         node = self._to_xml_node(doc, metadata, root_key, data[root_key])
         return node.toprettyxml(indent='    ')
@@ -387,3 +390,52 @@ class Serializer(object):
             node = doc.createTextNode(str(data))
             result.appendChild(node)
         return result
+
+    def deserialize(self, datastring, content_type):
+        """Deserialize a string to a dictionary.
+
+        The string must be in the format of a supported MIME type.
+
+        """
+        return self.get_deserialize_handler(content_type)(datastring)
+
+    def get_deserialize_handler(self, content_type):
+        handlers = {
+            'application/json': self._from_json,
+            'application/xml': self._from_xml,
+        }
+
+        try:
+            return handlers[content_type]
+        except Exception:
+            raise InvalidContentType(content_type=content_type)
+
+    def _from_json(self, datastring):
+        return json.loads(datastring)
+
+    def _from_xml(self, datastring):
+        xmldata = self.metadata.get('application/xml', {})
+        plurals = set(xmldata.get('plurals', {}))
+        node = minidom.parseString(datastring).childNodes[0]
+        return {node.nodeName: self._from_xml_node(node, plurals)}
+
+    def _from_xml_node(self, node, listnames):
+        """Convert a minidom node to a simple Python type.
+
+        listnames is a collection of names of XML nodes whose subnodes should
+        be considered list items.
+
+        """
+        if len(node.childNodes) == 1 and node.childNodes[0].nodeType == 3:
+            return node.childNodes[0].nodeValue
+        elif node.nodeName in listnames:
+            return [self._from_xml_node(n, listnames) for n in node.childNodes]
+        else:
+            result = dict()
+            for attr in node.attributes.keys():
+                result[attr] = node.attributes[attr].nodeValue
+            for child in node.childNodes:
+                if child.nodeType != node.TEXT_NODE:
+                    result[child.nodeName] = self._from_xml_node(child,
+                                                                 listnames)
+            return result

@@ -32,7 +32,7 @@ class VersionsController(wsgi.Controller):
                 }
             }
         }
-    
+
     def index(self, request):
         """Respond to a request for all OpenStack API versions."""
         versions = [Version("v0.1", "CURRENT", request.application_url).data(),
@@ -55,6 +55,7 @@ class Version(object):
 
     def url(self):
         return os.path.join(self.base_url, self.id)
+
 
 class VersionsAPI(wsgi.Router):
     def __init__(self, options={}):

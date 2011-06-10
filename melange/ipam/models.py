@@ -318,7 +318,15 @@ class Policy(ModelBase):
             self._load_unusable_ip_ranges()
         return self._unusable_ip_ranges
 
+    def unusable_last_ip_octets(self):
+        if not hasattr(self, '_unusable_last_ip_octets'):
+            self._load_unusable_last_ip_octets()
+        return self._unusable_last_ip_octets
+
     def allows(self, cidr, address):
+        if (any(last_ip_octet.applies_to(address)
+                       for last_ip_octet in self.unusable_last_ip_octets())):
+            return False
         return not any(ip_range.contains(cidr, address)
                        for ip_range in self.unusable_ip_ranges())
 
@@ -330,6 +338,9 @@ class Policy(ModelBase):
 
     def _load_unusable_ip_ranges(self):
         self._unusable_ip_ranges = IpRange.find_all_by_policy(self.id)
+
+    def _load_unusable_last_ip_octets(self):
+        self._unusable_last_ip_octets = IpOctet.find_all_by_policy(self.id)
 
     def data_fields(self):
         return ['id', 'name']

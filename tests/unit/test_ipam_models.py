@@ -449,6 +449,16 @@ class TestPolicy(BaseTest):
         self.assertEqual(policy.name, "new policy")
         self.assertEqual(policy.description, "desc")
 
+    def test_allows_address_not_in_last_ip_octets(self):
+        policy = Policy.create({'name': "blah"})
+        ip_octet1 = IpOctetFactory(octet=123, policy_id=policy.id)
+        ip_octet2 = IpOctetFactory(octet=124, policy_id=policy.id)
+
+        self.assertFalse(policy.allows("10.0.0.0/29", "10.0.0.123"))
+        self.assertTrue(policy.allows("10.0.0.0/29", "10.0.0.1"))
+        self.assertFalse(policy.allows("10.0.0.0/29", "10.0.0.124"))
+        self.assertTrue(policy.allows("10.0.0.0/29", "10.124.123.6"))
+
     def test_allows_addresses_not_in_ip_range(self):
         policy = Policy.create({'name': "blah"})
         IpRange.create({'offset': 0, 'length': 2, 'policy_id': policy.id})
@@ -468,6 +478,14 @@ class TestPolicy(BaseTest):
 
         self.assertEqual(policy.unusable_ip_ranges().all(),
                          [ip_range1, ip_range2])
+
+    def test_unusable_last_ip_octets_for_policy(self):
+        policy = Policy.create({'name': "blah"})
+        ip_octet1 = IpOctetFactory(octet=123, policy_id=policy.id)
+        ip_octet2 = IpOctetFactory(octet=124, policy_id=policy.id)
+
+        self.assertEqual(policy.unusable_last_ip_octets().all(),
+                         [ip_octet1, ip_octet2])
 
     def test_data(self):
         policy_data = {'name': 'Infrastructure'}

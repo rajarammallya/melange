@@ -296,6 +296,10 @@ class Policy(ModelBase):
     def find_by_name(cls, name):
         return db_api.find_by(Policy, name=name)
 
+    def delete(self):
+        db_api.delete_all(IpRange.find_all_by_policy(self.id))
+        super(Policy, self).delete()
+
     def create_unusable_range(self, attributes):
         attributes['policy_id'] = self.id
         ip_range = IpRange.create(attributes)

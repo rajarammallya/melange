@@ -22,7 +22,8 @@ from melange.ipam.models import IpBlock, IpAddress, Policy, IpRange
 from melange.ipam import models
 from melange.db import session
 from melange.db import api as db_api
-from tests.unit.factories.models import IpBlockFactory, IpAddressFactory
+from tests.unit.factories.models import (IpBlockFactory, IpAddressFactory,
+                                         PolicyFactory, IpRangeFactory)
 
 
 class TestIpBlock(BaseTest):
@@ -263,7 +264,7 @@ class TestIpAddress(unittest.TestCase):
         ip.delete()
 
         self.assertEqual(db_api.find(IpAddress, ip.id), None)
-        deleted_ip = session.raw_query(IpAddress).get(ip.id)
+        deleted_ip = session.raw_query(IpAddress).filter_by(id=ip.id).first()
         self.assertTrue(deleted_ip.deleted)
 
     def test_add_inside_locals(self):
@@ -499,12 +500,17 @@ class TestPolicy(BaseTest):
         self.assertEqual(ip_range.offset, 1)
         self.assertEqual(ip_range.length, 2)
 
-    def test_unusable_ip_ranges_include_newly_created_ip_ranges(self):
-        policy = Policy.create({'name': "BLAH"})
-        policy.unusable_ip_ranges()
-        ip_range = policy.create_unusable_range({'offset': 1, 'length': 2})
+    def test_delete_to_cascade_delete_ip_ranges(self):
+        policy = PolicyFactory(name="Blah")
+        ip_range1 = IpRangeFactory(offset=1, length=2, policy_id=policy.id)
+        ip_range2 = IpRangeFactory(offset=4, length=2, policy_id=policy.id)
+        noise_ip_range = IpRangeFactory()
 
-        self.assertTrue(ip_range in policy.unusable_ip_ranges())
+        self.assertEqual(IpRange.find_all_by_policy(policy.id).all(),
+                         [ip_range1, ip_range2])
+        policy.delete()
+        self.assertTrue(len(IpRange.find_all_by_policy(policy.id).all()) is 0)
+        self.assertTrue(IpRange.find(noise_ip_range.id) is not None)
 
 
 class TestIpRange(BaseTest):

@@ -493,41 +493,6 @@ class TestInsideLocalsController(TestController):
                                  "IpAddress Not Found")
 
 
-class TestPoliciesController(TestController):
-
-    def test_create(self):
-        response = self.app.post("/ipam/policies", {'name': "ServiceNet"})
-
-        self.assertEqual(response.status, "201 Created")
-        self.assertEqual(response.json['name'], "ServiceNet")
-
-    def test_index(self):
-        PolicyFactory(name="publicNet")
-        PolicyFactory(name="DedicatedServiceNet")
-
-        response = self.app.get("/ipam/policies")
-
-        self.assertEqual(response.status, "200 OK")
-        response_policies = response.json['policies']
-        policies = Policy.find_all()
-        self.assertEqual(len(policies), 2)
-        self.assertEqual(response_policies, _data_of(*policies))
-
-    def test_show_when_requested_policy_exists(self):
-        policy = PolicyFactory()
-
-        response = self.app.get("/ipam/policies/%s" % policy.id)
-
-        self.assertEqual(response.status, "200 OK")
-        self.assertEqual(response.json, policy.data())
-
-    def test_show_when_requested_policy_does_not_exist(self):
-        response = self.app.get("/ipam/policies/invalid_id", status="*")
-
-        self.assertErrorResponse(response, "404 Not Found",
-                                 "Policy Not Found")
-
-
 class TestUnusableIpRangesController(TestController):
 
     def test_create(self):
@@ -669,6 +634,12 @@ class TestPoliciesController(TestController):
 
         self.assertErrorResponse(response, "404 Not Found",
                                  "Policy Not Found")
+
+    def test_delete(self):
+        policy = PolicyFactory()
+        response = self.app.delete("/ipam/policies/%s" % policy.id)
+
+        self.assertEqual(response.status, "200 OK")
 
 
 def _allocate_ips(*args):

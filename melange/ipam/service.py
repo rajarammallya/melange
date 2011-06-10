@@ -195,6 +195,10 @@ class PoliciesController(BaseController):
         policy.update(request.params)
         return self._json_response(policy.data())
 
+    def delete(self, request, id):
+        policy = Policy.find(id)
+        policy.delete()
+
 
 class API(wsgi.Router):
     def __init__(self, options={}):

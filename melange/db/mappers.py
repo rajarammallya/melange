@@ -30,6 +30,7 @@ def map(engine, models):
     ip_addresses_table = Table('ip_addresses', meta, autoload=True)
     policies_table = Table('policies', meta, autoload=True)
     ip_ranges_table = Table('ip_ranges', meta, autoload=True)
+    ip_octets_table = Table('ip_octets', meta, autoload=True)
 
     mapper(models["IpBlock"], Table('ip_blocks', meta, autoload=True),
            properties={'ip_addresses': relation(models["IpAddress"],
@@ -37,6 +38,7 @@ def map(engine, models):
     mapper(models["IpAddress"], ip_addresses_table)
     mapper(models["Policy"], policies_table)
     mapper(models["IpRange"], ip_ranges_table)
+    mapper(models["IpOctet"], ip_octets_table)
     mapper(IpNat, ip_nats_table,
            properties={'inside_global_address':
                        relation(models["IpAddress"],

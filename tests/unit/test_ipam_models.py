@@ -18,12 +18,14 @@
 import unittest
 from tests.unit import BaseTest
 
-from melange.ipam.models import IpBlock, IpAddress, Policy, IpRange
+from melange.ipam.models import (IpBlock, IpAddress, Policy, IpRange,
+                                 IpOctet)
 from melange.ipam import models
 from melange.db import session
 from melange.db import api as db_api
 from tests.unit.factories.models import (IpBlockFactory, IpAddressFactory,
-                                         PolicyFactory, IpRangeFactory)
+                                         PolicyFactory, IpRangeFactory,
+                                         IpOctetFactory)
 
 
 class TestIpBlock(BaseTest):
@@ -588,3 +590,22 @@ class TestIpRange(BaseTest):
         self.assertTrue(ip_range1.contains("10.0.0.0/29", "10.0.0.5"))
         self.assertFalse(ip_range1.contains("10.0.0.0/29", "10.0.0.7"))
         self.assertTrue(ip_range2.contains("10.0.0.0/29", "10.0.0.7"))
+
+
+class TestIpOctet(BaseTest):
+
+    def test_find_all_by_policy(self):
+        policy1 = Policy.create({'name': 'blah'})
+        policy2 = Policy.create({'name': 'blah'})
+        ip_octet1 = IpOctetFactory(octet=123, policy_id=policy1.id)
+        ip_octet2 = IpOctetFactory(octet=123, policy_id=policy1.id)
+        noise_ip_octet = IpOctetFactory(octet=123, policy_id=policy2.id)
+
+        self.assertEqual(IpOctet.find_all_by_policy(policy1.id).all(),
+                         [ip_octet1, ip_octet2])
+
+    def test_applies_to_is_true_if_address_last_octet_matches(self):
+        ip_octet = IpOctetFactory(octet=123)
+        self.assertTrue(ip_octet.applies_to("10.0.0.123"))
+        self.assertTrue(ip_octet.applies_to("192.168.0.123"))
+        self.assertFalse(ip_octet.applies_to("123.0.0.124"))

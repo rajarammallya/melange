@@ -33,6 +33,10 @@ class IpRangeFactory(factory.Factory):
     length = 1
 
 
+class IpOctetFactory(factory.Factory):
+    octet = 0
+
+
 class PolicyFactory(factory.Factory):
     name = 'default policy'
 

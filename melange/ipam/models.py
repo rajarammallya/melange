@@ -354,9 +354,19 @@ class IpRange(ModelBase):
         self._validate_positive_integer('length')
 
 
+class IpOctet(ModelBase):
+
+    @classmethod
+    def find_all_by_policy(cls, policy_id):
+        return db_api.find_all_by(cls, policy_id=policy_id)
+
+    def applies_to(self, address):
+        return self.octet == IPAddress(address).words[-1]
+
+
 def models():
     return {'IpBlock': IpBlock, 'IpAddress': IpAddress, 'Policy': Policy,
-            'IpRange': IpRange}
+            'IpRange': IpRange, 'IpOctet': IpOctet}
 
 
 class NoMoreAddressesError(MelangeError):

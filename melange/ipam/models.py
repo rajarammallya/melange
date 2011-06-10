@@ -150,6 +150,10 @@ class IpBlock(ModelBase):
         return (allocated_ip or block.allocate_ip(address=address))
 
     @classmethod
+    def find_all_by_policy(cls, policy_id):
+        return db_api.find_all_by(cls, policy_id=policy_id)
+
+    @classmethod
     def allowed_by_policy(cls, ip_block, policy, address):
         return policy == None or policy.allows(ip_block.cidr, address)
 
@@ -298,6 +302,8 @@ class Policy(ModelBase):
 
     def delete(self):
         db_api.delete_all(IpRange.find_all_by_policy(self.id))
+        ip_blocks = IpBlock.find_all_by_policy(self.id)
+        ip_blocks.update({'policy_id': None})
         super(Policy, self).delete()
 
     def create_unusable_range(self, attributes):

@@ -90,6 +90,14 @@ class TestIpBlock(BaseTest):
         self.assertRaises(models.ModelNotFoundError, block.find_allocated_ip,
                          '10.0.0.1')
 
+    def test_find_all_by_policy(self):
+        policy = PolicyFactory()
+        ip_block1 = IpBlockFactory(cidr="10.0.0.0/29", policy_id=policy.id)
+        ip_block2 = IpBlockFactory(cidr="192.168.0.0/29", policy_id=policy.id)
+
+        self.assertEqual(IpBlock.find_all_by_policy(policy.id).all(),
+                         [ip_block1, ip_block2])
+
     def test_policy(self):
         policy = Policy.create({'name': "Some Policy"})
         ip_block = IpBlock.create({'cidr': "10.0.0.0/29",
@@ -511,6 +519,15 @@ class TestPolicy(BaseTest):
         policy.delete()
         self.assertTrue(len(IpRange.find_all_by_policy(policy.id).all()) is 0)
         self.assertTrue(IpRange.find(noise_ip_range.id) is not None)
+
+    def test_delete_to_update_associated_ip_blocks_policy(self):
+        policy = PolicyFactory(name="Blah")
+        ip_block = IpBlockFactory(policy_id=policy.id)
+        noise_ip_block = IpBlockFactory(policy_id=PolicyFactory().id)
+
+        policy.delete()
+        self.assertTrue(IpBlock.find(ip_block.id).policy_id is None)
+        self.assertTrue(IpBlock.find(noise_ip_block.id).policy_id is not None)
 
 
 class TestIpRange(BaseTest):

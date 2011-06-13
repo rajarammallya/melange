@@ -341,7 +341,7 @@ class TestInsideGlobalsController(TestController):
         local_ip = local_block.allocate_ip()
         local_ip.add_inside_globals(global_ips)
 
-        response = self.app.delete("/ipam/ip_blocks/%s/ip_addresses/%s/"
+        self.app.delete("/ipam/ip_blocks/%s/ip_addresses/%s/"
                                  "inside_globals/%s"
                                    % (local_block.id, local_ip.address,
                                       global_ips[1].address))
@@ -452,7 +452,7 @@ class TestInsideLocalsController(TestController):
         global_ip = global_block.allocate_ip()
         global_ip.add_inside_locals(local_ips)
 
-        response = self.app.delete("/ipam/ip_blocks/%s/ip_addresses/%s/"
+        self.app.delete("/ipam/ip_blocks/%s/ip_addresses/%s/"
                                  "inside_locals/%s"
                                    % (global_block.id, global_ip.address,
                                       local_ips[1].address))

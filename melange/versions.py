@@ -27,7 +27,7 @@ class VersionsController(wsgi.Controller):
     _serialization_metadata = {
             "application/xml": {
                 "attributes": {
-                    "version": ["status", "id"],
+                    "version": ["status", "name"],
                     "link": ["rel", "href"],
                 }
             }
@@ -35,26 +35,25 @@ class VersionsController(wsgi.Controller):
 
     def index(self, request):
         """Respond to a request for all OpenStack API versions."""
-        versions = [Version("v0.1", "CURRENT", request.application_url).data(),
-                    Version("v1.0", "FUTURE", request.application_url).data()]
+        versions = [Version("v0.1", "CURRENT", request.application_url).data()]
         return dict(versions=versions)
 
 
 class Version(object):
 
-    def __init__(self, id, status, base_url):
-        self.id = id
+    def __init__(self, name, status, base_url):
+        self.name = name
         self.status = status
         self.base_url = base_url
 
     def data(self):
-        return dict(id=self.id,
+        return dict(name=self.name,
                     status=self.status,
                     links=[dict(rel="self",
                                 href=self.url())])
 
     def url(self):
-        return os.path.join(self.base_url, self.id)
+        return os.path.join(self.base_url, self.name)
 
 
 class VersionsAPI(wsgi.Router):

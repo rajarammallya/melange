@@ -57,7 +57,6 @@ if __name__ == '__main__':
 
     try:
         conf, app = config.load_paste_app('melange', options, args)
-
         #TODO move migration to a melange-manage script
         migration.db_sync(conf)
         conf["models"] = models()

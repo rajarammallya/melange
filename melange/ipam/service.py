@@ -292,7 +292,6 @@ class API(wsgi.Router):
                         controller=UnusableIpOctetsController(),
                         parent_resource=dict(member_name="policy",
                                            collection_name="/ipam/policies"))
-        mapper.connect("/", controller=ip_block_controller, action="version")
         super(API, self).__init__(mapper)
 
 

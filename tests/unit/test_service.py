@@ -15,19 +15,21 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 import json
+import os
 from webtest import TestApp
 
 from tests.unit import BaseTest, test_config_path
 from melange.common import config
 from melange.ipam import models
-from melange.ipam.models import IpBlock, IpAddress, Policy, IpRange
-from tests.unit.factories.models import IpRangeFactory, PolicyFactory
+from melange.ipam.models import IpBlock, IpAddress, Policy, IpRange, IpOctet
+from tests.unit.factories.models import (IpRangeFactory, PolicyFactory,
+                                         IpOctetFactory)
 
 
-class BaseTestController(BaseTest):
+class TestController(BaseTest):
 
     def setUp(self):
-        super(BaseTestController, self).setUp()
+        super(TestController, self).setUp()
         conf, melange_app = config.load_paste_app('melange',
                 {"config_file": test_config_path()}, None)
         self.app = TestApp(melange_app)
@@ -38,24 +40,16 @@ class BaseTestController(BaseTest):
         self.assertTrue(expected_error in response.body)
 
 
-class TestIpBlockController(BaseTestController):
+class TestIpBlockController(TestController):
 
     def test_create(self):
-        response = self.app.post("/ipam/ip_blocks.json",
+        response = self.app.post("/ipam/ip_blocks",
                                  {'network_id': "300", 'cidr': "10.1.1.0/2"})
 
         self.assertEqual(response.status, "201 Created")
         saved_block = IpBlock.find_by_network_id("300")
         self.assertEqual(saved_block.cidr, "10.1.1.0/2")
-        self.assertEqual(response.json, dict(ip_block=saved_block.data()))
-
-    def test_create_returns_xml(self):
-        response = self.app.post("/ipam/ip_blocks.xml",
-                                 {'network_id': "300", 'cidr': "10.1.1.0/2"})
-
-        self.assertEqual(response.xml.tag, 'ip_block')
-        self.assertEqual(response.xml[0].tag, 'network_id')
-        self.assertTrue("300" in response.xml[0].text)
+        self.assertEqual(response.json, saved_block.data())
 
     def test_cannot_create_duplicate_public_cidr(self):
         self.app.post("/ipam/ip_blocks",
@@ -83,7 +77,7 @@ class TestIpBlockController(BaseTestController):
         response = self.app.get("/ipam/ip_blocks/%s" % block.id)
 
         self.assertEqual(response.status, "200 OK")
-        self.assertEqual(response.json, dict(ip_block=block.data()))
+        self.assertEqual(response.json, block.data())
 
     def test_delete(self):
         block = IpBlock.create({'network_id': "301", 'cidr': "10.1.1.0/2"})
@@ -113,7 +107,7 @@ class TestIpBlockController(BaseTestController):
         self.assertEqual(response_blocks, _data_of(blocks[2], blocks[3]))
 
 
-class TestIpAddressController(BaseTestController):
+class TestIpAddressController(TestController):
 
     def test_create(self):
         block = IpBlock.create({'network_id': "301", 'cidr': "10.1.1.0/28"})
@@ -122,8 +116,7 @@ class TestIpAddressController(BaseTestController):
         self.assertEqual(response.status, "201 Created")
         allocated_address = IpAddress.find_all_by_ip_block(block.id).first()
         self.assertEqual(allocated_address.address, "10.1.1.0")
-        self.assertEqual(response.json,
-                         dict(ip_address=allocated_address.data()))
+        self.assertEqual(response.json, allocated_address.data())
 
     def test_create_with_given_address(self):
         block = IpBlock.create({'network_id': "301", 'cidr': "10.1.1.0/28"})
@@ -182,7 +175,7 @@ class TestIpAddressController(BaseTestController):
                                 (block_1.id, ip.address))
 
         self.assertEqual(response.status, "200 OK")
-        self.assertEqual(response.json, dict(ip_address=ip.data()))
+        self.assertEqual(response.json, ip.data())
 
     def test_show_fails_for_nonexistent_address(self):
         block = IpBlock.create({'network_id': "301", 'cidr': "10.1.1.0/28"})
@@ -252,7 +245,7 @@ class TestIpAddressController(BaseTestController):
         self.assertEqual(ip_addresses, [ip.address for ip in ips])
 
 
-class TestInsideGlobalsController(BaseTestController):
+class TestInsideGlobalsController(TestController):
 
     def test_index(self):
         local_block, global_block_1, global_block_2 =\
@@ -376,7 +369,7 @@ class TestInsideGlobalsController(BaseTestController):
                                      "IpAddress Not Found")
 
 
-class TestInsideLocalsController(BaseTestController):
+class TestInsideLocalsController(TestController):
 
     def test_index(self):
         global_block, local_block = _create_blocks("192.1.1.1/8",
@@ -501,7 +494,7 @@ class TestInsideLocalsController(BaseTestController):
                                  "IpAddress Not Found")
 
 
-class TestUnusableIpRangesController(BaseTestController):
+class TestUnusableIpRangesController(TestController):
 
     def test_create(self):
         policy = PolicyFactory()
@@ -511,7 +504,7 @@ class TestUnusableIpRangesController(BaseTestController):
 
         unusable_range = IpRange.find_all_by_policy(policy.id).first()
         self.assertEqual(response.status, "201 Created")
-        self.assertEqual(response.json, dict(ip_range=unusable_range.data()))
+        self.assertEqual(response.json, unusable_range.data())
 
     def test_create_on_non_existent_policy(self):
         response = self.app.post("/ipam/policies/10000/unusable_ip_ranges"
@@ -528,7 +521,7 @@ class TestUnusableIpRangesController(BaseTestController):
                                  % (policy.id, ip_range.id))
 
         self.assertEqual(response.status_int, 200)
-        self.assertEqual(response.json, dict(ip_range=ip_range.data()))
+        self.assertEqual(response.json, ip_range.data())
 
     def test_show_when_ip_range_does_not_exists(self):
         policy = PolicyFactory()
@@ -552,7 +545,7 @@ class TestUnusableIpRangesController(BaseTestController):
         updated_range = IpRange.find(ip_range.id)
         self.assertEqual(updated_range.offset, 1111)
         self.assertEqual(updated_range.length, 2222)
-        self.assertEqual(response.json, dict(ip_range=updated_range.data()))
+        self.assertEqual(response.json, updated_range.data())
 
     def test_update_when_ip_range_does_not_exists(self):
         policy = PolicyFactory()
@@ -589,13 +582,109 @@ class TestUnusableIpRangesController(BaseTestController):
                           policy.find_ip_range, ip_range_id=ip_range.id)
 
 
-class TestPoliciesController(BaseTestController):
+class TestUnusableIpOctetsController(TestController):
+
+    def test_index(self):
+        policy = PolicyFactory()
+        for i in range(0, 3):
+            IpOctetFactory(policy_id=policy.id)
+
+        response = self.app.get("/ipam/policies/%s/unusable_ip_octets"
+                                 % policy.id)
+
+        response_octets = response.json["ip_octets"]
+        self.assertEqual(len(response_octets), 3)
+        self.assertEqual(response_octets,
+                         _data_of(*policy.unusable_ip_octets()))
+
+    def test_index_with_limits(self):
+        policy = PolicyFactory()
+        for i in range(0, 3):
+            IpOctetFactory(policy_id=policy.id)
+
+        response = self.app.get("/ipam/policies/%s/unusable_ip_octets"
+                                 % policy.id, {'limit': 2})
+
+        response_octets = response.json["ip_octets"]
+        self.assertEqual(len(response_octets), 2)
+
+    def test_create(self):
+        policy = PolicyFactory()
+        response = self.app.post("/ipam/policies/%s/unusable_ip_octets"
+                                 % policy.id, {'octet': '123'})
+
+        ip_octet = IpOctet.find_all_by_policy(policy.id).first()
+        self.assertEqual(response.status, "201 Created")
+        self.assertEqual(response.json, ip_octet.data())
+
+    def test_create_on_non_existent_policy(self):
+        response = self.app.post("/ipam/policies/10000/unusable_ip_octets"
+                                 % {'octet': '2'}, status="*")
+
+        self.assertErrorResponse(response, "404 Not Found",
+                                 "Policy Not Found")
+
+    def test_show(self):
+        policy = PolicyFactory()
+        ip_octet = IpOctetFactory(policy_id=policy.id)
+
+        response = self.app.get("/ipam/policies/%s/unusable_ip_octets/%s"
+                                 % (policy.id, ip_octet.id))
+
+        self.assertEqual(response.status_int, 200)
+        self.assertEqual(response.json, ip_octet.data())
+
+    def test_show_when_ip_octet_does_not_exists(self):
+        policy = PolicyFactory()
+
+        response = self.app.get("/ipam/policies/%s/unusable_ip_octets/%s"
+                                 % (policy.id, 1000000), status="*")
+
+        self.assertErrorResponse(response, "404 Not Found",
+                                  "Can't find IpOctet for policy")
+
+    def test_update(self):
+        policy = PolicyFactory()
+        ip_octet = IpOctetFactory.create(octet=10, policy_id=policy.id)
+
+        response = self.app.put("/ipam/policies/%s/unusable_ip_octets/%s"
+                                % (policy.id, ip_octet.id),
+                                {'octet': 123})
+
+        self.assertEqual(response.status_int, 200)
+        updated_octet = IpOctet.find(ip_octet.id)
+        self.assertEqual(updated_octet.octet, 123)
+        self.assertEqual(response.json, updated_octet.data())
+
+    def test_update_when_ip_octet_does_not_exists(self):
+        policy = PolicyFactory()
+
+        response = self.app.put("/ipam/policies/%s/unusable_ip_octets/%s"
+                                 % (policy.id, "invalid_id"),
+                                 {'octet': 222}, status="*")
+
+        self.assertErrorResponse(response, "404 Not Found",
+                                  "Can't find IpOctet for policy")
+
+    def test_delete(self):
+        policy = PolicyFactory()
+        ip_octet = IpOctetFactory(policy_id=policy.id)
+
+        response = self.app.delete("/ipam/policies/%s/unusable_ip_octets/%s"
+                                 % (policy.id, ip_octet.id))
+
+        self.assertEqual(response.status_int, 200)
+        self.assertRaises(models.ModelNotFoundError,
+                          policy.find_ip_octet, ip_octet_id=ip_octet.id)
+
+
+class TestPoliciesController(TestController):
 
     def test_create(self):
         response = self.app.post("/ipam/policies", {'name': "infrastructure"})
 
         self.assertEqual(response.status, "201 Created")
-        self.assertEqual(response.json['policy']['name'], "infrastructure")
+        self.assertEqual(response.json['name'], "infrastructure")
 
     def test_index(self):
         Policy.create({'name': "infrastructure"})
@@ -615,7 +704,7 @@ class TestPoliciesController(BaseTestController):
         response = self.app.get("/ipam/policies/%s" % policy.id)
 
         self.assertEqual(response.status, "200 OK")
-        self.assertEqual(response.json, dict(policy=policy.data()))
+        self.assertEqual(response.json, policy.data())
 
     def test_show_when_requested_policy_does_not_exist(self):
         response = self.app.get("/ipam/policies/invalid_id", status="*")
@@ -634,7 +723,7 @@ class TestPoliciesController(BaseTestController):
         updated_policy = Policy.find(policy.id)
         self.assertEqual(updated_policy.name, "Updated Name")
         self.assertEqual(updated_policy.description, "Updated Des")
-        self.assertEqual(response.json, dict(policy=updated_policy.data()))
+        self.assertEqual(response.json, updated_policy.data())
 
     def test_update_fails_for_invalid_policy_id(self):
         response = self.app.put("/ipam/policies/invalid",

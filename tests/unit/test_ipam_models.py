@@ -561,6 +561,23 @@ class TestIpRange(BaseTest):
         self.assertEqual(ip_range.offset, 3)
         self.assertEqual(ip_range.length, 10)
 
+    def test_before_save_converts_offset_and_length_to_integer(self):
+        ip_range = IpRange.create({'offset': "10", 'length': "11"})
+
+        self.assertEqual(ip_range.offset, 10)
+        self.assertEqual(ip_range.length, 11)
+
+    def test_data(self):
+        policy = PolicyFactory()
+        ip_range = IpRangeFactory(offset=10, length=3, policy_id=policy.id)
+
+        data = ip_range.data()
+
+        self.assertEqual(data['id'], ip_range.id)
+        self.assertEqual(data['offset'], 10)
+        self.assertEqual(data['length'], 3)
+        self.assertEqual(data['policy_id'], policy.id)
+
     def test_find_all_by_policy(self):
         policy1 = Policy.create({'name': 'blah'})
         policy2 = Policy.create({'name': 'blah'})
@@ -611,6 +628,19 @@ class TestIpRange(BaseTest):
 
 
 class TestIpOctet(BaseTest):
+
+    def test_before_save_converts_octet_to_integer(self):
+        ip_octet = IpOctetFactory(octet="123")
+        self.assertEqual(ip_octet.octet, 123)
+
+    def test_data(self):
+        policy = PolicyFactory()
+        ip_octet = IpOctetFactory(policy_id=policy.id, octet=123)
+
+        data = ip_octet.data()
+        self.assertEqual(data['id'], ip_octet.id)
+        self.assertEqual(data['octet'], 123)
+        self.assertEqual(data['policy_id'], policy.id)
 
     def test_find_all_by_policy(self):
         policy1 = Policy.create({'name': 'blah'})

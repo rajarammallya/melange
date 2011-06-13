@@ -21,7 +21,7 @@ from webtest import TestApp
 from tests.unit import BaseTest, test_config_path
 from melange.common import config
 from melange.ipam import models
-from melange.ipam.models import IpBlock, IpAddress, Policy, IpRange
+from melange.ipam.models import IpBlock, IpAddress, Policy, IpRange, IpOctet
 from tests.unit.factories.models import IpRangeFactory, PolicyFactory
 
 
@@ -579,6 +579,18 @@ class TestUnusableIpRangesController(TestController):
         self.assertEqual(response.status_int, 200)
         self.assertRaises(models.ModelNotFoundError,
                           policy.find_ip_range, ip_range_id=ip_range.id)
+
+
+class TestUnusableLastOctetsController(TestController):
+
+    def test_create(self):
+        policy = PolicyFactory()
+        response = self.app.post("/ipam/policies/%s/unusable_last_octets"
+                                 % policy.id, {'octet': '123'})
+
+        ip_octet = IpOctet.find_all_by_policy(policy.id).first()
+        self.assertEqual(response.status, "201 Created")
+        self.assertEqual(response.json, ip_octet.data())
 
 
 class TestPoliciesController(TestController):

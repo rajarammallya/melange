@@ -70,7 +70,7 @@ def bool_from_string(subject):
 def parse_int(subject):
     try:
         return int(subject)
-    except ValueError:
+    except (ValueError, TypeError):
         return None
 
 

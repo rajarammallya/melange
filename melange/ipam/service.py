@@ -175,6 +175,14 @@ class UnusableIpRangesController(BaseController):
         ip_range.delete()
 
 
+class UnusableLastOctetsController(BaseController):
+
+    def create(self, request, policy_id):
+        policy = Policy.find(policy_id)
+        ip_octet = policy.create_unusable_last_ip_octet(request.params.copy())
+        return self._json_response(ip_octet.data(), status=201)
+
+
 class PoliciesController(BaseController):
 
     def index(self, request):
@@ -257,6 +265,10 @@ class API(wsgi.Router):
                                            collection_name="/ipam/ip_blocks"))
         mapper.resource("unusable_ip_range", "unusable_ip_ranges",
                         controller=UnusableIpRangesController(),
+                        parent_resource=dict(member_name="policy",
+                                           collection_name="/ipam/policies"))
+        mapper.resource("unusable_last_octet", "unusable_last_octets",
+                        controller=UnusableLastOctetsController(),
                         parent_resource=dict(member_name="policy",
                                            collection_name="/ipam/policies"))
         mapper.connect("/", controller=ip_block_controller, action="version")

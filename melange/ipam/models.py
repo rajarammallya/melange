@@ -27,14 +27,21 @@ from melange.common.utils import parse_int
 
 
 class ModelBase(object):
+    _columns = {}
+
     @classmethod
     def create(cls, values):
         instance = cls(values)
         return instance.save()
 
+    def _before_save(self):
+        for column, column_type in self._columns.iteritems():
+            self[column] = column_type(self[column])
+
     def save(self):
         if not self.is_valid():
             raise InvalidModelError(self.errors)
+        self._before_save()
         return db_api.save(self)
 
     def delete(self):
@@ -313,6 +320,10 @@ class Policy(ModelBase):
             self._unusable_ip_ranges.append(ip_range)
         return ip_range
 
+    def create_unusable_last_ip_octet(self, attributes):
+        attributes['policy_id'] = self.id
+        return IpOctet.create(attributes)
+
     def unusable_ip_ranges(self):
         if not hasattr(self, '_unusable_ip_ranges'):
             self._load_unusable_ip_ranges()
@@ -348,6 +359,8 @@ class Policy(ModelBase):
 
 class IpRange(ModelBase):
 
+    _columns = {'offset': int, 'length': int}
+
     @classmethod
     def find_all_by_policy(cls, policy_id):
         return db_api.find_all_by(cls, policy_id=policy_id)
@@ -364,8 +377,13 @@ class IpRange(ModelBase):
         self._validate_integer('offset')
         self._validate_positive_integer('length')
 
+    def data_fields(self):
+        return ['id', 'offset', 'length', 'policy_id']
+
 
 class IpOctet(ModelBase):
+
+    _columns = {'octet': int}
 
     @classmethod
     def find_all_by_policy(cls, policy_id):
@@ -373,6 +391,9 @@ class IpOctet(ModelBase):
 
     def applies_to(self, address):
         return self.octet == IPAddress(address).words[-1]
+
+    def data_fields(self):
+        return ['id', 'octet', 'policy_id']
 
 
 def models():

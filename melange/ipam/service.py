@@ -20,7 +20,6 @@ import routes
 from melange.common import wsgi
 from melange.ipam import models
 from melange.ipam.models import IpBlock, IpAddress, Policy, IpRange
-from webob import Response
 from webob.exc import (HTTPUnprocessableEntity, HTTPBadRequest,
                        HTTPNotFound)
 
@@ -38,10 +37,6 @@ class BaseController(wsgi.Controller):
 
         super(BaseController, self).__init__(exception_map)
 
-    def _json_response(self, body, status=200):
-        return Response(body=json.dumps(body), content_type="application/json",
-                        status=status)
-
     def _extract_limits(self, params):
         return dict([(key, params[key]) for key in params.keys()
                      if key in ["limit", "marker"]])
@@ -55,8 +50,7 @@ class BaseController(wsgi.Controller):
                      for address in json.loads(addresses)]
 
     def _get_addresses(self, ips):
-        return self._json_response(
-            dict(ip_addresses=[ip_address.data() for ip_address in ips]))
+        return dict(ip_addresses=[ip_address.data() for ip_address in ips])
 
 
 class IpBlockController(BaseController):
@@ -64,21 +58,17 @@ class IpBlockController(BaseController):
     def index(self, request):
         blocks = IpBlock.with_limits(IpBlock.find_all(),
                                      **self._extract_limits(request.params))
-        return self._json_response(dict(ip_blocks=[ip_block.data()
-                                                   for ip_block in blocks]))
+        return dict(ip_blocks=[ip_block.data() for ip_block in blocks])
 
     def create(self, request):
         block = IpBlock.create(request.params)
-        return self._json_response(block.data(), status=201)
+        return dict(ip_block=block.data()), 201
 
     def show(self, request, id):
-        return self._json_response(IpBlock.find(id).data())
+        return dict(ip_block=IpBlock.find(id).data())
 
     def delete(self, request, id):
         IpBlock.find(id).delete()
-
-    def version(self, request):
-        return "Melange version 0.1"
 
 
 class IpAddressController(BaseController):
@@ -88,12 +78,12 @@ class IpAddressController(BaseController):
         addresses = IpAddress.with_limits(find_all_query,
                                        **self._extract_limits(request.params))
 
-        return self._json_response(dict(ip_addresses=[ip_address.data()
-                                   for ip_address in addresses]))
+        return dict(ip_addresses=[ip_address.data()
+                                   for ip_address in addresses])
 
     def show(self, request, address, ip_block_id):
-        return self._json_response(IpBlock.find(ip_block_id).\
-                                   find_allocated_ip(address).data())
+        ip_block = IpBlock.find(ip_block_id)
+        return dict(ip_address=ip_block.find_allocated_ip(address).data())
 
     def delete(self, request, address, ip_block_id):
         IpBlock.find(ip_block_id).deallocate_ip(address)
@@ -104,7 +94,7 @@ class IpAddressController(BaseController):
                                                *['address', 'port_id'])
         ip_address = ip_block.allocate_ip(address=address,
                                           port_id=port_id)
-        return self._json_response(ip_address.data(), status=201)
+        return dict(ip_address=ip_address.data()), 201
 
     def restore(self, request, ip_block_id, address):
         ip_address = IpBlock.find(ip_block_id).find_allocated_ip(address)
@@ -152,23 +142,22 @@ class UnusableIpRangesController(BaseController):
     def create(self, request, policy_id):
         policy = Policy.find(policy_id)
         ip_range = policy.create_unusable_range(request.params.copy())
-        return self._json_response(ip_range.data(), status=201)
+        return dict(ip_range=ip_range.data()), 201
 
     def show(self, request, policy_id, id):
         ip_range = Policy.find(policy_id).find_ip_range(id)
-        return self._json_response(ip_range.data())
+        return dict(ip_range=ip_range.data())
 
     def index(self, request, policy_id):
         ip_range_all = Policy.find(policy_id).unusable_ip_ranges()
         ip_ranges = IpRange.with_limits(ip_range_all,
                                         **self._extract_limits(request.params))
-        return self._json_response(body=dict(
-                ip_ranges=[ip_range.data() for ip_range in ip_ranges]))
+        return dict(ip_ranges=[ip_range.data() for ip_range in ip_ranges])
 
     def update(self, request, policy_id, id):
         ip_range = Policy.find(policy_id).find_ip_range(id)
         ip_range.update(request.params)
-        return self._json_response(ip_range.data())
+        return dict(ip_range=ip_range.data())
 
     def delete(self, request, policy_id, id):
         ip_range = Policy.find(policy_id).find_ip_range(id)
@@ -188,20 +177,19 @@ class PoliciesController(BaseController):
     def index(self, request):
         policies = Policy.with_limits(Policy.find_all(),
                                       **self._extract_limits(request.params))
-        return self._json_response(body=dict(
-                policies=[policy.data() for policy in policies]))
+        return dict(policies=[policy.data() for policy in policies])
 
     def show(self, request, id):
-        return self._json_response(Policy.find(id).data())
+        return dict(policy=Policy.find(id).data())
 
     def create(self, request):
         policy = Policy.create(request.params)
-        return self._json_response(policy.data(), status=201)
+        return dict(policy=policy.data()), 201
 
     def update(self, request, id):
         policy = Policy.find(id)
         policy.update(request.params)
-        return self._json_response(policy.data())
+        return dict(policy=policy.data())
 
     def delete(self, request, id):
         policy = Policy.find(id)

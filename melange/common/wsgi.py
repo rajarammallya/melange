@@ -21,6 +21,7 @@
 Utility methods for working with WSGI servers
 """
 import datetime
+import inspect
 import json
 import logging
 import sys
@@ -28,6 +29,7 @@ import eventlet.wsgi
 import routes.middleware
 import webob.dec
 import webob.exc
+
 from xml.dom import minidom
 from webob.exc import HTTPBadRequest, HTTPInternalServerError
 
@@ -73,7 +75,6 @@ class Request(webob.Request):
 
         ctypes = ['application/json', 'application/xml']
         bm = self.accept.best_match(ctypes)
-
         return bm or 'application/json'
 
     def get_content_type(self):
@@ -86,7 +87,8 @@ class Request(webob.Request):
         if type in allowed_types:
             return type
         LOG.debug("Wrong Content-Type: %s" % type)
-        raise webob.exc.HTTPBadRequest("Invalid content type")
+        raise webob.exc.HTTPUnsupportedMediaType(
+        "Content type %s not supported" % type)
 
 
 class Server(object):
@@ -271,12 +273,21 @@ class Controller(object):
         if type(result) is dict:
             return Response(body=self._serialize(result, req),
                             content_type=req.best_match_content_type())
-        else:
-            return result
+
+        if type(result) is tuple and type(result[0]) is dict:
+            return Response(body=self._serialize(result[0], req),
+                            content_type=req.best_match_content_type(),
+                            status=result[1])
+        return result
 
     def _execute_action(self, method, arg_dict):
         try:
+
+            if self._method_doesnt_expect_format_arg(method):
+                arg_dict.pop('format', None)
+
             return method(**arg_dict)
+
         except MelangeError as e:
             httpError = self._get_http_error(e)
             self.raiseHTTPError(httpError, e.message, arg_dict['request'])
@@ -284,6 +295,9 @@ class Controller(object):
             logging.getLogger('eventlet.wsgi.server').exception(e)
             self.raiseHTTPError(HTTPInternalServerError, e.message,
                                 arg_dict['request'])
+
+    def _method_doesnt_expect_format_arg(self, method):
+        return not 'format' in inspect.getargspec(method)[0]
 
     def raiseHTTPError(self, error, error_message, request):
         raise error(error_message, request=request, content_type="text\plain")

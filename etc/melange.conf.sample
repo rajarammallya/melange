@@ -30,7 +30,8 @@ api_extensions_path = extensions
 
 [composite:melange]
 use = egg:Paste#urlmap
-/v0.1: melangeapp
+/: versions
+/v0.1: melangeapi
 
 [app:versions]
 paste.app_factory = melange.versions:app_factory

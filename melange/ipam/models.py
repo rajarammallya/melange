@@ -317,7 +317,8 @@ class Policy(ModelBase):
         return db_api.find_by(Policy, name=name)
 
     def delete(self):
-        db_api.delete_all(IpRange.find_all_by_policy(self.id))
+        db_api.delete_all(self.unusable_ip_ranges())
+        db_api.delete_all(self.unusable_ip_octets())
         ip_blocks = IpBlock.find_all_by_policy(self.id)
         ip_blocks.update({'policy_id': None})
         super(Policy, self).delete()

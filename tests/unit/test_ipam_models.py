@@ -568,6 +568,18 @@ class TestPolicy(BaseTest):
         self.assertTrue(len(IpRange.find_all_by_policy(policy.id).all()) is 0)
         self.assertTrue(IpRange.find(noise_ip_range.id) is not None)
 
+    def test_delete_to_cascade_delete_ip_octets(self):
+        policy = PolicyFactory(name="Blah")
+        ip_octet1 = IpOctetFactory(octet=2, policy_id=policy.id)
+        ip_octet2 = IpOctetFactory(octet=255, policy_id=policy.id)
+        noise_ip_octet = IpOctetFactory()
+
+        self.assertEqual(IpOctet.find_all_by_policy(policy.id).all(),
+                         [ip_octet1, ip_octet2])
+        policy.delete()
+        self.assertTrue(len(IpOctet.find_all_by_policy(policy.id).all()) is 0)
+        self.assertTrue(IpOctet.find(noise_ip_octet.id) is not None)
+
     def test_delete_to_update_associated_ip_blocks_policy(self):
         policy = PolicyFactory(name="Blah")
         ip_block = IpBlockFactory(policy_id=policy.id)

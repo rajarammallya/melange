@@ -31,6 +31,7 @@ import sys
 
 from melange.common import exception
 from melange.common.exception import ProcessExecutionError
+from melange.common import data_types
 
 
 TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
@@ -46,25 +47,7 @@ def int_from_bool_as_string(subject):
 
     Useful for JSON-decoded stuff and config file parsing
     """
-    return boolean(subject) and 1 or 0
-
-
-def boolean(subject):
-    """
-    Interpret a string as a boolean.
-
-    Any string value in:
-        ('True', 'true', 'On', 'on', '1')
-    is interpreted as a boolean True.
-
-    Useful for JSON-decoded stuff and config file parsing
-    """
-    if type(subject) == type(bool):
-        return subject
-    if hasattr(subject, 'startswith'):  # str or unicode...
-        if subject.strip().lower() in ('true', 'on', '1'):
-            return True
-    return False
+    return data_types.boolean(subject) and 1 or 0
 
 
 def parse_int(subject):

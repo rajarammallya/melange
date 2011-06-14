@@ -24,11 +24,11 @@ from netaddr import IPNetwork, IPAddress
 from melange.common.exception import MelangeError
 from melange.db import api as db_api
 from melange.common import utils
+from melange.common import data_types
 
 
 class ModelBase(object):
     _columns = {}
-    _humanized_type_name = {int: "integer", utils.boolean: "boolean"}
 
     @classmethod
     def create(cls, values):
@@ -54,7 +54,7 @@ class ModelBase(object):
             except (TypeError, ValueError):
                 self._add_error(column_name,
                        "{0} should be of type {1}".format(
-                        column_name, self._humanized_type_name[column_type]))
+                        column_name, column_type.__name__))
 
     def _validate(self):
         pass
@@ -374,7 +374,7 @@ class Policy(ModelBase):
 
 class IpRange(ModelBase):
 
-    _columns = {'offset': int, 'length': int}
+    _columns = {'offset': data_types.integer, 'length': data_types.integer}
 
     @classmethod
     def find_all_by_policy(cls, policy_id):
@@ -397,7 +397,7 @@ class IpRange(ModelBase):
 
 class IpOctet(ModelBase):
 
-    _columns = {'octet': int}
+    _columns = {'octet': data_types.integer}
 
     @classmethod
     def find_all_by_policy(cls, policy_id):

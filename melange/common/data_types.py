@@ -1,6 +1,7 @@
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 
-# Copyright 2011 OpenStack LLC.
+# Copyright 2010 United States Government as represented by the
+# Administrator of the National Aeronautics and Space Administration.
 # All Rights Reserved.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -15,17 +16,24 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import unittest
-from melange.common import utils
+
+def integer(value):
+    return int(value)
 
 
-class ParseIntTest(unittest.TestCase):
+def boolean(subject):
+    """
+    Interpret a string as a boolean.
 
-    def test_converts_invalid_int_to_none(self):
-        self.assertEqual(utils.parse_int("a2z"), None)
+    Any string value in:
+        ('True', 'true', 'On', 'on', '1')
+    is interpreted as a boolean True.
 
-    def test_converts_none_to_none(self):
-        self.assertEqual(utils.parse_int(None), None)
-
-    def test_converts_valid_integer_string_to_int(self):
-        self.assertEqual(utils.parse_int("123"), 123)
+    Useful for JSON-decoded stuff and config file parsing
+    """
+    if type(subject) == type(bool):
+        return subject
+    if hasattr(subject, 'startswith'):  # str or unicode...
+        if subject.strip().lower() in ('true', 'on', '1'):
+            return True
+    return False

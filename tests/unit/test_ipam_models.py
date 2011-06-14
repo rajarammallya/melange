@@ -26,14 +26,14 @@ from melange.db import api as db_api
 from tests.unit.factories.models import (IpBlockFactory, IpAddressFactory,
                                          PolicyFactory, IpRangeFactory,
                                          IpOctetFactory)
-from melange.common import utils
+from melange.common import data_types
 
 
 class TestModelBase(BaseTest):
 
     def test_converts_column_to_integer(self):
         model = ModelBase({'foo': "1"})
-        model._columns = {'foo': int}
+        model._columns = {'foo': data_types.integer}
 
         model._convert_columns_to_proper_type()
 
@@ -41,19 +41,11 @@ class TestModelBase(BaseTest):
 
     def test_converts_column_to_boolean(self):
         model = ModelBase({'foo': "true"})
-        model._columns = {'foo': utils.boolean}
+        model._columns = {'foo': data_types.boolean}
 
         model._convert_columns_to_proper_type()
 
         self.assertEqual(model.foo, True)
-
-    def test_converts_column_to_float(self):
-        model = ModelBase({'foo': "1.234"})
-        model._columns = {'foo': float}
-
-        model._convert_columns_to_proper_type()
-
-        self.assertEqual(model.foo, 1.234)
 
 
 class TestIpBlock(BaseTest):

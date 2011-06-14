@@ -46,10 +46,10 @@ def int_from_bool_as_string(subject):
 
     Useful for JSON-decoded stuff and config file parsing
     """
-    return bool_from_string(subject) and 1 or 0
+    return boolean(subject) and 1 or 0
 
 
-def bool_from_string(subject):
+def boolean(subject):
     """
     Interpret a string as a boolean.
 

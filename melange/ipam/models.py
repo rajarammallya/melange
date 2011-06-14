@@ -23,12 +23,12 @@ import netaddr
 from netaddr import IPNetwork, IPAddress
 from melange.common.exception import MelangeError
 from melange.db import api as db_api
-from melange.common.utils import parse_int
+from melange.common import utils
 
 
 class ModelBase(object):
     _columns = {}
-    _humanized_type_name = {int: "integer", str: "string", bool: "boolean"}
+    _humanized_type_name = {int: "integer", utils.boolean: "boolean"}
 
     @classmethod
     def create(cls, values):
@@ -139,7 +139,7 @@ class ModelBase(object):
         return []
 
     def _validate_positive_integer(self, attribute_name):
-        if(parse_int(self[attribute_name]) < 0):
+        if(utils.parse_int(self[attribute_name]) < 0):
             self._add_error(attribute_name,
                             "{0} should be a positive "
                             "integer".format(attribute_name))

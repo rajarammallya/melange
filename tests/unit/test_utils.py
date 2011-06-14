@@ -29,3 +29,24 @@ class ParseIntTest(unittest.TestCase):
 
     def test_converts_valid_integer_string_to_int(self):
         self.assertEqual(utils.parse_int("123"), 123)
+
+
+class BooleanTest(unittest.TestCase):
+
+    def test_converts_string_to_boolean(self):
+        self.assertEqual(utils.boolean('True'), True)
+        self.assertEqual(utils.boolean('true'), True)
+
+        self.assertEqual(utils.boolean('False'), False)
+        self.assertEqual(utils.boolean('false'), False)
+
+    def test_converts_zero_or_one_to_boolean(self):
+        self.assertEqual(utils.boolean('1'), True)
+        self.assertEqual(utils.boolean('0'), False)
+
+    def test_converts_on_or_off_to_boolean(self):
+        self.assertEqual(utils.boolean('ON'), True)
+        self.assertEqual(utils.boolean('on'), True)
+
+        self.assertEqual(utils.boolean('OFF'), False)
+        self.assertEqual(utils.boolean('off'), False)

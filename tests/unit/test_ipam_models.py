@@ -30,8 +30,6 @@ from melange.common import utils
 
 
 class TestModelBase(BaseTest):
-    class TestModel(ModelBase):
-        pass
 
     def test_converts_column_to_integer(self):
         model = ModelBase({'foo': "1"})
@@ -41,13 +39,21 @@ class TestModelBase(BaseTest):
 
         self.assertEqual(model.foo, 1)
 
-    def test_converts_column_to_bool(self):
+    def test_converts_column_to_boolean(self):
         model = ModelBase({'foo': "true"})
-        model._columns = {'foo': utils.bool_from_string}
+        model._columns = {'foo': utils.boolean}
 
         model._convert_columns_to_proper_type()
 
         self.assertEqual(model.foo, True)
+
+    def test_converts_column_to_float(self):
+        model = ModelBase({'foo': "1.234"})
+        model._columns = {'foo': float}
+
+        model._convert_columns_to_proper_type()
+
+        self.assertEqual(model.foo, 1.234)
 
 
 class TestIpBlock(BaseTest):

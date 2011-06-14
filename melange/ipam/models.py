@@ -28,20 +28,16 @@ from melange.common.utils import parse_int
 
 class ModelBase(object):
     _columns = {}
+    _humanized_type_name = {int: "integer", str: "string", bool: "boolean"}
 
     @classmethod
     def create(cls, values):
         instance = cls(values)
         return instance.save()
 
-    def _before_save(self):
-        for column, column_type in self._columns.iteritems():
-            self[column] = column_type(self[column])
-
     def save(self):
         if not self.is_valid():
             raise InvalidModelError(self.errors)
-        self._before_save()
         return db_api.save(self)
 
     def delete(self):
@@ -50,11 +46,21 @@ class ModelBase(object):
     def __init__(self, values):
         self.merge_attributes(values)
 
+    def _convert_columns_to_proper_type(self):
+        for column_name, column_type in self._columns.iteritems():
+            try:
+                self[column_name] = column_type(self[column_name])
+            except (TypeError, ValueError):
+                self._add_error(column_name,
+                       "{0} should be of type {1}".format(
+                        column_name, self._humanized_type_name[column_type]))
+
     def _validate(self):
         pass
 
     def is_valid(self):
         self.errors = {}
+        self._convert_columns_to_proper_type()
         self._validate()
         return self.errors == {}
 
@@ -380,7 +386,6 @@ class IpRange(ModelBase):
         return IPAddress(address) in IPNetwork(cidr)[self.offset:end_index]
 
     def _validate(self):
-        self._validate_integer('offset')
         self._validate_positive_integer('length')
 
     def data_fields(self):

@@ -18,14 +18,36 @@
 import unittest
 from tests.unit import BaseTest
 
-from melange.ipam.models import (IpBlock, IpAddress, Policy, IpRange,
-                                 IpOctet)
+from melange.ipam.models import (ModelBase, IpBlock, IpAddress, Policy,
+                                 IpRange, IpOctet)
 from melange.ipam import models
 from melange.db import session
 from melange.db import api as db_api
 from tests.unit.factories.models import (IpBlockFactory, IpAddressFactory,
                                          PolicyFactory, IpRangeFactory,
                                          IpOctetFactory)
+from melange.common import utils
+
+
+class TestModelBase(BaseTest):
+    class TestModel(ModelBase):
+        pass
+
+    def test_converts_column_to_integer(self):
+        model = ModelBase({'foo': "1"})
+        model._columns = {'foo': int}
+
+        model._convert_columns_to_proper_type()
+
+        self.assertEqual(model.foo, 1)
+
+    def test_converts_column_to_bool(self):
+        model = ModelBase({'foo': "true"})
+        model._columns = {'foo': utils.bool_from_string}
+
+        model._convert_columns_to_proper_type()
+
+        self.assertEqual(model.foo, True)
 
 
 class TestIpBlock(BaseTest):
@@ -603,7 +625,7 @@ class TestIpRange(BaseTest):
         ip_range = IpRange({'offset': 'spdoe', 'length': 10})
 
         self.assertFalse(ip_range.is_valid())
-        self.assertTrue('offset should be an integer' in
+        self.assertTrue('offset should be of type integer' in
                         ip_range.errors['offset'])
 
     def test_ip_range_length_is_an_integer(self):

@@ -38,6 +38,7 @@ class ModelBase(object):
     def save(self):
         if not self.is_valid():
             raise InvalidModelError(self.errors)
+        self._before_save()
         return db_api.save(self)
 
     def delete(self):
@@ -46,10 +47,10 @@ class ModelBase(object):
     def __init__(self, values):
         self.merge_attributes(values)
 
-    def _convert_columns_to_proper_type(self):
+    def _validate_columns_type(self):
         for column_name, column_type in self._columns.iteritems():
             try:
-                self[column_name] = column_type(self[column_name])
+                column_type(self[column_name])
             except (TypeError, ValueError):
                 self._add_error(column_name,
                        "{0} should be of type {1}".format(
@@ -58,9 +59,16 @@ class ModelBase(object):
     def _validate(self):
         pass
 
+    def _before_save(self):
+        self._convert_columns_to_proper_type()
+
+    def _convert_columns_to_proper_type(self):
+        for column_name, column_type in self._columns.iteritems():
+            self[column_name] = column_type(self[column_name])
+
     def is_valid(self):
         self.errors = {}
-        self._convert_columns_to_proper_type()
+        self._validate_columns_type()
         self._validate()
         return self.errors == {}
 
@@ -129,11 +137,6 @@ class ModelBase(object):
 
     def data_fields(self):
         return []
-
-    def _validate_integer(self, attribute_name):
-        if(parse_int(self[attribute_name]) == None):
-            self._add_error(attribute_name,
-                            "{0} should be an integer".format(attribute_name))
 
     def _validate_positive_integer(self, attribute_name):
         if(parse_int(self[attribute_name]) < 0):

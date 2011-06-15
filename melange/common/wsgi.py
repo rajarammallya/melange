@@ -107,7 +107,7 @@ class Server(object):
         try:
             self.pool.waitall()
         except KeyboardInterrupt:
-            pass
+            eventlet.convenience.StopServe()
 
     def _run(self, application, socket):
         """Start a WSGI server in a new green thread."""

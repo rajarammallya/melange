@@ -15,24 +15,38 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 import json
-import os
 from webtest import TestApp
 
 from tests.unit import BaseTest, test_config_path
 from melange.common import config
+from melange.common import wsgi
 from melange.ipam import models
 from melange.ipam.models import IpBlock, IpAddress, Policy, IpRange, IpOctet
 from tests.unit.factories.models import (IpRangeFactory, PolicyFactory,
                                          IpOctetFactory)
 
 
-class TestController(BaseTest):
+class AuthenticatedApp(wsgi.Middleware):
+
+    def process_request(self, request):
+        environ = request.environ
+        self._set_header(environ, 'X_AUTHORIZATION', "True")
+        self._set_header(environ, 'X_TENANT', "123")
+        self._set_header(environ, 'X_ROLE', "Admin")
+        return None
+
+    def _set_header(self, environ, header, default_value):
+        http_header = "HTTP_" + header
+        environ[http_header] = environ.get(http_header, default_value)
+
+
+class BaseTestController(BaseTest):
 
     def setUp(self):
-        super(TestController, self).setUp()
+        super(BaseTestController, self).setUp()
         conf, melange_app = config.load_paste_app('melange',
                 {"config_file": test_config_path()}, None)
-        self.app = TestApp(melange_app)
+        self.app = TestApp(AuthenticatedApp(melange_app))
 
     def assertErrorResponse(self, response, expected_status,
                             expected_error):
@@ -40,16 +54,24 @@ class TestController(BaseTest):
         self.assertTrue(expected_error in response.body)
 
 
-class TestIpBlockController(TestController):
+class TestIpBlockController(BaseTestController):
 
     def test_create(self):
-        response = self.app.post("/ipam/ip_blocks",
+        response = self.app.post("/ipam/ip_blocks.json",
                                  {'network_id': "300", 'cidr': "10.1.1.0/2"})
 
         self.assertEqual(response.status, "201 Created")
         saved_block = IpBlock.find_by_network_id("300")
         self.assertEqual(saved_block.cidr, "10.1.1.0/2")
-        self.assertEqual(response.json, saved_block.data())
+        self.assertEqual(response.json, dict(ip_block=saved_block.data()))
+
+    def test_create_returns_xml(self):
+        response = self.app.post("/ipam/ip_blocks.xml",
+                                 {'network_id': "300", 'cidr': "10.1.1.0/2"})
+
+        self.assertEqual(response.xml.tag, 'ip_block')
+        self.assertEqual(response.xml[0].tag, 'network_id')
+        self.assertTrue("300" in response.xml[0].text)
 
     def test_cannot_create_duplicate_public_cidr(self):
         self.app.post("/ipam/ip_blocks",
@@ -73,14 +95,14 @@ class TestIpBlockController(TestController):
         self.assertTrue('cidr is invalid' in response.body)
 
     def test_show(self):
-        block = IpBlock.create({'network_id': "301", 'cidr': "10.1.1.0/2"})
+        block = IpBlock.create(network_id="301", cidr="10.1.1.0/2")
         response = self.app.get("/ipam/ip_blocks/%s" % block.id)
 
         self.assertEqual(response.status, "200 OK")
-        self.assertEqual(response.json, block.data())
+        self.assertEqual(response.json, dict(ip_block=block.data()))
 
     def test_delete(self):
-        block = IpBlock.create({'network_id': "301", 'cidr': "10.1.1.0/2"})
+        block = IpBlock.create(network_id="301", cidr="10.1.1.0/2")
         response = self.app.delete("/ipam/ip_blocks/%s" % block.id)
 
         self.assertEqual(response.status, "200 OK")
@@ -107,19 +129,20 @@ class TestIpBlockController(TestController):
         self.assertEqual(response_blocks, _data_of(blocks[2], blocks[3]))
 
 
-class TestIpAddressController(TestController):
+class TestIpAddressController(BaseTestController):
 
     def test_create(self):
-        block = IpBlock.create({'network_id': "301", 'cidr': "10.1.1.0/28"})
+        block = IpBlock.create(network_id="301", cidr="10.1.1.0/28")
         response = self.app.post("/ipam/ip_blocks/%s/ip_addresses" % block.id)
 
         self.assertEqual(response.status, "201 Created")
         allocated_address = IpAddress.find_all_by_ip_block(block.id).first()
         self.assertEqual(allocated_address.address, "10.1.1.0")
-        self.assertEqual(response.json, allocated_address.data())
+        self.assertEqual(response.json,
+                         dict(ip_address=allocated_address.data()))
 
     def test_create_with_given_address(self):
-        block = IpBlock.create({'network_id': "301", 'cidr': "10.1.1.0/28"})
+        block = IpBlock.create(network_id="301", cidr="10.1.1.0/28")
         response = self.app.post("/ipam/ip_blocks/%s/ip_addresses"
                                  % block.id,
                                  {"address": '10.1.1.2'})
@@ -129,7 +152,7 @@ class TestIpAddressController(TestController):
                                                              "10.1.1.2"), None)
 
     def test_create_when_no_more_addresses(self):
-        block = IpBlock.create({'network_id': "301", 'cidr': "10.1.1.0/32"})
+        block = IpBlock.create(network_id="301", cidr="10.1.1.0/32")
         block.allocate_ip()
 
         response = self.app.post("/ipam/ip_blocks/%s/ip_addresses" % block.id,
@@ -138,7 +161,7 @@ class TestIpAddressController(TestController):
         self.assertTrue("IpBlock is full" in response.body)
 
     def test_create_fails_when_addresses_are_duplicated(self):
-        block = IpBlock.create({'network_id': "301", 'cidr': "10.1.1.0/29"})
+        block = IpBlock.create(network_id="301", cidr="10.1.1.0/29")
         block.allocate_ip(address='10.1.1.2')
 
         response = self.app.post("/ipam/ip_blocks/%s/ip_addresses" % block.id,
@@ -148,7 +171,7 @@ class TestIpAddressController(TestController):
         self.assertTrue("Address is already allocated" in response.body)
 
     def test_create_fails_when_address_doesnt_belong_to_block(self):
-        block = IpBlock.create({'network_id': "301", 'cidr': "10.1.1.0/32"})
+        block = IpBlock.create(network_id="301", cidr="10.1.1.0/32")
 
         response = self.app.post("/ipam/ip_blocks/%s/ip_addresses" % block.id,
                                  {'address': '10.1.1.2'},
@@ -157,7 +180,7 @@ class TestIpAddressController(TestController):
         self.assertTrue("Address does not belong to IpBlock" in response.body)
 
     def test_create_with_port(self):
-        block = IpBlock.create({'network_id': "301", 'cidr': "10.1.1.0/28"})
+        block = IpBlock.create(network_id="301", cidr="10.1.1.0/28")
 
         self.app.post("/ipam/ip_blocks/%s/ip_addresses" % block.id,
                                  {"port_id": "1111"})
@@ -166,8 +189,8 @@ class TestIpAddressController(TestController):
         self.assertEqual(allocated_address.port_id, "1111")
 
     def test_show(self):
-        block_1 = IpBlock.create({'network_id': "301", 'cidr': "10.1.1.0/28"})
-        block_2 = IpBlock.create({'network_id': "301", 'cidr': "10.1.1.0/28"})
+        block_1 = IpBlock.create(network_id="301", cidr="10.1.1.0/28")
+        block_2 = IpBlock.create(network_id="301", cidr="10.1.1.0/28")
         ip = block_1.allocate_ip(port_id="3333")
         block_2.allocate_ip(port_id="9999")
 
@@ -175,10 +198,10 @@ class TestIpAddressController(TestController):
                                 (block_1.id, ip.address))
 
         self.assertEqual(response.status, "200 OK")
-        self.assertEqual(response.json, ip.data())
+        self.assertEqual(response.json, dict(ip_address=ip.data()))
 
     def test_show_fails_for_nonexistent_address(self):
-        block = IpBlock.create({'network_id': "301", 'cidr': "10.1.1.0/28"})
+        block = IpBlock.create(network_id="301", cidr="10.1.1.0/28")
 
         response = self.app.get("/ipam/ip_blocks/%s/ip_addresses/%s" %
                                 (block.id, '10.1.1.0'), status="*")
@@ -194,8 +217,8 @@ class TestIpAddressController(TestController):
         self.assertTrue("IpBlock Not Found" in response.body)
 
     def test_delete_ip(self):
-        block_1 = IpBlock.create({'network_id': "301", 'cidr': "10.1.1.0/28"})
-        block_2 = IpBlock.create({'network_id': "301", 'cidr': "10.1.1.0/28"})
+        block_1 = IpBlock.create(network_id="301", cidr="10.1.1.0/28")
+        block_2 = IpBlock.create(network_id="301", cidr="10.1.1.0/28")
         ip = block_1.allocate_ip()
         block_2.allocate_ip()
 
@@ -207,7 +230,7 @@ class TestIpAddressController(TestController):
         self.assertTrue(IpAddress.find(ip.id).marked_for_deallocation)
 
     def test_index(self):
-        block = IpBlock.create({'network_id': "301", 'cidr': "10.1.1.0/28"})
+        block = IpBlock.create(network_id="301", cidr="10.1.1.0/28")
         address_1 = block.allocate_ip()
         address_2 = block.allocate_ip()
 
@@ -220,7 +243,7 @@ class TestIpAddressController(TestController):
         self.assertEqual(ip_addresses[1]['address'], address_2.address)
 
     def test_index_with_pagination(self):
-        block = IpBlock.create({'network_id': "301", 'cidr': "10.1.1.0/28"})
+        block = IpBlock.create(network_id="301", cidr="10.1.1.0/28")
         ips = [block.allocate_ip() for i in range(5)]
 
         response = self.app.get("/ipam/ip_blocks/%s/ip_addresses?"
@@ -232,7 +255,7 @@ class TestIpAddressController(TestController):
         self.assertEqual(ip_addresses[1]['address'], ips[3].address)
 
     def test_restore_deallocated_ip(self):
-        block = IpBlock.create({'network_id': '312', 'cidr': "10.1.1.2/29"})
+        block = IpBlock.create(network_id='312', cidr="10.1.1.2/29")
         ips = [block.allocate_ip() for i in range(5)]
         block.deallocate_ip(ips[0].address)
 
@@ -245,7 +268,7 @@ class TestIpAddressController(TestController):
         self.assertEqual(ip_addresses, [ip.address for ip in ips])
 
 
-class TestInsideGlobalsController(TestController):
+class TestInsideGlobalsController(BaseTestController):
 
     def test_index(self):
         local_block, global_block_1, global_block_2 =\
@@ -369,7 +392,7 @@ class TestInsideGlobalsController(TestController):
                                      "IpAddress Not Found")
 
 
-class TestInsideLocalsController(TestController):
+class TestInsideLocalsController(BaseTestController):
 
     def test_index(self):
         global_block, local_block = _create_blocks("192.1.1.1/8",
@@ -494,7 +517,7 @@ class TestInsideLocalsController(TestController):
                                  "IpAddress Not Found")
 
 
-class TestUnusableIpRangesController(TestController):
+class TestUnusableIpRangesController(BaseTestController):
 
     def test_create(self):
         policy = PolicyFactory()
@@ -504,7 +527,7 @@ class TestUnusableIpRangesController(TestController):
 
         unusable_range = IpRange.find_all_by_policy(policy.id).first()
         self.assertEqual(response.status, "201 Created")
-        self.assertEqual(response.json, unusable_range.data())
+        self.assertEqual(response.json, dict(ip_range=unusable_range.data()))
 
     def test_create_on_non_existent_policy(self):
         response = self.app.post("/ipam/policies/10000/unusable_ip_ranges"
@@ -521,7 +544,7 @@ class TestUnusableIpRangesController(TestController):
                                  % (policy.id, ip_range.id))
 
         self.assertEqual(response.status_int, 200)
-        self.assertEqual(response.json, ip_range.data())
+        self.assertEqual(response.json, dict(ip_range=ip_range.data()))
 
     def test_show_when_ip_range_does_not_exists(self):
         policy = PolicyFactory()
@@ -545,7 +568,7 @@ class TestUnusableIpRangesController(TestController):
         updated_range = IpRange.find(ip_range.id)
         self.assertEqual(updated_range.offset, 1111)
         self.assertEqual(updated_range.length, 2222)
-        self.assertEqual(response.json, updated_range.data())
+        self.assertEqual(response.json, dict(ip_range=updated_range.data()))
 
     def test_update_when_ip_range_does_not_exists(self):
         policy = PolicyFactory()
@@ -582,7 +605,7 @@ class TestUnusableIpRangesController(TestController):
                           policy.find_ip_range, ip_range_id=ip_range.id)
 
 
-class TestUnusableIpOctetsController(TestController):
+class TestUnusableIpOctetsController(BaseTestController):
 
     def test_index(self):
         policy = PolicyFactory()
@@ -615,7 +638,7 @@ class TestUnusableIpOctetsController(TestController):
 
         ip_octet = IpOctet.find_all_by_policy(policy.id).first()
         self.assertEqual(response.status, "201 Created")
-        self.assertEqual(response.json, ip_octet.data())
+        self.assertEqual(response.json['ip_octet'], ip_octet.data())
 
     def test_create_on_non_existent_policy(self):
         response = self.app.post("/ipam/policies/10000/unusable_ip_octets"
@@ -632,7 +655,7 @@ class TestUnusableIpOctetsController(TestController):
                                  % (policy.id, ip_octet.id))
 
         self.assertEqual(response.status_int, 200)
-        self.assertEqual(response.json, ip_octet.data())
+        self.assertEqual(response.json['ip_octet'], ip_octet.data())
 
     def test_show_when_ip_octet_does_not_exists(self):
         policy = PolicyFactory()
@@ -654,7 +677,7 @@ class TestUnusableIpOctetsController(TestController):
         self.assertEqual(response.status_int, 200)
         updated_octet = IpOctet.find(ip_octet.id)
         self.assertEqual(updated_octet.octet, 123)
-        self.assertEqual(response.json, updated_octet.data())
+        self.assertEqual(response.json['ip_octet'], updated_octet.data())
 
     def test_update_when_ip_octet_does_not_exists(self):
         policy = PolicyFactory()
@@ -678,17 +701,17 @@ class TestUnusableIpOctetsController(TestController):
                           policy.find_ip_octet, ip_octet_id=ip_octet.id)
 
 
-class TestPoliciesController(TestController):
+class TestPoliciesController(BaseTestController):
 
     def test_create(self):
         response = self.app.post("/ipam/policies", {'name': "infrastructure"})
 
         self.assertEqual(response.status, "201 Created")
-        self.assertEqual(response.json['name'], "infrastructure")
+        self.assertEqual(response.json['policy']['name'], "infrastructure")
 
     def test_index(self):
-        Policy.create({'name': "infrastructure"})
-        Policy.create({'name': "unstable"})
+        Policy.create(name="infrastructure")
+        Policy.create(name="unstable")
 
         response = self.app.get("/ipam/policies")
 
@@ -699,12 +722,12 @@ class TestPoliciesController(TestController):
         self.assertEqual(response_policies, _data_of(*policies))
 
     def test_show_when_requested_policy_exists(self):
-        policy = Policy.create({'name': "DRAC"})
+        policy = Policy.create(name="DRAC")
 
         response = self.app.get("/ipam/policies/%s" % policy.id)
 
         self.assertEqual(response.status, "200 OK")
-        self.assertEqual(response.json, policy.data())
+        self.assertEqual(response.json, dict(policy=policy.data()))
 
     def test_show_when_requested_policy_does_not_exist(self):
         response = self.app.get("/ipam/policies/invalid_id", status="*")
@@ -723,7 +746,7 @@ class TestPoliciesController(TestController):
         updated_policy = Policy.find(policy.id)
         self.assertEqual(updated_policy.name, "Updated Name")
         self.assertEqual(updated_policy.description, "Updated Des")
-        self.assertEqual(response.json, updated_policy.data())
+        self.assertEqual(response.json, dict(policy=updated_policy.data()))
 
     def test_update_fails_for_invalid_policy_id(self):
         response = self.app.put("/ipam/policies/invalid",
@@ -745,7 +768,7 @@ def _allocate_ips(*args):
 
 
 def _create_blocks(*args):
-    return [IpBlock.create({"cidr": cidr}) for cidr in args]
+    return [IpBlock.create(cidr=cidr) for cidr in args]
 
 
 def _data_of(*args):

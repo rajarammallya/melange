@@ -31,8 +31,8 @@ class ModelBase(object):
     _columns = {}
 
     @classmethod
-    def create(cls, values):
-        instance = cls(values)
+    def create(cls, **values):
+        instance = cls(**values)
         return instance.save()
 
     def save(self):
@@ -44,8 +44,8 @@ class ModelBase(object):
     def delete(self):
         db_api.delete(self)
 
-    def __init__(self, values):
-        self.merge_attributes(values)
+    def __init__(self, **kwargs):
+        self.merge_attributes(kwargs)
 
     def _validate_columns_type(self):
         for column_name, column_type in self._columns.iteritems():
@@ -151,6 +151,10 @@ class ModelBase(object):
 
 class IpBlock(ModelBase):
 
+    def __init__(self, **kwargs):
+        self.type = 'private'
+        super(IpBlock, self).__init__(**kwargs)
+
     @classmethod
     def find_by_network_id(cls, network_id):
         return db_api.find_by(cls, network_id=network_id)
@@ -192,8 +196,8 @@ class IpBlock(ModelBase):
         if not candidate_ip:
             raise NoMoreAddressesError("IpBlock is full")
 
-        return IpAddress({'address': candidate_ip, 'port_id': port_id,
-                          'ip_block_id': self.id}).save()
+        return IpAddress(address=candidate_ip, port_id=port_id,
+                          ip_block_id=self.id).save()
 
     def _check_address(self, address, allocated_addresses):
 
@@ -323,16 +327,13 @@ class Policy(ModelBase):
         ip_blocks.update({'policy_id': None})
         super(Policy, self).delete()
 
-    def create_unusable_range(self, attributes):
+    def create_unusable_range(self, **attributes):
         attributes['policy_id'] = self.id
-        ip_range = IpRange.create(attributes)
-        if hasattr(self, '_unusable_ip_ranges'):
-            self._unusable_ip_ranges.append(ip_range)
-        return ip_range
+        return IpRange.create(**attributes)
 
-    def create_unusable_ip_octet(self, attributes):
+    def create_unusable_ip_octet(self, **attributes):
         attributes['policy_id'] = self.id
-        return IpOctet.create(attributes)
+        return IpOctet.create(**attributes)
 
     def unusable_ip_ranges(self):
         if not hasattr(self, '_unusable_ip_ranges'):

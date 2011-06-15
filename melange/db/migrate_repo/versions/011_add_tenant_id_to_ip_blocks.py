@@ -14,34 +14,20 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
-import factory
-
-from melange.ipam.models import *
-
-
-class IpBlockFactory(factory.Factory):
-    cidr = "10.0.0.0/29"
+from sqlalchemy.schema import (Column, MetaData, Table)
+from melange.ipam import models
+from melange.db.migrate_repo.schema import (
+    Boolean, DateTime, Integer, String, Text, create_tables, drop_tables)
+import datetime
 
 
-class IpAddressFactory(factory.Factory):
-    ip_block_id = factory.LazyAttribute(lambda a: IpBlockFactory().id)
+def upgrade(migrate_engine):
+    meta = MetaData()
+    meta.bind = migrate_engine
+    Column('tenant_id', String(255)).create(Table('ip_blocks', meta))
 
 
-class IpRangeFactory(factory.Factory):
-    offset = 0
-    length = 1
-
-
-class IpOctetFactory(factory.Factory):
-    octet = 0
-
-
-class PolicyFactory(factory.Factory):
-    name = 'default policy'
-
-
-def factory_create(model_to_create, **kwargs):
-    return model_to_create.create(**kwargs)
-
-factory.Factory.set_creation_function(factory_create)
+def downgrade(migrate_engine):
+    meta = MetaData()
+    meta.bind = migrate_engine
+    Table('ip_blocks', meta).columns["tenant_id"].drop()

@@ -18,13 +18,11 @@
 
 # If ../melange/__init__.py exists, add ../ to Python search path, so that
 # it will override what happens to be installed in /usr/(local/)lib/python...
-
 import optparse
 import os
 import re
 import sys
 import time
-
 
 possible_topdir = os.path.normpath(os.path.join(os.path.abspath(sys.argv[0]),
                                    os.pardir,
@@ -46,6 +44,10 @@ def create_options(parser):
     parsed and program commands.
     :param parser: The option parser
     """
+    parser.add_option('-p', '--port', dest="port", metavar="PORT",
+                      type=int, default=9292,
+                      help="Port the Melange API host listens on. "
+                      "Default: %default")
     config.add_common_options(parser)
     config.add_log_options(parser)
 
@@ -54,7 +56,6 @@ if __name__ == '__main__':
     oparser = optparse.OptionParser(version='%%prog VERSION')
     create_options(oparser)
     (options, args) = config.parse_options(oparser)
-
     try:
         conf, app = config.load_paste_app('melange', options, args)
         #TODO move migration to a melange-manage script
@@ -63,7 +64,8 @@ if __name__ == '__main__':
         session.configure_db(conf)
 
         server = wsgi.Server()
-        server.start(app, int(conf['bind_port']), conf['bind_host'])
+        server.start(app, options.get('port', conf['bind_port']),
+                     conf['bind_host'])
         server.wait()
     except RuntimeError, e:
         sys.exit("ERROR: %s" % e)

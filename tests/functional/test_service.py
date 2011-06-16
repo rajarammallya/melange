@@ -19,11 +19,12 @@
 
 import unittest
 from tests.functional.client import Client
+from tests.functional import get_api_port
 
 
 class TestServiceConf(unittest.TestCase):
     def setUp(self):
-        self.client = Client()
+        self.client = Client(port=get_api_port())
 
     def test_root_url_returns_versions(self):
         response = self.client.get("/")

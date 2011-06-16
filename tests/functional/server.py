@@ -16,12 +16,9 @@
 #    limitations under the License.
 
 import os
-import sys
 import time
 import datetime
 import urllib2
-
-from signal import SIGTERM
 
 
 class Server(object):
@@ -45,37 +42,24 @@ class Server(object):
     def pid_file_path(self):
         return os.path.join('/', 'tmp', self.name + ".pid")
 
-    def write_pidfile(self):
-        try:
-            with open(self.pid_file_path(), 'w') as pidfile:
-                pidfile.write(str(os.getpid()))
-        except IOError, e:
-            sys.exit(str(e))
-
     def start(self):
         pid = os.fork()
         if pid == 0:
             os.setsid()
             self.close_stdio()
-            self.write_pidfile
             try:
-                os.system("bin/{0}".format(self.name))
-            except OSError, e:
-                sys.exit(str(e))
-            sys.exit(0)
+                os.system("(%s -p %s)" % (self.name, self.port))
+            except OSError:
+                os._exit(1)
+            os._exit(0)
         else:
-            self.wait()
+            self.wait_till_running()
 
     def stop(self):
-        try:
-            with open(self.pid_file_path(), 'r') as pidfile:
-                pid = int(pidfile.read())
-                os.kill(pid, SIGTERM)
-                os.remove(pidfile)
-        except (OSError, IOError, ValueError), e:
-            pass
+        os.system("ps x -o pid,command | grep -v 'grep'|"
+                  "grep 'bin/melange' | awk '{print $1}'| xargs kill -9")
 
-    def wait(self, timeout=10):
+    def wait_till_running(self, timeout=10):
         now = datetime.datetime.now()
         timeout_time = now + datetime.timedelta(seconds=timeout)
         while (timeout_time > now):

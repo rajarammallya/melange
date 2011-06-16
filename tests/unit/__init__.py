@@ -51,7 +51,7 @@ def setup():
     conn_string = conf["sql_connection"]
     conn_pieces = urlparse.urlparse(conn_string)
     testdb = conn_pieces.path.strip('/')
-    if os.path.exists(testdb):
+    if os.path.isfile(testdb):
         os.unlink(testdb)
 
     migration.db_sync(conf)

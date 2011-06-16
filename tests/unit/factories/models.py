@@ -22,6 +22,7 @@ from melange.ipam.models import *
 
 class IpBlockFactory(factory.Factory):
     cidr = "10.0.0.0/29"
+    tenant_id = "11111111111"
 
 
 class IpAddressFactory(factory.Factory):

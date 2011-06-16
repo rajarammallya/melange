@@ -72,6 +72,11 @@ class ModelBase(object):
         self._validate()
         return self.errors == {}
 
+    def _validate_presence_of(self, attribute_name):
+        if (self[attribute_name] is None):
+            self._add_error(attribute_name,
+                            "{0} should be present".format(attribute_name))
+
     @classmethod
     def find(cls, id):
         model = cls.find_by_id(id)
@@ -254,6 +259,8 @@ class IpBlock(ModelBase):
     def _validate(self):
         self.validate_cidr()
         self.validate_uniqueness_for_public_ip_block()
+        if(self.type == 'private'):
+            self._validate_presence_of('tenant_id')
 
     def data_fields(self):
         return ['id', 'cidr', 'network_id']

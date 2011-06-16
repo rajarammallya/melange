@@ -21,9 +21,8 @@ from melange.common import wsgi
 from melange.ipam import models
 from melange.ipam.models import (IpBlock, IpAddress, Policy, IpRange,
                                  IpOctet)
-from webob import Response
 from webob.exc import (HTTPUnprocessableEntity, HTTPBadRequest,
-                       HTTPNotFound, HTTPUnauthorized)
+                       HTTPNotFound)
 
 
 class BaseController(wsgi.Controller):

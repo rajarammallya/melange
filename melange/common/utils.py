@@ -26,7 +26,6 @@ import logging
 import os
 import random
 import subprocess
-import socket
 import sys
 
 from melange.common import exception
@@ -199,3 +198,8 @@ class LazyPluggable(object):
     def __getattr__(self, key):
         backend = self.__get_backend()
         return getattr(backend, key)
+
+
+def if_not_null(**kwargs):
+    return dict((key, kwargs[key])
+                for key in kwargs if kwargs[key] is not None)

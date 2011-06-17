@@ -285,7 +285,6 @@ class Controller(object):
 
             if self._method_doesnt_expect_format_arg(method):
                 arg_dict.pop('format', None)
-
             return method(**arg_dict)
 
         except MelangeError as e:

@@ -36,10 +36,6 @@ def find_by(cls, **kwargs):
     return find_all_by(cls, **kwargs).first()
 
 
-def find(cls, id):
-    return base_query(cls).filter_by(id=id).first()
-
-
 def save(model):
     db_session = session.get_session()
     model = db_session.merge(model)

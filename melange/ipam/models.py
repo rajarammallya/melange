@@ -79,14 +79,18 @@ class ModelBase(object):
 
     @classmethod
     def find(cls, id):
-        model = cls.find_by_id(id)
-        if model == None:
-            raise ModelNotFoundError("%s Not Found" % cls.__name__)
-        return model
+        return cls.find_by(id=id)
 
     @classmethod
     def find_by_id(cls, id):
-        return db_api.find(cls, id)
+        return db_api.find_by(cls, id=id)
+
+    @classmethod
+    def find_by(cls, **kwargs):
+        model = db_api.find_by(cls, **kwargs)
+        if model == None:
+            raise ModelNotFoundError("%s Not Found" % cls.__name__)
+        return model
 
     @classmethod
     def find_all(cls, **kwargs):

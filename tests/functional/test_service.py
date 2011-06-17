@@ -39,7 +39,7 @@ class TestServiceConf(unittest.TestCase):
         self.assertTrue("extensions" in response.read())
 
     def test_ipam_service_can_be_accessed(self):
-        response = self.client.get("/v0.1/ipam/ip_blocks")
+        response = self.client.get("/v0.1/ipam/public_ip_blocks")
 
         self.assertEqual(response.status, 200)
         self.assertTrue("ip_blocks" in response.read())

@@ -58,12 +58,13 @@ class TestIpBlock(BaseTest):
 
     def test_create_ip_block(self):
         IpBlockFactory(cidr="10.0.0.1/8",
-                        network_id="18888", type="private")
+                        network_id="18888", type="private", tenant_id='xxxx')
 
         saved_block = IpBlock.find_by_network_id(18888)
         self.assertEqual(saved_block.cidr, "10.0.0.1/8")
         self.assertEqual(saved_block.network_id, '18888')
         self.assertEqual(saved_block.type, "private")
+        self.assertEqual(saved_block.tenant_id, "xxxx")
 
     def test_valid_cidr(self):
         block = IpBlockFactory.build(cidr="10.1.1.1////", network_id=111)
@@ -98,6 +99,15 @@ class TestIpBlock(BaseTest):
         block = IpBlock.find_by_network_id(987)
 
         self.assertEqual(block.cidr, "10.1.1.1/2")
+
+    def test_find_by_tenant_id(self):
+        ip_block1 = IpBlockFactory(cidr="10.0.0.1/8", tenant_id='999')
+        ip_block2 = IpBlockFactory(cidr="10.0.0.2/8", tenant_id='999')
+        IpBlockFactory(cidr="10.1.1.1/2", tenant_id='987')
+
+        blocks = IpBlock.find_all(tenant_id='999').all()
+
+        self.assertEqual(blocks, [ip_block1, ip_block2])
 
     def test_find_ip_block(self):
         block1 = IpBlockFactory(cidr="10.0.0.1/8", network_id=10)
@@ -303,7 +313,7 @@ class TestIpAddress(unittest.TestCase):
 
         ip.delete()
 
-        self.assertEqual(db_api.find(IpAddress, ip.id), None)
+        self.assertEqual(IpAddress.find_by_id(ip.id), None)
         deleted_ip = session.raw_query(IpAddress).filter_by(id=ip.id).first()
         self.assertTrue(deleted_ip.deleted)
 

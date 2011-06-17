@@ -16,13 +16,14 @@
 #    under the License.
 import json
 import routes
+from webob.exc import (HTTPUnprocessableEntity, HTTPBadRequest,
+                       HTTPNotFound)
 
 from melange.common import wsgi
 from melange.ipam import models
 from melange.ipam.models import (IpBlock, IpAddress, Policy, IpRange,
                                  IpOctet)
-from webob.exc import (HTTPUnprocessableEntity, HTTPBadRequest,
-                       HTTPNotFound)
+from melange.common.utils import if_not_null
 
 
 class BaseController(wsgi.Controller):
@@ -54,22 +55,43 @@ class BaseController(wsgi.Controller):
         return dict(ip_addresses=[ip_address.data() for ip_address in ips])
 
 
-class IpBlockController(BaseController):
+class PublicIpBlockController(BaseController):
 
     def index(self, request):
-        blocks = IpBlock.with_limits(IpBlock.find_all(),
+        blocks = IpBlock.with_limits(IpBlock.find_all(type='public'),
                                      **self._extract_limits(request.params))
         return dict(ip_blocks=[ip_block.data() for ip_block in blocks])
 
     def create(self, request):
-        block = IpBlock.create(**request.params)
+        block = IpBlock.create(type='public', **request.params)
         return dict(ip_block=block.data()), 201
 
     def show(self, request, id):
-        return dict(ip_block=IpBlock.find(id).data())
+        return dict(ip_block=IpBlock.find_by(id=id, type='public').data())
 
     def delete(self, request, id):
         IpBlock.find(id).delete()
+
+
+class PrivateIpBlockController(BaseController):
+
+    def index(self, request, tenant_id):
+        all_ips = IpBlock.find_all(**if_not_null(tenant_id=tenant_id,
+                                                 type='private'))
+        blocks = IpBlock.with_limits(all_ips,
+                                     **self._extract_limits(request.params))
+        return dict(ip_blocks=[ip_block.data() for ip_block in blocks])
+
+    def create(self, request, tenant_id=None):
+        block = IpBlock.create(tenant_id=tenant_id, **request.params)
+        return dict(ip_block=block.data()), 201
+
+    def show(self, request, id, tenant_id):
+        return dict(ip_block=IpBlock.find_by(id=id, type='private',
+                                          tenant_id=tenant_id).data())
+
+    def delete(self, request, id, tenant_id):
+        IpBlock.find_by(id=id, type='private', tenant_id=tenant_id).delete()
 
 
 class IpAddressController(BaseController):
@@ -220,12 +242,14 @@ class API(wsgi.Router):
     def __init__(self, options={}):
         self.options = options
         mapper = routes.Mapper()
-        ip_block_controller = IpBlockController()
         ip_address_controller = IpAddressController()
         inside_globals_controller = InsideGlobalsController()
         inside_locals_controller = InsideLocalsController()
-        mapper.resource("ip_block", "/ipam/ip_blocks",
-                        controller=ip_block_controller)
+        mapper.resource("public_ip_block", "/ipam/public_ip_blocks",
+                        controller=PublicIpBlockController())
+        mapper.resource("private_ip_block",
+                        "/ipam/tenants/{tenant_id}/private_ip_blocks",
+                        controller=PrivateIpBlockController())
         mapper.resource("policy", "/ipam/policies",
                         controller=PoliciesController())
 

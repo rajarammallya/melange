@@ -28,6 +28,7 @@ class AuthorizationMiddleware(wsgi.Middleware):
         if request.headers.get('X-ROLE', None) == 'admin':
             return None
         uri_elements = self.mapper.match(request.path)
-        if (uri_elements['tenant_id'] != request.headers['X-TENANT']):
+        if (uri_elements is not None and
+            uri_elements['tenant_id'] != request.headers['X-TENANT']):
             raise HTTPForbidden
         return None

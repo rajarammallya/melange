@@ -52,3 +52,10 @@ class TestAuthMiddleware(unittest.TestCase):
 
         self.assertEqual(response.status_int, 200)
         self.assertTrue(self.dummy_app.was_called)
+
+    def test_authorize_admins_to_access_any_resource(self):
+        response = self.app.get("/ipam/tenants/124/resources",
+                                headers={'X_TENANT': "123", 'X_ROLE': 'admin'})
+
+        self.assertEqual(response.status_int, 200)
+        self.assertTrue(self.dummy_app.was_called)

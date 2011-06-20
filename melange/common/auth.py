@@ -21,11 +21,13 @@ import routes
 
 class AuthorizationMiddleware(wsgi.Middleware):
 
+    mapper = routes.Mapper()
+    mapper.connect("{prefix_path:.*}/tenants/{tenant_id}/{suffix_path:.*}")
+
     def process_request(self, request):
-        path = request.path
-        mapper = routes.Mapper()
-        mapper.connect("{prefix_path:.*}/tenants/{tenant_id}/{suffix_path:.*}")
-        result_dict = mapper.match(request.path)
-        if result_dict['tenant_id'] != request.headers['X-TENANT']:
+        if request.headers.get('X-ROLE', None) == 'admin':
+            return None
+        uri_elements = self.mapper.match(request.path)
+        if (uri_elements['tenant_id'] != request.headers['X-TENANT']):
             raise HTTPForbidden
         return None

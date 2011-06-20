@@ -67,7 +67,7 @@ class TestPublicIpBlockController(BaseTestController):
         self.assertEqual(response.json, dict(ip_block=saved_block.data()))
 
     def test_cannot_create_duplicate_public_cidr(self):
-        first_block = self.app.post("/ipam/public_ip_blocks",
+        self.app.post("/ipam/public_ip_blocks",
                       {"network_id": "12200", 'cidr': "192.1.1.1/2"})
 
         duplicate_block_response = self.app.post("/ipam/public_ip_blocks",
@@ -88,23 +88,26 @@ class TestPublicIpBlockController(BaseTestController):
 
     def test_show(self):
         block = IpBlockFactory(network_id="301", cidr="10.1.1.0/2",
-                               type='public')
+                               type='public', tenant_id=None)
         response = self.app.get("/ipam/public_ip_blocks/%s" % block.id)
 
         self.assertEqual(response.status, "200 OK")
         self.assertEqual(response.json, dict(ip_block=block.data()))
 
     def test_delete(self):
-        block = IpBlockFactory(type='public')
+        block = IpBlockFactory(type='public', tenant_id=None)
         response = self.app.delete("/ipam/public_ip_blocks/%s" % block.id)
 
         self.assertEqual(response.status, "200 OK")
         self.assertRaises(models.ModelNotFoundError, IpBlock.find, block.id)
 
     def test_index(self):
-        blocks = [IpBlockFactory(cidr="10.1.1.0/32", type='public'),
-                  IpBlockFactory(cidr='10.2.1.0/32', type='public'),
-                  IpBlockFactory(cidr='10.3.1.0/32', type='public')]
+        blocks = [IpBlockFactory(cidr="10.1.1.0/32", type='public',
+                                 tenant_id=None),
+                  IpBlockFactory(cidr='10.2.1.0/32', type='public',
+                                 tenant_id=None),
+                  IpBlockFactory(cidr='10.3.1.0/32', type='public',
+                                 tenant_id=None)]
         response = self.app.get("/ipam/public_ip_blocks")
 
         self.assertEqual(response.status, "200 OK")
@@ -113,10 +116,14 @@ class TestPublicIpBlockController(BaseTestController):
         self.assertEqual(response_blocks, _data_of(*blocks))
 
     def test_index_with_pagination(self):
-        blocks = [IpBlockFactory(cidr="10.1.1.0/32", type='public'),
-                  IpBlockFactory(cidr='10.2.1.0/32', type='public'),
-                  IpBlockFactory(cidr='10.3.1.0/32', type='public'),
-                  IpBlockFactory(cidr='10.4.1.0/32', type='public')]
+        blocks = [IpBlockFactory(cidr="10.1.1.0/32", type='public',
+                                 tenant_id=None),
+                  IpBlockFactory(cidr='10.2.1.0/32', type='public',
+                                 tenant_id=None),
+                  IpBlockFactory(cidr='10.3.1.0/32', type='public',
+                                 tenant_id=None),
+                  IpBlockFactory(cidr='10.4.1.0/32', type='public',
+                                 tenant_id=None)]
 
         response = self.app.get("/ipam/public_ip_blocks?"
                                 "limit=2&marker=%s"
@@ -212,8 +219,10 @@ class TestPrivateIpBlockController(BaseTestController):
 class TestIpAddressController(BaseTestController):
 
     def test_create(self):
-        block = IpBlockFactory(network_id="301", cidr="10.1.1.0/28")
-        response = self.app.post("/ipam/ip_blocks/%s/ip_addresses" % block.id)
+        block = IpBlockFactory(network_id="301", cidr="10.1.1.0/28",
+                               tenant_id=111)
+        response = self.app.post("/ipam/tenants/111/private_ip_blocks"
+                                 "/%s/ip_addresses" % block.id)
 
         self.assertEqual(response.status, "201 Created")
         allocated_address = IpAddress.find_all_by_ip_block(block.id).first()
@@ -222,8 +231,10 @@ class TestIpAddressController(BaseTestController):
                          dict(ip_address=allocated_address.data()))
 
     def test_create_with_given_address(self):
-        block = IpBlockFactory(network_id="301", cidr="10.1.1.0/28")
-        response = self.app.post("/ipam/ip_blocks/%s/ip_addresses"
+        block = IpBlockFactory(network_id="301", cidr="10.1.1.0/28",
+                               tenant_id=111)
+        response = self.app.post("/ipam/tenants/111/"
+                                 "private_ip_blocks/%s/ip_addresses"
                                  % block.id,
                                  {"address": '10.1.1.2'})
 
@@ -232,77 +243,92 @@ class TestIpAddressController(BaseTestController):
                                                              "10.1.1.2"), None)
 
     def test_create_when_no_more_addresses(self):
-        block = IpBlockFactory(network_id="301", cidr="10.1.1.0/32")
+        block = IpBlockFactory(network_id="301", cidr="10.1.1.0/32",
+                               tenant_id="111")
         block.allocate_ip()
 
-        response = self.app.post("/ipam/ip_blocks/%s/ip_addresses" % block.id,
+        response = self.app.post("/ipam/tenants/111/private_ip_blocks"
+                                 "/%s/ip_addresses" % block.id,
                                  status="*")
         self.assertEqual(response.status, "422 Unprocessable Entity")
         self.assertTrue("IpBlock is full" in response.body)
 
     def test_create_fails_when_addresses_are_duplicated(self):
-        block = IpBlockFactory(network_id="301", cidr="10.1.1.0/29")
+        block = IpBlockFactory(network_id="301", cidr="10.1.1.0/29",
+                               tenant_id="111")
         block.allocate_ip(address='10.1.1.2')
 
-        response = self.app.post("/ipam/ip_blocks/%s/ip_addresses" % block.id,
+        response = self.app.post("/ipam/tenants/111/private_ip_blocks"
+                                 "/%s/ip_addresses" % block.id,
                                  {'address': '10.1.1.2'},
                                  status="*")
         self.assertEqual(response.status, "422 Unprocessable Entity")
         self.assertTrue("Address is already allocated" in response.body)
 
     def test_create_fails_when_address_doesnt_belong_to_block(self):
-        block = IpBlockFactory(network_id="301", cidr="10.1.1.0/32")
+        block = IpBlockFactory(network_id="301", cidr="10.1.1.0/32",
+                               tenant_id="111")
 
-        response = self.app.post("/ipam/ip_blocks/%s/ip_addresses" % block.id,
+        response = self.app.post("/ipam/tenants/111/private_ip_blocks/%s"
+                                 "/ip_addresses" % block.id,
                                  {'address': '10.1.1.2'},
                                  status="*")
         self.assertEqual(response.status, "422 Unprocessable Entity")
         self.assertTrue("Address does not belong to IpBlock" in response.body)
 
     def test_create_with_port(self):
-        block = IpBlockFactory(network_id="301", cidr="10.1.1.0/28")
+        block = IpBlockFactory(network_id="301", cidr="10.1.1.0/28",
+                                tenant_id="111")
 
-        self.app.post("/ipam/ip_blocks/%s/ip_addresses" % block.id,
+        self.app.post("/ipam/tenants/111/private_ip_blocks/"
+                      "%s/ip_addresses" % block.id,
                                  {"port_id": "1111"})
 
         allocated_address = IpAddress.find_all_by_ip_block(block.id).first()
         self.assertEqual(allocated_address.port_id, "1111")
 
     def test_show(self):
-        block_1 = IpBlockFactory(network_id="301", cidr="10.1.1.0/28")
+        block_1 = IpBlockFactory(network_id="301", cidr="10.1.1.0/28",
+                                  tenant_id="111")
         block_2 = IpBlockFactory(network_id="301", cidr="10.1.1.0/28")
         ip = block_1.allocate_ip(port_id="3333")
         block_2.allocate_ip(port_id="9999")
 
-        response = self.app.get("/ipam/ip_blocks/%s/ip_addresses/%s" %
+        response = self.app.get("/ipam/tenants/111/private_ip_blocks/"
+                                "%s/ip_addresses/%s" %
                                 (block_1.id, ip.address))
 
         self.assertEqual(response.status, "200 OK")
         self.assertEqual(response.json, dict(ip_address=ip.data()))
 
     def test_show_fails_for_nonexistent_address(self):
-        block = IpBlockFactory(network_id="301", cidr="10.1.1.0/28")
+        block = IpBlockFactory(network_id="301", cidr="10.1.1.0/28",
+                               tenant_id="111")
 
-        response = self.app.get("/ipam/ip_blocks/%s/ip_addresses/%s" %
+        response = self.app.get("/ipam/tenants/111/private_ip_blocks/"
+                                "%s/ip_addresses/%s" %
                                 (block.id, '10.1.1.0'), status="*")
 
         self.assertEqual(response.status, "404 Not Found")
         self.assertTrue("IpAddress Not Found" in response.body)
 
     def test_show_fails_for_nonexistent_block(self):
-        response = self.app.get("/ipam/ip_blocks/%s/ip_addresses/%s" %
+        response = self.app.get("/ipam/tenants/111/private_ip_blocks/"
+                                "%s/ip_addresses/%s" %
                                 (1111111111, '10.1.1.0'), status="*")
 
         self.assertEqual(response.status, "404 Not Found")
         self.assertTrue("IpBlock Not Found" in response.body)
 
     def test_delete_ip(self):
-        block_1 = IpBlockFactory(network_id="301", cidr="10.1.1.0/28")
+        block_1 = IpBlockFactory(network_id="301", cidr="10.1.1.0/28",
+                                  tenant_id="111")
         block_2 = IpBlockFactory(network_id="301", cidr="10.1.1.0/28")
         ip = block_1.allocate_ip()
         block_2.allocate_ip()
 
-        response = self.app.delete("/ipam/ip_blocks/%s/ip_addresses/%s" %
+        response = self.app.delete("/ipam/tenants/111/private_ip_blocks/"
+                                   "%s/ip_addresses/%s" %
                                 (block_1.id, ip.address))
 
         self.assertEqual(response.status, "200 OK")
@@ -310,11 +336,13 @@ class TestIpAddressController(BaseTestController):
         self.assertTrue(IpAddress.find(ip.id).marked_for_deallocation)
 
     def test_index(self):
-        block = IpBlockFactory(network_id="301", cidr="10.1.1.0/28")
+        block = IpBlockFactory(network_id="301", cidr="10.1.1.0/28",
+                                tenant_id="111")
         address_1 = block.allocate_ip()
         address_2 = block.allocate_ip()
 
-        response = self.app.get("/ipam/ip_blocks/%s/ip_addresses" % block.id)
+        response = self.app.get("/ipam/tenants/111/private_ip_blocks/"
+                                "%s/ip_addresses" % block.id)
 
         ip_addresses = response.json["ip_addresses"]
         self.assertEqual(response.status, "200 OK")
@@ -323,10 +351,12 @@ class TestIpAddressController(BaseTestController):
         self.assertEqual(ip_addresses[1]['address'], address_2.address)
 
     def test_index_with_pagination(self):
-        block = IpBlockFactory(network_id="301", cidr="10.1.1.0/28")
+        block = IpBlockFactory(network_id="301", cidr="10.1.1.0/28",
+                               tenant_id="111")
         ips = [block.allocate_ip() for i in range(5)]
 
-        response = self.app.get("/ipam/ip_blocks/%s/ip_addresses?"
+        response = self.app.get("/ipam/tenants/111/private_ip_blocks/"
+                                "%s/ip_addresses?"
                                 "limit=2&marker=%s" % (block.id, ips[1].id))
 
         ip_addresses = response.json["ip_addresses"]
@@ -335,11 +365,13 @@ class TestIpAddressController(BaseTestController):
         self.assertEqual(ip_addresses[1]['address'], ips[3].address)
 
     def test_restore_deallocated_ip(self):
-        block = IpBlockFactory(network_id='312', cidr="10.1.1.2/29")
+        block = IpBlockFactory(network_id='312', cidr="10.1.1.2/29",
+                                tenant_id="111")
         ips = [block.allocate_ip() for i in range(5)]
         block.deallocate_ip(ips[0].address)
 
-        response = self.app.put("/ipam/ip_blocks/%s/ip_addresses/"
+        response = self.app.put("/ipam/tenants/111/private_ip_blocks/"
+                                "%s/ip_addresses/"
                                 "%s/restore" % (block.id, ips[0].address))
 
         ip_addresses = [ip.address for ip in

@@ -20,13 +20,22 @@ import factory
 from melange.ipam.models import *
 
 
-class IpBlockFactory(factory.Factory):
+class PublicIpBlockFactory(factory.Factory):
+    FACTORY_FOR = IpBlock
+    cidr = "192.168.0.0/29"
+    tenant_id = None
+    type = "public"
+
+
+class PrivateIpBlockFactory(factory.Factory):
+    FACTORY_FOR = IpBlock
     cidr = "10.0.0.0/29"
     tenant_id = "xxx"
+    type = "private"
 
 
 class IpAddressFactory(factory.Factory):
-    ip_block_id = factory.LazyAttribute(lambda a: IpBlockFactory().id)
+    ip_block_id = factory.LazyAttribute(lambda a: PublicIpBlockFactory().id)
 
 
 class IpRangeFactory(factory.Factory):

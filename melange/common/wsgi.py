@@ -31,7 +31,7 @@ import webob.dec
 import webob.exc
 
 from xml.dom import minidom
-from webob.exc import HTTPBadRequest, HTTPInternalServerError
+from webob.exc import HTTPBadRequest, HTTPInternalServerError, HTTPForbidden
 
 from webob import Response
 from melange.common.exception import MelangeError, InvalidContentType
@@ -56,6 +56,17 @@ def run_server(application, port):
     """Run a WSGI server with the given application."""
     sock = eventlet.listen(('0.0.0.0', port))
     eventlet.wsgi.server(sock, application)
+
+
+def authorize(method):
+    def decorater(self, req):
+        arg_dict = req.environ['wsgiorg.routing_args'][1]
+        action = arg_dict['action']
+        role = req.headers.get('X-ROLE', None)
+        if role != 'admin' and action in self.admin_actions:
+            raise HTTPForbidden
+        return method(self, req)
+    return decorater
 
 
 class Request(webob.Request):
@@ -223,6 +234,7 @@ class Router(object):
 
     @webob.dec.wsgify
     def __call__(self, req):
+
         """
         Route the incoming request to a controller based on self.map.
         If no match, return a 404.
@@ -252,11 +264,14 @@ class Controller(object):
     which is the incoming webob.Request.  They raise a webob.exc exception,
     or return a dict which will be serialized by requested content type.
     """
+    admin_actions = []
 
-    def __init__(self, http_exception_map={}):
+    def __init__(self, http_exception_map={}, admin_actions=[]):
         self.model_exception_map = self._invert_dict_list(http_exception_map)
+        self.admin_actions = admin_actions
 
     @webob.dec.wsgify(RequestClass=Request)
+    @authorize
     def __call__(self, req):
         """
         Call the method specified in req.environ by RoutesMiddleware.

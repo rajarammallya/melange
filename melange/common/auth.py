@@ -32,3 +32,9 @@ class AuthorizationMiddleware(wsgi.Middleware):
             uri_elements['tenant_id'] != request.headers['X-TENANT']):
             raise HTTPForbidden
         return None
+
+    @classmethod
+    def factory(cls, global_config, **local_config):
+        def _factory(app):
+            return cls(app, global_config, **local_config)
+        return _factory

@@ -725,15 +725,15 @@ class TestUnusableIpRangeControllerForTenantPolicies(
         return PolicyFactory(tenant_id="123", **kwargs)
 
 
-class TestUnusableIpOctetsController(BaseTestController):
+class UnusableIpOctetsControllerBase():
 
     def test_index(self):
-        policy = PolicyFactory()
+        policy = self._policy_factory()
         for i in range(0, 3):
             IpOctetFactory(policy_id=policy.id)
 
-        response = self.app.get("/ipam/policies/%s/unusable_ip_octets"
-                                 % policy.id)
+        response = self.app.get("%s/%s/unusable_ip_octets"
+                                 % (self.policy_path, policy.id))
 
         response_octets = response.json["ip_octets"]
         self.assertEqual(len(response_octets), 3)
@@ -741,57 +741,60 @@ class TestUnusableIpOctetsController(BaseTestController):
                          _data_of(*policy.unusable_ip_octets))
 
     def test_index_with_limits(self):
-        policy = PolicyFactory()
+        policy = self._policy_factory()
         for i in range(0, 3):
             IpOctetFactory(policy_id=policy.id)
 
-        response = self.app.get("/ipam/policies/%s/unusable_ip_octets"
-                                 % policy.id, {'limit': 2})
+        response = self.app.get("%s/%s/unusable_ip_octets"
+                                 % (self.policy_path, policy.id), {'limit': 2})
 
         response_octets = response.json["ip_octets"]
         self.assertEqual(len(response_octets), 2)
 
     def test_create(self):
-        policy = PolicyFactory()
-        response = self.app.post("/ipam/policies/%s/unusable_ip_octets"
-                                 % policy.id, {'octet': '123'})
+        policy = self._policy_factory()
+        response = self.app.post("%s/%s/unusable_ip_octets"
+                                 % (self.policy_path, policy.id),
+                                 {'octet': '123'})
 
         ip_octet = IpOctet.find_all_by_policy(policy.id).first()
         self.assertEqual(response.status, "201 Created")
         self.assertEqual(response.json['ip_octet'], ip_octet.data())
 
     def test_create_on_non_existent_policy(self):
-        response = self.app.post("/ipam/policies/10000/unusable_ip_octets"
-                                 % {'octet': '2'}, status="*")
+        response = self.app.post("%s/10000/unusable_ip_octets"
+                                 % self.policy_path,
+                                 {'octet': '2'}, status="*")
 
         self.assertErrorResponse(response, "404 Not Found",
                                  "Policy Not Found")
 
     def test_show(self):
-        policy = PolicyFactory()
+        policy = self._policy_factory()
         ip_octet = IpOctetFactory(policy_id=policy.id)
 
-        response = self.app.get("/ipam/policies/%s/unusable_ip_octets/%s"
-                                 % (policy.id, ip_octet.id))
+        response = self.app.get("%s/%s/unusable_ip_octets/%s"
+                                 % (self.policy_path, policy.id, ip_octet.id))
 
         self.assertEqual(response.status_int, 200)
         self.assertEqual(response.json['ip_octet'], ip_octet.data())
 
     def test_show_when_ip_octet_does_not_exists(self):
-        policy = PolicyFactory()
+        policy = self._policy_factory()
 
-        response = self.app.get("/ipam/policies/%s/unusable_ip_octets/%s"
-                                 % (policy.id, 1000000), status="*")
+        response = self.app.get("%s/%s/unusable_ip_octets/%s"
+                                % (self.policy_path, policy.id, 1000000),
+                                status="*")
 
         self.assertErrorResponse(response, "404 Not Found",
                                   "Can't find IpOctet for policy")
 
     def test_update(self):
-        policy = PolicyFactory()
+        policy = self._policy_factory()
         ip_octet = IpOctetFactory.create(octet=10, policy_id=policy.id)
 
-        response = self.app.put("/ipam/policies/%s/unusable_ip_octets/%s"
-                                % (policy.id, ip_octet.id),
+        response = self.app.put("%s/%s/unusable_ip_octets/%s"
+                                % (self.policy_path, policy.id, ip_octet.id),
                                 {'octet': 123})
 
         self.assertEqual(response.status_int, 200)
@@ -800,25 +803,47 @@ class TestUnusableIpOctetsController(BaseTestController):
         self.assertEqual(response.json['ip_octet'], updated_octet.data())
 
     def test_update_when_ip_octet_does_not_exists(self):
-        policy = PolicyFactory()
+        policy = self._policy_factory()
 
-        response = self.app.put("/ipam/policies/%s/unusable_ip_octets/%s"
-                                 % (policy.id, "invalid_id"),
+        response = self.app.put("%s/%s/unusable_ip_octets/%s"
+                                 % (self.policy_path, policy.id, "invalid_id"),
                                  {'octet': 222}, status="*")
 
         self.assertErrorResponse(response, "404 Not Found",
                                   "Can't find IpOctet for policy")
 
     def test_delete(self):
-        policy = PolicyFactory()
+        policy = self._policy_factory()
         ip_octet = IpOctetFactory(policy_id=policy.id)
 
-        response = self.app.delete("/ipam/policies/%s/unusable_ip_octets/%s"
-                                 % (policy.id, ip_octet.id))
+        response = self.app.delete("%s/%s/unusable_ip_octets/%s"
+                                 % (self.policy_path, policy.id, ip_octet.id))
 
         self.assertEqual(response.status_int, 200)
         self.assertRaises(models.ModelNotFoundError,
                           policy.find_ip_octet, ip_octet_id=ip_octet.id)
+
+
+class TestUnusableIpOctetControllerForStandardPolicies(
+    UnusableIpOctetsControllerBase, BaseTestController):
+
+    def setUp(self):
+        self.policy_path = "/ipam/policies"
+        super(TestUnusableIpOctetControllerForStandardPolicies, self).setUp()
+
+    def _policy_factory(self, **kwargs):
+        return PolicyFactory(**kwargs)
+
+
+class TestUnusableIpOctetControllerForTenantPolicies(
+    UnusableIpOctetsControllerBase, BaseTestController):
+
+    def setUp(self):
+        self.policy_path = "/ipam/tenants/123/policies"
+        super(TestUnusableIpOctetControllerForTenantPolicies, self).setUp()
+
+    def _policy_factory(self, **kwargs):
+        return PolicyFactory(tenant_id="123", **kwargs)
 
 
 class TestPoliciesController(BaseTestController):

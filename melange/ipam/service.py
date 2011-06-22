@@ -176,27 +176,27 @@ class UnusableIpRangesController(BaseController):
 
 class UnusableIpOctetsController(BaseController):
 
-    def index(self, request, policy_id):
+    def index(self, request, policy_id, tenant_id=None):
         policy = Policy.find(policy_id)
         ip_octets = IpOctet.with_limits(policy.unusable_ip_octets,
                                         **self._extract_limits(request.params))
         return dict(ip_octets=[ip_octet.data() for ip_octet in ip_octets])
 
-    def create(self, request, policy_id):
+    def create(self, request, policy_id, tenant_id=None):
         policy = Policy.find(policy_id)
         ip_octet = policy.create_unusable_ip_octet(**request.params.copy())
         return dict(ip_octet=ip_octet.data()), 201
 
-    def show(self, request, policy_id, id):
+    def show(self, request, policy_id, id, tenant_id=None):
         ip_octet = Policy.find(policy_id).find_ip_octet(id)
         return dict(ip_octet=ip_octet.data())
 
-    def update(self, request, policy_id, id):
+    def update(self, request, policy_id, id, tenant_id=None):
         ip_octet = Policy.find(policy_id).find_ip_octet(id)
         ip_octet.update(request.params)
         return dict(ip_octet=ip_octet.data())
 
-    def delete(self, request, policy_id, id):
+    def delete(self, request, policy_id, id, tenant_id=None):
         ip_octet = Policy.find(policy_id).find_ip_octet(id)
         ip_octet.delete()
 

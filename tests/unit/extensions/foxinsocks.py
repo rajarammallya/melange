@@ -17,14 +17,13 @@
 
 import json
 
-from nova import wsgi
+from melange.common import service
+from melange.common import extensions
 
-from nova.api.openstack import extensions
 
+class FoxInSocksController(service.Controller):
 
-class FoxInSocksController(wsgi.Controller):
-
-    def index(self, req):
+    def index(self, request):
         return "Try to say this Mr. Knox, sir..."
 
 
@@ -56,12 +55,10 @@ class Foxinsocks(object):
         return resources
 
     def get_actions(self):
-        actions = []
-        actions.append(extensions.ActionExtension('servers', 'add_tweedle',
-                                                    self._add_tweedle))
-        actions.append(extensions.ActionExtension('servers', 'delete_tweedle',
-                                                    self._delete_tweedle))
-        return actions
+        return  [extensions.ActionExtension('dummy_resources', 'add_tweedle',
+                                            self._add_tweedle),
+                 extensions.ActionExtension('dummy_resources',
+                                       'delete_tweedle', self._delete_tweedle)]
 
     def get_request_extensions(self):
         request_exts = []
@@ -70,11 +67,11 @@ class Foxinsocks(object):
             #NOTE: This only handles JSON responses.
             # You can use content type header to test for XML.
             data = json.loads(res.body)
-            data['flavor']['googoose'] = req.GET.get('chewing')
+            data['googoose'] = req.GET.get('chewing')
             res.body = json.dumps(data)
             return res
 
-        req_ext1 = extensions.RequestExtension('GET', '/v1.1/flavors/:(id)',
+        req_ext1 = extensions.RequestExtension('GET', '/dummy_resources/:(id)',
                                                 _goose_handler)
         request_exts.append(req_ext1)
 
@@ -86,7 +83,7 @@ class Foxinsocks(object):
             res.body = json.dumps(data)
             return res
 
-        req_ext2 = extensions.RequestExtension('GET', '/v1.1/flavors/:(id)',
+        req_ext2 = extensions.RequestExtension('GET', '/dummy_resources/:(id)',
                                                 _bands_handler)
         request_exts.append(req_ext2)
         return request_exts

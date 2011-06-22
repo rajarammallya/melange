@@ -19,6 +19,7 @@ import routes
 from webob.exc import (HTTPUnprocessableEntity, HTTPBadRequest,
                        HTTPNotFound)
 
+from melange.common import service
 from melange.common import wsgi
 from melange.ipam import models
 from melange.ipam.models import (IpBlock, IpAddress, Policy, IpRange,
@@ -26,7 +27,7 @@ from melange.ipam.models import (IpBlock, IpAddress, Policy, IpRange,
 from melange.common.utils import exclude
 
 
-class BaseController(wsgi.Controller):
+class BaseController(service.Controller):
 
     def __init__(self):
         exception_map = {HTTPUnprocessableEntity:

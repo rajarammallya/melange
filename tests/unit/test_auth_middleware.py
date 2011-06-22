@@ -55,21 +55,22 @@ class TestAuthMiddleware(unittest.TestCase):
 
     def test_authorize_admins_to_access_any_resource(self):
         response = self.app.get("/ipam/tenants/124/resources",
-                                headers={'X_TENANT': "123", 'X_ROLE': 'admin'})
+                                headers={'X_TENANT': "123", 'X_ROLE': "Admin"})
 
         self.assertEqual(response.status_int, 200)
         self.assertTrue(self.dummy_app.was_called)
 
     def test_authorizes_tenant_accessing_resources_not_scoped_by_tenant(self):
         response = self.app.get("/ipam/resources",
-                                headers={'X_TENANT': "123", 'X_ROLE': 'other'})
+                                headers={'X_TENANT': "123",
+                                         'X_ROLE': "Tenant"})
 
         self.assertEqual(response.status_int, 200)
         self.assertTrue(self.dummy_app.was_called)
 
     def test_forbids_tenants_without_id_accessing_tenants_resources(self):
         response = self.app.get("/ipam/tenants/124/resources", status="*",
-                                headers={'X_ROLE': 'other'})
+                                headers={'X_ROLE': "Tenant"})
 
         self.assertEqual(response.status_int, 403)
         self.assertFalse(self.dummy_app.was_called)

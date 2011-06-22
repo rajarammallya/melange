@@ -25,6 +25,7 @@ import webob.exc
 
 from melange.common import exception
 from melange.common import wsgi
+from melange.common import service
 from gettext import gettext as _
 
 LOG = logging.getLogger('melange.common.extensions')
@@ -107,7 +108,7 @@ class ExtensionDescriptor(object):
         return request_exts
 
 
-class ActionExtensionController(wsgi.Controller):
+class ActionExtensionController(service.Controller):
 
     def __init__(self, application):
 
@@ -129,7 +130,7 @@ class ActionExtensionController(wsgi.Controller):
         return response
 
 
-class RequestExtensionController(wsgi.Controller):
+class RequestExtensionController(service.Controller):
 
     def __init__(self, application):
         self.application = application
@@ -146,7 +147,7 @@ class RequestExtensionController(wsgi.Controller):
         return res
 
 
-class ExtensionController(wsgi.Controller):
+class ExtensionController(service.Controller):
 
     def __init__(self, extension_manager):
         self.extension_manager = extension_manager

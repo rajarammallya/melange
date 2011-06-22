@@ -22,10 +22,21 @@ import routes
 class AuthorizationMiddleware(wsgi.Middleware):
 
     def process_request(self, request):
-        role = request.headers.get('X-ROLE', None)
-        tenant_id = request.headers.get('X-TENANT', None)
+        role = request.headers.get('X_ROLE', None)
+        tenant_id = request.headers.get('X_TENANT', None)
         resource_path = wsgi.ResourcePath(request.path)
-        if role == 'admin' or resource_path.tenant_scoped() is False:
+        if role == 'Admin' or resource_path.tenant_scoped() is False:
             return
         if resource_path.elements['tenant_id'] != tenant_id:
             raise HTTPForbidden
+
+
+def authorize(method):
+    def decorater(self, req):
+        arg_dict = req.environ['wsgiorg.routing_args'][1]
+        action = arg_dict['action']
+        role = req.headers.get('X_ROLE', None)
+        if role != 'Admin' and action in self.admin_actions:
+            raise HTTPForbidden
+        return method(self, req)
+    return decorater

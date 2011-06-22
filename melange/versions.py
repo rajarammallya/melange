@@ -18,11 +18,12 @@ import routes
 import json
 import os
 
+from melange.common import service
 from melange.common import wsgi
 from webob import Response
 
 
-class VersionsController(wsgi.Controller):
+class VersionsController(service.Controller):
 
     _serialization_metadata = {
             "application/xml": {

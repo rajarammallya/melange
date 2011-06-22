@@ -14,52 +14,11 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-import routes
 import webob
 from webtest import TestApp
-from tests.unit import BaseTest, test_config_path
+from tests.unit import BaseTest
 
 from melange.common import wsgi
-from melange.common import service
-
-
-class DummyApp(wsgi.Router):
-
-    def __init__(self, options={}):
-        mapper = routes.Mapper()
-        controller = StubController()
-        mapper.resource("resource", "/resources",
-                        controller=controller)
-        super(DummyApp, self).__init__(mapper)
-
-
-class StubController(service.Controller):
-
-    def index(self, request, format=None):
-        return  {'fort': 'knox'}
-
-    def show(self, request, id, format=None):
-        return {'fort': 'knox'}
-
-
-class TestController(BaseTest):
-    def test_response_content_type_matches_accept_header(self):
-        app = TestApp(DummyApp())
-
-        response = app.get("/resources", headers={'Accept': "application/xml"})
-
-        self.assertEqual(response.content_type, "application/xml")
-        self.assertEqual(response.xml.tag, "fort")
-        self.assertEqual(response.xml.text.strip(), "knox")
-
-    def test_response_content_type_matches_url_format_over_accept_header(self):
-        app = TestApp(DummyApp())
-
-        response = app.get("/resources.json",
-                           headers={'Accept': "application/xml"})
-
-        self.assertEqual(response.content_type, "application/json")
-        self.assertEqual(response.json, {'fort': 'knox'})
 
 
 class RequestTest(BaseTest):

@@ -37,7 +37,7 @@ use = egg:Paste#urlmap
 paste.app_factory = melange.versions:app_factory
 
 [pipeline:melangeapi]
-pipeline = extensions melangeapp
+pipeline = authorization extensions melangeapp
 
 [filter:extensions]
 paste.filter_factory = melange.common.extensions:ExtensionMiddleware.factory

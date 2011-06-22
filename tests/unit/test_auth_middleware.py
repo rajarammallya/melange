@@ -66,3 +66,10 @@ class TestAuthMiddleware(unittest.TestCase):
 
         self.assertEqual(response.status_int, 200)
         self.assertTrue(self.dummy_app.was_called)
+
+    def test_forbids_tenants_without_id_accessing_tenants_resources(self):
+        response = self.app.get("/ipam/tenants/124/resources", status="*",
+                                headers={'X_ROLE': 'other'})
+
+        self.assertEqual(response.status_int, 403)
+        self.assertFalse(self.dummy_app.was_called)

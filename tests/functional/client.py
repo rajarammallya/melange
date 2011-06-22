@@ -48,11 +48,7 @@ class Client(object):
             connection = self._get_connection()
             connection.request(method, url, body, headers)
             response = connection.getresponse()
-            if(response.status < 400):
-                return response
-            else:
-                raise Exception("Server returned error: %s" % response.read())
-
+            return response
         except (socket.error, IOError), e:
             raise Exception("Unable to connect to "
                             "server. Got error: %s" % e)

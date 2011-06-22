@@ -21,20 +21,11 @@ import routes
 
 class AuthorizationMiddleware(wsgi.Middleware):
 
-    mapper = routes.Mapper()
-    mapper.connect("{prefix_path:.*}/tenants/{tenant_id}/{suffix_path:.*}")
-
     def process_request(self, request):
-        if request.headers.get('X-ROLE', None) == 'admin':
-            return None
-        uri_elements = self.mapper.match(request.path)
-        if (uri_elements is not None and
-            uri_elements['tenant_id'] != request.headers['X-TENANT']):
+        role = request.headers.get('X-ROLE', None)
+        tenant_id = request.headers.get('X-TENANT', None)
+        resource_path = wsgi.ResourcePath(request.path)
+        if role == 'admin' or resource_path.tenant_scoped() is False:
+            return
+        if resource_path.elements()['tenant_id'] != tenant_id:
             raise HTTPForbidden
-        return None
-
-    @classmethod
-    def factory(cls, global_config, **local_config):
-        def _factory(app):
-            return cls(app, global_config, **local_config)
-        return _factory

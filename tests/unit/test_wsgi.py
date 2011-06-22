@@ -125,3 +125,23 @@ class RequestTest(BaseTest):
         request.headers["Accept"] = "application/unsupported1"
         result = request.best_match_content_type()
         self.assertEqual(result, "application/json")
+
+
+class TestResourcePath(BaseTest):
+    def test_tenant_scoped_when_path_has_tenants(self):
+        self.assertTrue(wsgi.ResourcePath(
+                        "/tenants/1/resources").tenant_scoped())
+        self.assertTrue(wsgi.ResourcePath(
+                        "/ipam/tenants/1/resources/2").tenant_scoped())
+
+    def test_not_tenant_scoped_when_path_does_not_have_tenants(self):
+        self.assertFalse(wsgi.ResourcePath(
+                        "/ipam/resources/2").tenant_scoped())
+
+    def test_elements(self):
+        resource_path = wsgi.ResourcePath("/ipam/tenants/1/resources/2")
+
+        self.assertEqual(resource_path.elements()['prefix_path'], "/ipam")
+        self.assertEqual(resource_path.elements()['tenant_id'], "1")
+        self.assertEqual(resource_path.elements()['suffix_path'],
+                                                        "resources/2")

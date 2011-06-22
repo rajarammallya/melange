@@ -34,6 +34,7 @@ from xml.dom import minidom
 from webob.exc import HTTPBadRequest, HTTPInternalServerError, HTTPForbidden
 
 from webob import Response
+from melange.common import utils
 from melange.common.exception import MelangeError, InvalidContentType
 
 eventlet.patcher.monkey_patch(all=False, socket=True)
@@ -503,9 +504,8 @@ class ResourcePath(object):
         self.path = path
 
     def tenant_scoped(self):
-        return self.elements() != None
+        return self.elements != None
 
+    @utils.cached_property
     def elements(self):
-        if not hasattr(self, "_elements"):
-            self._elements = self.mapper.match(self.path)
-        return self._elements
+        return self.mapper.match(self.path)

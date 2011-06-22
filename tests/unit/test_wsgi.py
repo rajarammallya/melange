@@ -141,7 +141,6 @@ class TestResourcePath(BaseTest):
     def test_elements(self):
         resource_path = wsgi.ResourcePath("/ipam/tenants/1/resources/2")
 
-        self.assertEqual(resource_path.elements()['prefix_path'], "/ipam")
-        self.assertEqual(resource_path.elements()['tenant_id'], "1")
-        self.assertEqual(resource_path.elements()['suffix_path'],
-                                                        "resources/2")
+        self.assertEqual(resource_path.elements['prefix_path'], "/ipam")
+        self.assertEqual(resource_path.elements['tenant_id'], "1")
+        self.assertEqual(resource_path.elements['suffix_path'], "resources/2")

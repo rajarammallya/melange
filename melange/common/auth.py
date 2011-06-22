@@ -27,5 +27,5 @@ class AuthorizationMiddleware(wsgi.Middleware):
         resource_path = wsgi.ResourcePath(request.path)
         if role == 'admin' or resource_path.tenant_scoped() is False:
             return
-        if resource_path.elements()['tenant_id'] != tenant_id:
+        if resource_path.elements['tenant_id'] != tenant_id:
             raise HTTPForbidden

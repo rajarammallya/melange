@@ -29,3 +29,37 @@ class ParseIntTest(unittest.TestCase):
 
     def test_converts_valid_integer_string_to_int(self):
         self.assertEqual(utils.parse_int("123"), 123)
+
+
+class Foo(object):
+    method_execution_count = 0
+
+    @utils.cached_property
+    def bar(self):
+        self.method_execution_count += 1
+        return 42
+
+
+class TestCachedProperty(unittest.TestCase):
+    def test_retrives_the_value_returned_by_method(self):
+        foo = Foo()
+
+        for i in range(1, 5):
+            self.assertEqual(foo.bar, 42)
+
+    def test_retrives_the_same_value_all_the_time(self):
+        foo = Foo()
+
+        for i in range(1, 5):
+            self.assertEqual(foo.bar, 42)
+
+    def test_value_is_cached_after_first_method_call(self):
+        foo = Foo()
+
+        for i in range(1, 5):
+            foo.bar
+
+        self.assertEqual(foo.method_execution_count, 1)
+
+    def test_returns_instance_of_cached_proprty_when_called_on_class(self):
+        self.assertTrue(isinstance(Foo.bar, utils.cached_property))

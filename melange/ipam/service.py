@@ -19,7 +19,6 @@ import routes
 from webob.exc import (HTTPUnprocessableEntity, HTTPBadRequest,
                        HTTPNotFound)
 
-from melange.common import service
 from melange.common import wsgi
 from melange.ipam import models
 from melange.ipam.models import (IpBlock, IpAddress, Policy, IpRange,
@@ -27,7 +26,7 @@ from melange.ipam.models import (IpBlock, IpAddress, Policy, IpRange,
 from melange.common.utils import exclude
 
 
-class BaseController(service.Controller):
+class BaseController(wsgi.Controller):
 
     def __init__(self):
         exception_map = {HTTPUnprocessableEntity:
@@ -150,27 +149,27 @@ class InsideLocalsController(BaseController):
 
 class UnusableIpRangesController(BaseController):
 
-    def create(self, request, policy_id):
+    def create(self, request, policy_id, tenant_id=None):
         policy = Policy.find(policy_id)
         ip_range = policy.create_unusable_range(**request.params.copy())
         return dict(ip_range=ip_range.data()), 201
 
-    def show(self, request, policy_id, id):
+    def show(self, request, policy_id, id, tenant_id=None):
         ip_range = Policy.find(policy_id).find_ip_range(id)
         return dict(ip_range=ip_range.data())
 
-    def index(self, request, policy_id):
-        ip_range_all = Policy.find(policy_id).unusable_ip_ranges()
+    def index(self, request, policy_id, tenant_id=None):
+        ip_range_all = Policy.find(policy_id).unusable_ip_ranges
         ip_ranges = IpRange.with_limits(ip_range_all,
                                         **self._extract_limits(request.params))
         return dict(ip_ranges=[ip_range.data() for ip_range in ip_ranges])
 
-    def update(self, request, policy_id, id):
+    def update(self, request, policy_id, id, tenant_id=None):
         ip_range = Policy.find(policy_id).find_ip_range(id)
         ip_range.update(request.params)
         return dict(ip_range=ip_range.data())
 
-    def delete(self, request, policy_id, id):
+    def delete(self, request, policy_id, id, tenant_id=None):
         ip_range = Policy.find(policy_id).find_ip_range(id)
         ip_range.delete()
 
@@ -179,7 +178,7 @@ class UnusableIpOctetsController(BaseController):
 
     def index(self, request, policy_id):
         policy = Policy.find(policy_id)
-        ip_octets = IpOctet.with_limits(policy.unusable_ip_octets(),
+        ip_octets = IpOctet.with_limits(policy.unusable_ip_octets,
                                         **self._extract_limits(request.params))
         return dict(ip_octets=[ip_octet.data() for ip_octet in ip_octets])
 
@@ -242,19 +241,22 @@ class API(wsgi.Router):
                              InsideGlobalsController())
         self._natting_mapper(mapper, "inside_locals",
                              InsideLocalsController())
-        mapper.resource("policy", "/ipam/policies",
-                        controller=PoliciesController())
-        mapper.resource("policy", "/ipam/tenants/{tenant_id}/policies",
+        self._policy_and_rules_mapper(mapper, "/ipam/policies")
+        self._policy_and_rules_mapper(mapper,
+                                      "/ipam/tenants/{tenant_id}/policies")
+        super(API, self).__init__(mapper)
+
+    def _policy_and_rules_mapper(self, mapper, policy_path):
+        mapper.resource("policy", policy_path,
                         controller=PoliciesController())
         mapper.resource("unusable_ip_range", "unusable_ip_ranges",
                         controller=UnusableIpRangesController(),
                         parent_resource=dict(member_name="policy",
-                                           collection_name="/ipam/policies"))
+                                           collection_name=policy_path))
         mapper.resource("unusable_ip_octet", "unusable_ip_octets",
                         controller=UnusableIpOctetsController(),
                         parent_resource=dict(member_name="policy",
-                                           collection_name="/ipam/policies"))
-        super(API, self).__init__(mapper)
+                                           collection_name=policy_path))
 
     def _block_and_address_mapper(self, mapper, block_resource,
                                   block_resource_path, block_controller):

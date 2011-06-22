@@ -612,51 +612,54 @@ class TestInsideLocalsController(BaseTestController):
                                  "IpAddress Not Found")
 
 
-class TestUnusableIpRangesController(BaseTestController):
+class UnusableIpRangesControllerBase():
 
     def test_create(self):
-        policy = PolicyFactory()
+        policy = self._policy_factory()
 
-        response = self.app.post("/ipam/policies/%s/unusable_ip_ranges"
-                                 % policy.id, {'offset': '10', 'length': '2'})
+        response = self.app.post("%s/%s/unusable_ip_ranges"
+                                 % (self.policy_path, policy.id),
+                                 {'offset': '10', 'length': '2'})
 
         unusable_range = IpRange.find_all_by_policy(policy.id).first()
         self.assertEqual(response.status, "201 Created")
         self.assertEqual(response.json, dict(ip_range=unusable_range.data()))
 
     def test_create_on_non_existent_policy(self):
-        response = self.app.post("/ipam/policies/10000/unusable_ip_ranges"
-                                 % {'offset': '1', 'length': '2'}, status="*")
+        response = self.app.post("%s/10000/unusable_ip_ranges"
+                                 % self.policy_path,
+                                 {'offset': '1', 'length': '2'}, status="*")
 
         self.assertErrorResponse(response, "404 Not Found",
                                  "Policy Not Found")
 
     def test_show(self):
-        policy = PolicyFactory()
+        policy = self._policy_factory()
         ip_range = IpRangeFactory.create(policy_id=policy.id)
 
-        response = self.app.get("/ipam/policies/%s/unusable_ip_ranges/%s"
-                                 % (policy.id, ip_range.id))
+        response = self.app.get("%s/%s/unusable_ip_ranges/%s"
+                                % (self.policy_path, policy.id, ip_range.id))
 
         self.assertEqual(response.status_int, 200)
         self.assertEqual(response.json, dict(ip_range=ip_range.data()))
 
     def test_show_when_ip_range_does_not_exists(self):
-        policy = PolicyFactory()
+        policy = self._policy_factory()
 
-        response = self.app.get("/ipam/policies/%s/unusable_ip_ranges/%s"
-                                 % (policy.id, 1000000), status="*")
+        response = self.app.get("%s/%s/unusable_ip_ranges/%s"
+                                % (self.policy_path, policy.id, 1000000),
+                                status="*")
 
         self.assertErrorResponse(response, "404 Not Found",
                                   "Can't find IpRange for policy")
 
     def test_update(self):
-        policy = PolicyFactory()
+        policy = self._policy_factory()
         ip_range = IpRangeFactory.create(offset=10, length=11,
                                          policy_id=policy.id)
 
-        response = self.app.put("/ipam/policies/%s/unusable_ip_ranges/%s"
-                                % (policy.id, ip_range.id),
+        response = self.app.put("%s/%s/unusable_ip_ranges/%s"
+                                % (self.policy_path, policy.id, ip_range.id),
                                 {'offset': 1111, 'length': 2222})
 
         self.assertEqual(response.status_int, 200)
@@ -666,22 +669,22 @@ class TestUnusableIpRangesController(BaseTestController):
         self.assertEqual(response.json, dict(ip_range=updated_range.data()))
 
     def test_update_when_ip_range_does_not_exists(self):
-        policy = PolicyFactory()
+        policy = self._policy_factory()
 
-        response = self.app.put("/ipam/policies/%s/unusable_ip_ranges/%s"
-                                 % (policy.id, "invalid_id"),
+        response = self.app.put("%s/%s/unusable_ip_ranges/%s"
+                                 % (self.policy_path, policy.id, "invalid_id"),
                                  {'offset': 1111, 'length': 222}, status="*")
 
         self.assertErrorResponse(response, "404 Not Found",
                                   "Can't find IpRange for policy")
 
     def test_index(self):
-        policy = PolicyFactory()
+        policy = self._policy_factory()
         for i in range(0, 3):
             IpRangeFactory(policy_id=policy.id)
 
-        response = self.app.get("/ipam/policies/%s/unusable_ip_ranges"
-                                 % policy.id)
+        response = self.app.get("%s/%s/unusable_ip_ranges"
+                                 % (self.policy_path, policy.id))
 
         response_ranges = response.json["ip_ranges"]
         self.assertEqual(len(response_ranges), 3)
@@ -689,15 +692,37 @@ class TestUnusableIpRangesController(BaseTestController):
                          _data_of(*policy.unusable_ip_ranges))
 
     def test_delete(self):
-        policy = PolicyFactory()
+        policy = self._policy_factory()
         ip_range = IpRangeFactory(policy_id=policy.id)
 
-        response = self.app.delete("/ipam/policies/%s/unusable_ip_ranges/%s"
-                                 % (policy.id, ip_range.id))
+        response = self.app.delete("%s/%s/unusable_ip_ranges/%s"
+                                 % (self.policy_path, policy.id, ip_range.id))
 
         self.assertEqual(response.status_int, 200)
         self.assertRaises(models.ModelNotFoundError,
                           policy.find_ip_range, ip_range_id=ip_range.id)
+
+
+class TestUnusableIpRangeControllerForStandardPolicies(
+    UnusableIpRangesControllerBase, BaseTestController):
+
+    def setUp(self):
+        self.policy_path = "/ipam/policies"
+        super(TestUnusableIpRangeControllerForStandardPolicies, self).setUp()
+
+    def _policy_factory(self, **kwargs):
+        return PolicyFactory(**kwargs)
+
+
+class TestUnusableIpRangeControllerForTenantPolicies(
+    UnusableIpRangesControllerBase, BaseTestController):
+
+    def setUp(self):
+        self.policy_path = "/ipam/tenants/123/policies"
+        super(TestUnusableIpRangeControllerForTenantPolicies, self).setUp()
+
+    def _policy_factory(self, **kwargs):
+        return PolicyFactory(tenant_id="123", **kwargs)
 
 
 class TestUnusableIpOctetsController(BaseTestController):

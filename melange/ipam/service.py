@@ -203,24 +203,24 @@ class UnusableIpOctetsController(BaseController):
 
 class PoliciesController(BaseController):
 
-    def index(self, request):
+    def index(self, request, tenant_id=None):
         policies = Policy.with_limits(Policy.find_all(),
                                       **self._extract_limits(request.params))
         return dict(policies=[policy.data() for policy in policies])
 
-    def show(self, request, id):
+    def show(self, request, id, tenant_id=None):
         return dict(policy=Policy.find(id).data())
 
-    def create(self, request):
-        policy = Policy.create(**request.params)
+    def create(self, request, tenant_id=None):
+        policy = Policy.create(tenant_id=tenant_id, **request.params)
         return dict(policy=policy.data()), 201
 
-    def update(self, request, id):
+    def update(self, request, id, tenant_id=None):
         policy = Policy.find(id)
         policy.update(request.params)
         return dict(policy=policy.data())
 
-    def delete(self, request, id):
+    def delete(self, request, id, tenant_id=None):
         policy = Policy.find(id)
         policy.delete()
 
@@ -241,6 +241,8 @@ class API(wsgi.Router):
         self._natting_mapper(mapper, "inside_locals",
                              InsideLocalsController())
         mapper.resource("policy", "/ipam/policies",
+                        controller=PoliciesController())
+        mapper.resource("policy", "/ipam/tenants/{tenant_id}/policies",
                         controller=PoliciesController())
         mapper.resource("unusable_ip_range", "unusable_ip_ranges",
                         controller=UnusableIpRangesController(),

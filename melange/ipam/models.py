@@ -382,7 +382,7 @@ class Policy(ModelBase):
         self._unusable_ip_octets = IpOctet.find_all_by_policy(self.id)
 
     def data_fields(self):
-        return ['id', 'name']
+        return ['id', 'name', 'tenant_id']
 
 
 class IpRange(ModelBase):

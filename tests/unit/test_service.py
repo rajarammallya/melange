@@ -801,8 +801,17 @@ class TestPoliciesController(BaseTestController):
     def test_create(self):
         response = self.app.post("/ipam/policies", {'name': "infrastructure"})
 
+        self.assertTrue(Policy.find_by(name="infrastructure") is not None)
         self.assertEqual(response.status, "201 Created")
         self.assertEqual(response.json['policy']['name'], "infrastructure")
+
+    def test_create_policy_for_tenant(self):
+        response = self.app.post("/ipam/tenants/1111/policies",
+                                 {'name': "infrastructure"})
+
+        self.assertTrue(Policy.find_by(tenant_id="1111") is not None)
+        self.assertEqual(response.status, "201 Created")
+        self.assertEqual(response.json['policy']['tenant_id'], "1111")
 
     def test_index(self):
         PolicyFactory(name="infrastructure")

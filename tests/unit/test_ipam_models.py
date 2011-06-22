@@ -470,13 +470,14 @@ class TestIpAddress(unittest.TestCase):
 class TestPolicy(BaseTest):
 
     def test_create_policy(self):
-        PolicyFactory(name="new policy",
+        PolicyFactory(name="new policy", tenant_id="123",
                        description="desc")
 
         policy = Policy.find_by_name("new policy")
 
         self.assertEqual(policy.name, "new policy")
         self.assertEqual(policy.description, "desc")
+        self.assertEqual(policy.tenant_id, "123")
 
     def test_allows_address_not_in_last_ip_octets(self):
         policy = PolicyFactory(name="blah")
@@ -517,10 +518,10 @@ class TestPolicy(BaseTest):
                          [ip_octet1, ip_octet2])
 
     def test_data(self):
-        policy = PolicyFactory(name='Infrastructure')
+        policy = PolicyFactory(name='Infrastructure', tenant_id="123")
 
-        self.assertEqual(policy.data(), {'name': 'Infrastructure',
-                                         'id': policy.id})
+        self.assertEqual(policy.data(), dict(name='Infrastructure',
+                                         id=policy.id, tenant_id="123"))
 
     def test_find_all_to_return_all_policies(self):
         policy1 = PolicyFactory(name="physically unstable")

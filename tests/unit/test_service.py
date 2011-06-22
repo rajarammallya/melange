@@ -686,7 +686,7 @@ class TestUnusableIpRangesController(BaseTestController):
         response_ranges = response.json["ip_ranges"]
         self.assertEqual(len(response_ranges), 3)
         self.assertEqual(response_ranges,
-                         _data_of(*policy.unusable_ip_ranges()))
+                         _data_of(*policy.unusable_ip_ranges))
 
     def test_delete(self):
         policy = PolicyFactory()
@@ -713,7 +713,7 @@ class TestUnusableIpOctetsController(BaseTestController):
         response_octets = response.json["ip_octets"]
         self.assertEqual(len(response_octets), 3)
         self.assertEqual(response_octets,
-                         _data_of(*policy.unusable_ip_octets()))
+                         _data_of(*policy.unusable_ip_octets))
 
     def test_index_with_limits(self):
         policy = PolicyFactory()

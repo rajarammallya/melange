@@ -24,6 +24,7 @@ from netaddr import IPNetwork, IPAddress
 from melange.common.exception import MelangeError
 from melange.db import api as db_api
 from melange.common import utils
+from melange.common.utils import cached_property
 from melange.common import data_types
 
 
@@ -332,8 +333,8 @@ class Policy(ModelBase):
         return db_api.find_by(Policy, name=name)
 
     def delete(self):
-        db_api.delete_all(self.unusable_ip_ranges())
-        db_api.delete_all(self.unusable_ip_octets())
+        db_api.delete_all(self.unusable_ip_ranges)
+        db_api.delete_all(self.unusable_ip_octets)
         ip_blocks = IpBlock.find_all_by_policy(self.id)
         ip_blocks.update({'policy_id': None})
         super(Policy, self).delete()
@@ -346,22 +347,20 @@ class Policy(ModelBase):
         attributes['policy_id'] = self.id
         return IpOctet.create(**attributes)
 
+    @cached_property
     def unusable_ip_ranges(self):
-        if not hasattr(self, '_unusable_ip_ranges'):
-            self._load_unusable_ip_ranges()
-        return self._unusable_ip_ranges
+        return IpRange.find_all_by_policy(self.id)
 
+    @cached_property
     def unusable_ip_octets(self):
-        if not hasattr(self, '_unusable_ip_octets'):
-            self._load_unusable_ip_octets()
-        return self._unusable_ip_octets
+        return IpOctet.find_all_by_policy(self.id)
 
     def allows(self, cidr, address):
         if (any(ip_octet.applies_to(address)
-                       for ip_octet in self.unusable_ip_octets())):
+                       for ip_octet in self.unusable_ip_octets)):
             return False
         return not any(ip_range.contains(cidr, address)
-                       for ip_range in self.unusable_ip_ranges())
+                       for ip_range in self.unusable_ip_ranges)
 
     def find_ip_range(self, ip_range_id):
         ip_range = db_api.find_by(IpRange, id=ip_range_id, policy_id=self.id)
@@ -374,12 +373,6 @@ class Policy(ModelBase):
         if ip_octet is None:
             raise ModelNotFoundError("Can't find IpOctet for policy")
         return ip_octet
-
-    def _load_unusable_ip_ranges(self):
-        self._unusable_ip_ranges = IpRange.find_all_by_policy(self.id)
-
-    def _load_unusable_ip_octets(self):
-        self._unusable_ip_octets = IpOctet.find_all_by_policy(self.id)
 
     def data_fields(self):
         return ['id', 'name', 'tenant_id']

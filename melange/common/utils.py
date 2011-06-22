@@ -207,6 +207,7 @@ def if_not_null(**kwargs):
 
 class cached_property(object):
     """
+    Taken from : https://github.com/nshah/python-memoize
     A decorator that converts a function into a lazy property. The
     function wrapped is called the first time to retrieve the result
     and than that calculated result is used the next time you access

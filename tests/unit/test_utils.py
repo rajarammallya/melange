@@ -44,8 +44,7 @@ class TestCachedProperty(unittest.TestCase):
     def test_retrives_the_value_returned_by_method(self):
         foo = Foo()
 
-        for i in range(1, 5):
-            self.assertEqual(foo.bar, 42)
+        self.assertEqual(foo.bar, 42)
 
     def test_retrives_the_same_value_all_the_time(self):
         foo = Foo()

@@ -506,7 +506,7 @@ class TestPolicy(BaseTest):
         ip_range2 = IpRangeFactory(offset=3, length=2,
                                     policy_id=policy.id)
 
-        self.assertEqual(policy.unusable_ip_ranges().all(),
+        self.assertEqual(policy.unusable_ip_ranges.all(),
                          [ip_range1, ip_range2])
 
     def test_unusable_ip_octets_for_policy(self):
@@ -514,7 +514,7 @@ class TestPolicy(BaseTest):
         ip_octet1 = IpOctetFactory(octet=123, policy_id=policy.id)
         ip_octet2 = IpOctetFactory(octet=124, policy_id=policy.id)
 
-        self.assertEqual(policy.unusable_ip_octets().all(),
+        self.assertEqual(policy.unusable_ip_octets.all(),
                          [ip_octet1, ip_octet2])
 
     def test_data(self):
@@ -605,7 +605,7 @@ class TestIpRange(BaseTest):
         policy = PolicyFactory(name='blah')
         IpRangeFactory(offset=3, length=10, policy_id=policy.id)
 
-        ip_range = policy.unusable_ip_ranges()[0]
+        ip_range = policy.unusable_ip_ranges[0]
 
         self.assertEqual(ip_range.offset, 3)
         self.assertEqual(ip_range.length, 10)

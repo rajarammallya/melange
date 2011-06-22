@@ -805,14 +805,6 @@ class TestPoliciesController(BaseTestController):
         self.assertEqual(response.status, "201 Created")
         self.assertEqual(response.json['policy']['name'], "infrastructure")
 
-    def test_create_policy_for_tenant(self):
-        response = self.app.post("/ipam/tenants/1111/policies",
-                                 {'name': "infrastructure"})
-
-        self.assertTrue(Policy.find_by(tenant_id="1111") is not None)
-        self.assertEqual(response.status, "201 Created")
-        self.assertEqual(response.json['policy']['tenant_id'], "1111")
-
     def test_index(self):
         PolicyFactory(name="infrastructure")
         PolicyFactory(name="unstable")
@@ -864,6 +856,89 @@ class TestPoliciesController(BaseTestController):
         response = self.app.delete("/ipam/policies/%s" % policy.id)
 
         self.assertEqual(response.status, "200 OK")
+
+
+class TestTenantPoliciesController(BaseTestController):
+
+    def test_index(self):
+        policy1 = PolicyFactory(tenant_id="1")
+        policy2 = PolicyFactory(tenant_id="2")
+        policy3 = PolicyFactory(tenant_id="1")
+
+        response = self.app.get("/ipam/tenants/1/policies")
+
+        self.assertEqual(response.status_int, 200)
+        self.assertEqual(response.json["policies"], _data_of(policy1, policy3))
+
+    def test_create(self):
+        response = self.app.post("/ipam/tenants/1111/policies",
+                                 {'name': "infrastructure"})
+
+        self.assertTrue(Policy.find_by(tenant_id="1111") is not None)
+        self.assertEqual(response.status, "201 Created")
+        self.assertEqual(response.json['policy']['tenant_id'], "1111")
+
+    def test_create_ignores_tenant_id_passed_in_post_body(self):
+        response = self.app.post("/ipam/tenants/123/policies",
+                                {'name': "Standard", 'tenant_id': "124"})
+
+        self.assertEqual(response.status_int, 201)
+        self.assertEqual(response.json['policy']['name'], "Standard")
+        self.assertEqual(response.json['policy']['tenant_id'], "123")
+
+    def test_show(self):
+        policy = PolicyFactory(tenant_id="1111")
+        response = self.app.get("/ipam/tenants/1111/policies/%s" % policy.id)
+
+        self.assertEqual(response.status, "200 OK")
+        self.assertEqual(response.json['policy']['id'], policy.id)
+
+    def test_show_fails_for_nonexistent_tenant(self):
+        policy = PolicyFactory(tenant_id="1112")
+        response = self.app.get("/ipam/tenants/1111/policies/%s" % policy.id,
+                                status="*")
+
+        self.assertEqual(response.status_int, 404)
+
+    def test_update_fails_for_incorrect_tenant_id(self):
+        policy = PolicyFactory(tenant_id="111")
+        response = self.app.put("/ipam/tenants/123/policies/%s" % policy.id,
+                                {'name': "Standard"}, status="*")
+
+        self.assertEqual(response.status_int, 404)
+
+    def test_update(self):
+        policy = PolicyFactory(name="blah", tenant_id="123")
+        response = self.app.put("/ipam/tenants/123/policies/%s" % policy.id,
+                                {'name': "Standard"})
+
+        self.assertEqual(response.status_int, 200)
+        self.assertEqual("Standard", Policy.find(policy.id).name)
+
+    def test_update_cannot_change_tenant_id(self):
+        policy = PolicyFactory(name="Infrastructure", tenant_id="123")
+        response = self.app.put("/ipam/tenants/123/policies/%s" % policy.id,
+                                {'name': "Standard", 'tenant_id': "124"})
+
+        self.assertEqual(response.status_int, 200)
+        updated_policy = Policy.find(policy.id)
+        self.assertEqual(updated_policy.name, "Standard")
+        self.assertEqual(updated_policy.tenant_id, "123")
+        self.assertEqual(response.json['policy']['tenant_id'], "123")
+
+    def test_delete(self):
+        policy = PolicyFactory(tenant_id="123")
+        response = self.app.delete("/ipam/tenants/123/policies/%s" % policy.id)
+
+        self.assertEqual(response.status_int, 200)
+        self.assertTrue(Policy.find_by_id(policy.id) is None)
+
+    def test_delete_fails_for_incorrect_tenant_id(self):
+        policy = PolicyFactory(tenant_id="123")
+        response = self.app.delete("/ipam/tenants/111/policies/%s" % policy.id,
+                                   status="*")
+
+        self.assertEqual(response.status_int, 404)
 
 
 def _allocate_ips(*args):

@@ -31,34 +31,14 @@ class ParseIntTest(unittest.TestCase):
         self.assertEqual(utils.parse_int("123"), 123)
 
 
-class Foo(object):
-    method_execution_count = 0
+class Exclude(unittest.TestCase):
 
-    @utils.cached_property
-    def bar(self):
-        self.method_execution_count += 1
-        return 42
+    def test_excludes_given_keys(self):
+        dictionary = {'key1': "value1", 'key2': "value2", 'key3': "value3"}
+        self.assertEqual(utils.exclude(dictionary, 'key2', 'key3'),
+                         {'key1': "value1"})
 
-
-class TestCachedProperty(unittest.TestCase):
-    def test_retrives_the_value_returned_by_method(self):
-        foo = Foo()
-
-        self.assertEqual(foo.bar, 42)
-
-    def test_retrives_the_same_value_all_the_time(self):
-        foo = Foo()
-
-        for i in range(1, 5):
-            self.assertEqual(foo.bar, 42)
-
-    def test_value_is_cached_after_first_method_call(self):
-        foo = Foo()
-
-        for i in range(1, 5):
-            foo.bar
-
-        self.assertEqual(foo.method_execution_count, 1)
-
-    def test_returns_instance_of_cached_proprty_when_called_on_class(self):
-        self.assertTrue(isinstance(Foo.bar, utils.cached_property))
+    def test_excludes_ignore_non_exsistant_keys(self):
+        dictionary = {'key1': "value1", 'key2': "value2", 'key3': "value3"}
+        self.assertEqual(utils.exclude(dictionary, 'key2', 'nonexistant'),
+                         {'key1': "value1", 'key3': "value3"})

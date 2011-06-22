@@ -23,7 +23,7 @@ from melange.common import wsgi
 from melange.ipam import models
 from melange.ipam.models import (IpBlock, IpAddress, Policy, IpRange,
                                  IpOctet)
-from melange.common.utils import if_not_null
+from melange.common.utils import exclude
 
 
 class BaseController(wsgi.Controller):
@@ -159,7 +159,7 @@ class UnusableIpRangesController(BaseController):
         return dict(ip_range=ip_range.data())
 
     def index(self, request, policy_id):
-        ip_range_all = Policy.find(policy_id).unusable_ip_ranges
+        ip_range_all = Policy.find(policy_id).unusable_ip_ranges()
         ip_ranges = IpRange.with_limits(ip_range_all,
                                         **self._extract_limits(request.params))
         return dict(ip_ranges=[ip_range.data() for ip_range in ip_ranges])
@@ -178,7 +178,7 @@ class UnusableIpOctetsController(BaseController):
 
     def index(self, request, policy_id):
         policy = Policy.find(policy_id)
-        ip_octets = IpOctet.with_limits(policy.unusable_ip_octets,
+        ip_octets = IpOctet.with_limits(policy.unusable_ip_octets(),
                                         **self._extract_limits(request.params))
         return dict(ip_octets=[ip_octet.data() for ip_octet in ip_octets])
 
@@ -204,24 +204,25 @@ class UnusableIpOctetsController(BaseController):
 class PoliciesController(BaseController):
 
     def index(self, request, tenant_id=None):
-        policies = Policy.with_limits(Policy.find_all(),
+        policies = Policy.with_limits(Policy.find_all(tenant_id=tenant_id),
                                       **self._extract_limits(request.params))
         return dict(policies=[policy.data() for policy in policies])
 
     def show(self, request, id, tenant_id=None):
-        return dict(policy=Policy.find(id).data())
+        return dict(policy=Policy.find_by(id=id, tenant_id=tenant_id).data())
 
     def create(self, request, tenant_id=None):
-        policy = Policy.create(tenant_id=tenant_id, **request.params)
+        params = exclude(request.params, 'tenant_id')
+        policy = Policy.create(tenant_id=tenant_id, **params)
         return dict(policy=policy.data()), 201
 
     def update(self, request, id, tenant_id=None):
-        policy = Policy.find(id)
-        policy.update(request.params)
+        policy = Policy.find_by(id=id, tenant_id=tenant_id)
+        policy.update(exclude(request.params, 'tenant_id'))
         return dict(policy=policy.data())
 
     def delete(self, request, id, tenant_id=None):
-        policy = Policy.find(id)
+        policy = Policy.find_by(id=id, tenant_id=tenant_id)
         policy.delete()
 
 

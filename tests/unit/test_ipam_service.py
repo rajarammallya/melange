@@ -868,6 +868,19 @@ class UnusableIpOctetsControllerBase():
         self.assertEqual(updated_octet.octet, 123)
         self.assertEqual(response.json['ip_octet'], updated_octet.data())
 
+    def test_update_ignores_change_in_policy_id(self):
+        policy = self._policy_factory()
+        ip_octet = IpOctetFactory.create(octet=254, policy_id=policy.id)
+        new_policy_id = policy.id + 1
+        response = self.app.put("%s/%s/unusable_ip_octets/%s"
+                                % (self.policy_path, policy.id, ip_octet.id),
+                                {'octet': 253, 'policy_id': new_policy_id})
+
+        self.assertEqual(response.status_int, 200)
+        updated_octet = IpOctet.find(ip_octet.id)
+        self.assertEqual(updated_octet.policy_id, policy.id)
+        self.assertEqual(response.json['ip_octet']['policy_id'], policy.id)
+
     def test_update_when_ip_octet_does_not_exists(self):
         policy = self._policy_factory()
 
@@ -910,6 +923,57 @@ class TestUnusableIpOctetControllerForTenantPolicies(
 
     def _policy_factory(self, **kwargs):
         return PolicyFactory(tenant_id="123", **kwargs)
+
+    def test_show_fails_for_non_existent_policy_for_given_tenant(self):
+        policy = PolicyFactory(tenant_id=123)
+        ip_octet = IpOctetFactory(policy_id=policy.id)
+        self.policy_path = "/ipam/tenants/111/policies"
+        response = self.app.get("%s/%s/unusable_ip_octets/%s"
+                                 % (self.policy_path, policy.id, ip_octet.id),
+                                status='*')
+
+        self.assertEqual(response.status_int, 404)
+
+    def test_index_fails_for_non_existent_policy_for_given_tenant(self):
+        policy = PolicyFactory(tenant_id=123)
+        ip_octet = IpOctetFactory(policy_id=policy.id)
+        self.policy_path = "/ipam/tenants/111/policies"
+        response = self.app.get("%s/%s/unusable_ip_octets"
+                                 % (self.policy_path, policy.id),
+                                 status='*')
+
+        self.assertEqual(response.status_int, 404)
+
+    def test_create_fails_for_non_existent_policy_for_given_tenant(self):
+        policy = PolicyFactory(tenant_id=123)
+        ip_octet = IpOctetFactory(policy_id=policy.id)
+        self.policy_path = "/ipam/tenants/111/policies"
+        response = self.app.post("%s/%s/unusable_ip_octets"
+                                 % (self.policy_path, policy.id),
+                                 {'octet': 1},
+                                 status='*')
+
+        self.assertEqual(response.status_int, 404)
+
+    def test_update_fails_for_non_existent_policy_for_given_tenant(self):
+        policy = PolicyFactory(tenant_id=123)
+        ip_octet = IpOctetFactory(policy_id=policy.id)
+        self.policy_path = "/ipam/tenants/111/policies"
+        response = self.app.put("%s/%s/unusable_ip_octets/%s"
+                                 % (self.policy_path, policy.id, ip_octet.id),
+                                 {'octet': 1}, status='*')
+
+        self.assertEqual(response.status_int, 404)
+
+    def test_delete_fails_for_non_existent_policy_for_given_tenant(self):
+        policy = PolicyFactory(tenant_id=123)
+        ip_octet = IpOctetFactory(policy_id=policy.id)
+        self.policy_path = "/ipam/tenants/111/policies"
+        response = self.app.delete("%s/%s/unusable_ip_octets/%s"
+                                 % (self.policy_path, policy.id, ip_octet.id),
+                                 status='*')
+
+        self.assertEqual(response.status_int, 404)
 
 
 class TestPoliciesController(BaseTestController):

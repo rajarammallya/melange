@@ -41,16 +41,74 @@ class BaseTestController(BaseTest):
         self.assertTrue(expected_error in response.body)
 
 
-class TestPublicIpBlockController(BaseTestController):
+class IpBlockControllerBase():
+
+    def test_create_with_bad_cidr(self):
+        response = self.app.post("%s" % self.ip_block_path,
+                                 {'network_id': "300", 'cidr': "10..."},
+                                 status="*")
+
+        self.assertEqual(response.status, "400 Bad Request")
+        self.assertTrue('cidr is invalid' in response.body)
+
+    def test_show(self):
+        block = self._ip_block_factory()
+        response = self.app.get("%s/%s" % (self.ip_block_path, block.id))
+
+        self.assertEqual(response.status, "200 OK")
+        self.assertEqual(response.json, dict(ip_block=block.data()))
+
+    def test_delete(self):
+        block = self._ip_block_factory()
+        response = self.app.delete("%s/%s" % (self.ip_block_path, block.id))
+
+        self.assertEqual(response.status, "200 OK")
+        self.assertRaises(models.ModelNotFoundError, IpBlock.find, block.id)
+
+    def test_index(self):
+        blocks = [self._ip_block_factory(cidr="192.1.1.1/30"),
+                  self._ip_block_factory(cidr="192.2.2.2/30"),
+                  self._ip_block_factory(cidr="192.3.3.3/30")]
+        response = self.app.get("%s" % self.ip_block_path)
+
+        self.assertEqual(response.status, "200 OK")
+        response_blocks = response.json['ip_blocks']
+        self.assertEqual(len(response_blocks), 3)
+        self.assertEqual(response_blocks, _data_of(*blocks))
+
+    def test_index_with_pagination(self):
+        blocks = [self._ip_block_factory(cidr="10.1.1.0/32"),
+                  self._ip_block_factory(cidr='10.2.1.0/32'),
+                  self._ip_block_factory(cidr='10.3.1.0/32'),
+                  self._ip_block_factory(cidr='10.4.1.0/32')]
+
+        response = self.app.get("%s?limit=2&marker=%s"
+                                % (self.ip_block_path, blocks[1].id))
+
+        response_blocks = response.json['ip_blocks']
+        self.assertEqual(response.status, "200 OK")
+        self.assertEqual(len(response_blocks), 2)
+        self.assertEqual(response_blocks, _data_of(blocks[2], blocks[3]))
+
+
+class TestPublicIpBlockController(IpBlockControllerBase, BaseTestController):
+
+    def setUp(self):
+        self.ip_block_path = "/ipam/public_ip_blocks"
+        super(TestPublicIpBlockController, self).setUp()
+
+    def _ip_block_factory(self, **kwargs):
+        return PublicIpBlockFactory(**kwargs)
 
     def test_create(self):
         response = self.app.post("/ipam/public_ip_blocks.json",
-                                 {'network_id': "333", 'cidr': "10.1.1.1/2"})
+                                 {'network_id': "300", 'cidr': "10.1.1.0/2"})
 
         self.assertEqual(response.status, "201 Created")
-        saved_block = IpBlock.find_by_network_id("333")
-        self.assertEqual(saved_block.cidr, "10.1.1.1/2")
+        saved_block = IpBlock.find_by_network_id("300")
+        self.assertEqual(saved_block.cidr, "10.1.1.0/2")
         self.assertEqual(saved_block.type, "public")
+        self.assertEqual(saved_block.tenant_id, None)
         self.assertEqual(response.json, dict(ip_block=saved_block.data()))
 
     def test_cannot_create_duplicate_public_cidr(self):
@@ -65,56 +123,15 @@ class TestPublicIpBlockController(BaseTestController):
         self.assertTrue("cidr for public ip is not unique"
                         in duplicate_block_response.body)
 
-    def test_create_with_bad_cidr(self):
-        response = self.app.post("/ipam/public_ip_blocks",
-                                 {'network_id': "300", 'cidr': "10..."},
-                                 status="*")
 
-        self.assertEqual(response.status, "400 Bad Request")
-        self.assertTrue('cidr is invalid' in response.body)
+class TestPrivateIpBlockController(IpBlockControllerBase, BaseTestController):
 
-    def test_show(self):
-        block = PublicIpBlockFactory()
-        response = self.app.get("/ipam/public_ip_blocks/%s" % block.id)
+    def setUp(self):
+        self.ip_block_path = "/ipam/tenants/123/private_ip_blocks"
+        super(TestPrivateIpBlockController, self).setUp()
 
-        self.assertEqual(response.status, "200 OK")
-        self.assertEqual(response.json, dict(ip_block=block.data()))
-
-    def test_delete(self):
-        block = PublicIpBlockFactory()
-        response = self.app.delete("/ipam/public_ip_blocks/%s" % block.id)
-
-        self.assertEqual(response.status, "200 OK")
-        self.assertRaises(models.ModelNotFoundError, IpBlock.find, block.id)
-
-    def test_index(self):
-        blocks = [PublicIpBlockFactory(cidr="192.1.1.1/30"),
-                  PublicIpBlockFactory(cidr="192.2.2.2/30"),
-                  PublicIpBlockFactory(cidr="192.3.3.3/30")]
-        response = self.app.get("/ipam/public_ip_blocks")
-
-        self.assertEqual(response.status, "200 OK")
-        response_blocks = response.json['ip_blocks']
-        self.assertEqual(len(response_blocks), 3)
-        self.assertEqual(response_blocks, _data_of(*blocks))
-
-    def test_index_with_pagination(self):
-        blocks = [PublicIpBlockFactory(cidr="10.1.1.0/32"),
-                  PublicIpBlockFactory(cidr='10.2.1.0/32'),
-                  PublicIpBlockFactory(cidr='10.3.1.0/32'),
-                  PublicIpBlockFactory(cidr='10.4.1.0/32')]
-
-        response = self.app.get("/ipam/public_ip_blocks?"
-                                "limit=2&marker=%s"
-                                % blocks[1].id)
-
-        response_blocks = response.json['ip_blocks']
-        self.assertEqual(response.status, "200 OK")
-        self.assertEqual(len(response_blocks), 2)
-        self.assertEqual(response_blocks, _data_of(blocks[2], blocks[3]))
-
-
-class TestPrivateIpBlockController(BaseTestController):
+    def _ip_block_factory(self, **kwargs):
+        return PrivateIpBlockFactory(tenant_id=123, **kwargs)
 
     def test_create(self):
         response = self.app.post("/ipam/tenants/111/private_ip_blocks.json",
@@ -127,29 +144,14 @@ class TestPrivateIpBlockController(BaseTestController):
         self.assertEqual(saved_block.tenant_id, "111")
         self.assertEqual(response.json, dict(ip_block=saved_block.data()))
 
-    def test_create_returns_xml(self):
-        response = self.app.post("/ipam/tenants/111/private_ip_blocks.xml",
-                                 {'network_id': "300", 'cidr': "10.1.1.0/2"})
+    def test_create_ignores_tenant_id_passed_in_post_body(self):
+        response = self.app.post("/ipam/tenants/111/private_ip_blocks",
+                                 {'network_id': "300", 'cidr': "10.1.1.0/2",
+                                  'tenant_id': "543"})
 
-        self.assertEqual(response.xml.tag, 'ip_block')
-        self.assertEqual(response.xml[0].tag, 'network_id')
-        self.assertTrue("300" in response.xml[0].text)
-
-    def test_create_with_bad_cidr(self):
-        response = self.app.post("/ipam/tenants/232/private_ip_blocks",
-                                 {'network_id': "300", 'cidr': "10..."},
-                                 status="*")
-
-        self.assertEqual(response.status, "400 Bad Request")
-        self.assertTrue('cidr is invalid' in response.body)
-
-    def test_show(self):
-        block = PrivateIpBlockFactory(tenant_id='112')
-        response = self.app.get("/ipam/tenants/112/"
-                                "private_ip_blocks/%s" % block.id)
-
-        self.assertEqual(response.status, "200 OK")
-        self.assertEqual(response.json, dict(ip_block=block.data()))
+        saved_block = IpBlock.find_by_network_id("300")
+        self.assertEqual(saved_block.tenant_id, "111")
+        self.assertEqual(response.json, dict(ip_block=saved_block.data()))
 
     def test_show_fails_if_block_doenst_belong_to_tenant(self):
         block = PrivateIpBlockFactory(tenant_id='0000')
@@ -157,14 +159,6 @@ class TestPrivateIpBlockController(BaseTestController):
                                 % block.id, status='*')
 
         self.assertEqual(response.status, "404 Not Found")
-
-    def test_delete(self):
-        block = PrivateIpBlockFactory(tenant_id='444')
-        response = self.app.delete("/ipam/tenants/444/"
-                                   "private_ip_blocks/%s" % block.id)
-
-        self.assertEqual(response.status, "200 OK")
-        self.assertRaises(models.ModelNotFoundError, IpBlock.find, block.id)
 
     def test_index_scoped_by_tenant(self):
         ip_block1 = PrivateIpBlockFactory(cidr="10.0.0.1/8", tenant_id='999')
@@ -177,22 +171,6 @@ class TestPrivateIpBlockController(BaseTestController):
         response_blocks = response.json['ip_blocks']
         self.assertEqual(len(response_blocks), 2)
         self.assertEqual(response_blocks, _data_of(ip_block1, ip_block2))
-
-    def test_index_with_pagination(self):
-        blocks = [PrivateIpBlockFactory(cidr="10.1.1.0/32", tenant_id='10'),
-                  PrivateIpBlockFactory(cidr='10.2.1.0/32', tenant_id='11'),
-                  PrivateIpBlockFactory(cidr='10.3.1.0/32', tenant_id='10'),
-                  PrivateIpBlockFactory(cidr='10.4.1.0/32', tenant_id='10'),
-                  PrivateIpBlockFactory(cidr='10.4.4.0/32', tenant_id='10')]
-
-        response = self.app.get("/ipam/tenants/10/private_ip_blocks?"
-                                "limit=2&marker=%s"
-                                % blocks[2].id)
-
-        response_blocks = response.json['ip_blocks']
-        self.assertEqual(response.status, "200 OK")
-        self.assertEqual(len(response_blocks), 2)
-        self.assertEqual(response_blocks, _data_of(blocks[3], blocks[4]))
 
 
 class IpAddressControllerBase():

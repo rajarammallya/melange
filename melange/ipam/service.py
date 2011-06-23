@@ -150,27 +150,31 @@ class InsideLocalsController(BaseController):
 class UnusableIpRangesController(BaseController):
 
     def create(self, request, policy_id, tenant_id=None):
-        policy = Policy.find(policy_id)
+        policy = Policy.find_by(id=policy_id, tenant_id=tenant_id)
         ip_range = policy.create_unusable_range(**request.params.copy())
         return dict(ip_range=ip_range.data()), 201
 
     def show(self, request, policy_id, id, tenant_id=None):
-        ip_range = Policy.find(policy_id).find_ip_range(id)
+        ip_range = Policy.find_by(id=policy_id,
+                                  tenant_id=tenant_id).find_ip_range(id)
         return dict(ip_range=ip_range.data())
 
     def index(self, request, policy_id, tenant_id=None):
-        ip_range_all = Policy.find(policy_id).unusable_ip_ranges
+        ip_range_all = Policy.find_by(id=policy_id,
+                                      tenant_id=tenant_id).unusable_ip_ranges
         ip_ranges = IpRange.with_limits(ip_range_all,
                                         **self._extract_limits(request.params))
         return dict(ip_ranges=[ip_range.data() for ip_range in ip_ranges])
 
     def update(self, request, policy_id, id, tenant_id=None):
-        ip_range = Policy.find(policy_id).find_ip_range(id)
-        ip_range.update(request.params)
+        ip_range = Policy.find_by(id=policy_id,
+                                  tenant_id=tenant_id).find_ip_range(id)
+        ip_range.update(exclude(request.params, 'policy_id'))
         return dict(ip_range=ip_range.data())
 
     def delete(self, request, policy_id, id, tenant_id=None):
-        ip_range = Policy.find(policy_id).find_ip_range(id)
+        ip_range = Policy.find_by(id=policy_id,
+                                  tenant_id=tenant_id).find_ip_range(id)
         ip_range.delete()
 
 

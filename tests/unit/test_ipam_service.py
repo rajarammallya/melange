@@ -668,6 +668,21 @@ class UnusableIpRangesControllerBase():
         self.assertEqual(updated_range.length, 2222)
         self.assertEqual(response.json, dict(ip_range=updated_range.data()))
 
+    def test_update_ignores_change_in_policy_id(self):
+        policy = self._policy_factory()
+        ip_range = IpRangeFactory.create(offset=10, length=11,
+                                         policy_id=policy.id)
+        new_policy_id = policy.id + 1
+        response = self.app.put("%s/%s/unusable_ip_ranges/%s"
+                                % (self.policy_path, policy.id, ip_range.id),
+                                {'offset': 1111, 'length': 2222,
+                                'policy_id': new_policy_id})
+
+        self.assertEqual(response.status_int, 200)
+        updated_range = IpRange.find(ip_range.id)
+        self.assertEqual(updated_range.policy_id, policy.id)
+        self.assertEqual(response.json['ip_range']['policy_id'], policy.id)
+
     def test_update_when_ip_range_does_not_exists(self):
         policy = self._policy_factory()
 
@@ -723,6 +738,57 @@ class TestUnusableIpRangeControllerForTenantPolicies(
 
     def _policy_factory(self, **kwargs):
         return PolicyFactory(tenant_id="123", **kwargs)
+
+    def test_show_fails_for_non_existent_policy_for_given_tenant(self):
+        policy = PolicyFactory(tenant_id=123)
+        ip_range = IpRangeFactory(policy_id=policy.id)
+        self.policy_path = "/ipam/tenants/111/policies"
+        response = self.app.get("%s/%s/unusable_ip_ranges/%s"
+                                 % (self.policy_path, policy.id, ip_range.id),
+                                status='*')
+
+        self.assertEqual(response.status_int, 404)
+
+    def test_index_fails_for_non_existent_policy_for_given_tenant(self):
+        policy = PolicyFactory(tenant_id=123)
+        ip_range = IpRangeFactory(policy_id=policy.id)
+        self.policy_path = "/ipam/tenants/111/policies"
+        response = self.app.get("%s/%s/unusable_ip_ranges"
+                                 % (self.policy_path, policy.id),
+                                 status='*')
+
+        self.assertEqual(response.status_int, 404)
+
+    def test_create_fails_for_non_existent_policy_for_given_tenant(self):
+        policy = PolicyFactory(tenant_id=123)
+        ip_range = IpRangeFactory(policy_id=policy.id)
+        self.policy_path = "/ipam/tenants/111/policies"
+        response = self.app.post("%s/%s/unusable_ip_ranges"
+                                 % (self.policy_path, policy.id),
+                                 {'offset': 1, 'length': 20},
+                                 status='*')
+
+        self.assertEqual(response.status_int, 404)
+
+    def test_update_fails_for_non_existent_policy_for_given_tenant(self):
+        policy = PolicyFactory(tenant_id=123)
+        ip_range = IpRangeFactory(policy_id=policy.id)
+        self.policy_path = "/ipam/tenants/111/policies"
+        response = self.app.put("%s/%s/unusable_ip_ranges/%s"
+                                 % (self.policy_path, policy.id, ip_range.id),
+                                 {'offset': 1}, status='*')
+
+        self.assertEqual(response.status_int, 404)
+
+    def test_delete_fails_for_non_existent_policy_for_given_tenant(self):
+        policy = PolicyFactory(tenant_id=123)
+        ip_range = IpRangeFactory(policy_id=policy.id)
+        self.policy_path = "/ipam/tenants/111/policies"
+        response = self.app.delete("%s/%s/unusable_ip_ranges/%s"
+                                 % (self.policy_path, policy.id, ip_range.id),
+                                 status='*')
+
+        self.assertEqual(response.status_int, 404)
 
 
 class UnusableIpOctetsControllerBase():

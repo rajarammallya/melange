@@ -19,6 +19,7 @@ from webtest import TestApp
 from tests.unit import BaseTest
 
 from melange.common import wsgi
+from melange.common.utils import cached_property
 
 
 class RequestTest(BaseTest):
@@ -104,3 +105,7 @@ class TestResourcePath(BaseTest):
         self.assertEqual(resource_path.elements['prefix_path'], "/ipam")
         self.assertEqual(resource_path.elements['tenant_id'], "1")
         self.assertEqual(resource_path.elements['suffix_path'], "resources/2")
+
+    def test_elements_are_cached(self):
+        self.assertTrue(isinstance(wsgi.ResourcePath.elements,
+                                   cached_property))

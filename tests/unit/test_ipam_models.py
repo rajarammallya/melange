@@ -28,6 +28,7 @@ from tests.unit.factories.models import (PublicIpBlockFactory,
                                          PolicyFactory,
                                          IpRangeFactory, IpOctetFactory)
 from melange.common import data_types
+from melange.common.utils import cached_property
 
 
 class TestModelBase(BaseTest):
@@ -509,6 +510,9 @@ class TestPolicy(BaseTest):
         self.assertEqual(policy.unusable_ip_ranges.all(),
                          [ip_range1, ip_range2])
 
+    def test_unusable_ip_ranges_are_cached(self):
+        self.assertTrue(isinstance(Policy.unusable_ip_ranges, cached_property))
+
     def test_unusable_ip_octets_for_policy(self):
         policy = PolicyFactory(name="blah")
         ip_octet1 = IpOctetFactory(octet=123, policy_id=policy.id)
@@ -516,6 +520,9 @@ class TestPolicy(BaseTest):
 
         self.assertEqual(policy.unusable_ip_octets.all(),
                          [ip_octet1, ip_octet2])
+
+    def test_unusable_ip_octets_are_cached(self):
+        self.assertTrue(isinstance(Policy.unusable_ip_octets, cached_property))
 
     def test_data(self):
         policy = PolicyFactory(name='Infrastructure', tenant_id="123")

@@ -69,7 +69,7 @@ class IpBlockController(BaseController):
         return dict(ip_blocks=[ip_block.data() for ip_block in blocks])
 
     def create(self, request, tenant_id=None):
-        params = exclude(request.params, 'tenant_id')
+        params = exclude(request.params, 'tenant_id', 'type')
         block = IpBlock.create(tenant_id=tenant_id,
                                type=self.type, **params)
         return dict(ip_block=block.data()), 201

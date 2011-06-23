@@ -52,6 +52,17 @@ class IpBlockControllerBase():
         self.assertEqual(response.status, "400 Bad Request")
         self.assertTrue('cidr is invalid' in response.body)
 
+    def test_create_ignores_type_from_params(self):
+        response = self.app.post("%s" % self.ip_block_path,
+                                 {'network_id': "300", 'cidr': "10.0.0.0/31",
+                                  'type': "Ignored"},
+                                 status="*")
+
+        self.assertEqual(response.status_int, 201)
+        created_block = IpBlock.find_by_network_id("300")
+        self.assertNotEqual(created_block.type, "Ignored")
+        self.assertEqual(created_block.type, self.ip_block_type)
+
     def test_show(self):
         block = self._ip_block_factory()
         response = self.app.get("%s/%s" % (self.ip_block_path, block.id))
@@ -96,6 +107,7 @@ class TestPublicIpBlockController(IpBlockControllerBase, BaseTestController):
 
     def setUp(self):
         self.ip_block_path = "/ipam/public_ip_blocks"
+        self.ip_block_type = "public"
         super(TestPublicIpBlockController, self).setUp()
 
     def _ip_block_factory(self, **kwargs):
@@ -129,6 +141,7 @@ class TestPrivateIpBlockController(IpBlockControllerBase, BaseTestController):
 
     def setUp(self):
         self.ip_block_path = "/ipam/tenants/123/private_ip_blocks"
+        self.ip_block_type = "private"
         super(TestPrivateIpBlockController, self).setUp()
 
     def _ip_block_factory(self, **kwargs):

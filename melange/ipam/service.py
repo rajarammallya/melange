@@ -85,7 +85,8 @@ class IpBlockController(BaseController):
 class IpAddressController(BaseController):
 
     def index(self, request, ip_block_id, tenant_id=None):
-        find_all_query = IpAddress.find_all_by_ip_block(ip_block_id)
+        ip_block = IpBlock.find_by(id=ip_block_id, tenant_id=tenant_id)
+        find_all_query = IpAddress.find_all_by_ip_block(ip_block.id)
         addresses = IpAddress.with_limits(find_all_query,
                                        **self._extract_limits(request.params))
 
@@ -93,14 +94,15 @@ class IpAddressController(BaseController):
                                    for ip_address in addresses])
 
     def show(self, request, address, ip_block_id, tenant_id=None):
-        ip_block = IpBlock.find(ip_block_id)
+        ip_block = IpBlock.find_by(id=ip_block_id, tenant_id=tenant_id)
         return dict(ip_address=ip_block.find_allocated_ip(address).data())
 
     def delete(self, request, address, ip_block_id, tenant_id=None):
-        IpBlock.find(ip_block_id).deallocate_ip(address)
+        IpBlock.find_by(id=ip_block_id,
+                        tenant_id=tenant_id).deallocate_ip(address)
 
     def create(self, request, ip_block_id, tenant_id=None):
-        ip_block = IpBlock.find(ip_block_id)
+        ip_block = IpBlock.find_by(id=ip_block_id, tenant_id=tenant_id)
         address, port_id = self._get_optionals(request.params,
                                                *['address', 'port_id'])
         ip_address = ip_block.allocate_ip(address=address,
@@ -108,7 +110,8 @@ class IpAddressController(BaseController):
         return dict(ip_address=ip_address.data()), 201
 
     def restore(self, request, ip_block_id, address, tenant_id=None):
-        ip_address = IpBlock.find(ip_block_id).find_allocated_ip(address)
+        ip_address = IpBlock.find_by(id=ip_block_id, tenant_id=tenant_id).\
+                             find_allocated_ip(address)
         ip_address.restore()
 
 

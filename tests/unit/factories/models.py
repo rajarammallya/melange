@@ -36,6 +36,8 @@ class PrivateIpBlockFactory(factory.Factory):
 
 class IpAddressFactory(factory.Factory):
     ip_block_id = factory.LazyAttribute(lambda a: PublicIpBlockFactory().id)
+    address = factory.LazyAttribute(
+        lambda ip: IpBlock.find(ip.ip_block_id).allocate_ip().address)
 
 
 class IpRangeFactory(factory.Factory):

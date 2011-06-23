@@ -467,6 +467,12 @@ class TestIpAddress(unittest.TestCase):
 
         self.assertEqual(IpAddress.find_all_by_ip_block(ip_block.id).all(), [])
 
+    def test_ip_block(self):
+        ip_block = PrivateIpBlockFactory()
+        ip_address = IpAddressFactory(ip_block_id=ip_block.id)
+
+        self.assertEqual(ip_address.ip_block(), ip_block)
+
 
 class TestPolicy(BaseTest):
 

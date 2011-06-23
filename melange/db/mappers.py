@@ -32,9 +32,7 @@ def map(engine, models):
     ip_ranges_table = Table('ip_ranges', meta, autoload=True)
     ip_octets_table = Table('ip_octets', meta, autoload=True)
 
-    mapper(models["IpBlock"], Table('ip_blocks', meta, autoload=True),
-           properties={'ip_addresses': relation(models["IpAddress"],
-                                                backref='ip_block')})
+    mapper(models["IpBlock"], Table('ip_blocks', meta, autoload=True))
     mapper(models["IpAddress"], ip_addresses_table)
     mapper(models["Policy"], policies_table)
     mapper(models["IpRange"], ip_ranges_table)

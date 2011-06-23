@@ -23,7 +23,8 @@ from melange.common import config
 from melange.ipam import models
 from melange.ipam.models import IpBlock, IpAddress, Policy, IpRange, IpOctet
 from tests.unit.factories.models import (PublicIpBlockFactory,
-                                         PrivateIpBlockFactory, PolicyFactory,
+                                         PrivateIpBlockFactory,
+                                         IpAddressFactory, PolicyFactory,
                                          IpRangeFactory, IpOctetFactory)
 
 
@@ -331,6 +332,62 @@ class TestPrivateIpAddressController(IpAddressControllerBase,
     def setUp(self):
         self.ip_block_factory = PrivateIpBlockFactory
         super(TestPrivateIpAddressController, self).setUp()
+
+    def test_show_fails_for_non_existent_block_for_given_tenant(self):
+        block = PrivateIpBlockFactory(tenant_id=123)
+        ip_address = IpAddressFactory(ip_block_id=block.id)
+        self.block_path = "/ipam/tenants/111/private_ip_blocks"
+        response = self.app.get("%s/%s/ip_addresses/%s"
+                                 % (self.block_path, block.id,
+                                    ip_address.address),
+                                status='*')
+
+        self.assertEqual(response.status_int, 404)
+
+    def test_index_fails_for_non_existent_block_for_given_tenant(self):
+        block = PrivateIpBlockFactory(tenant_id=123)
+        ip_address = IpAddressFactory(ip_block_id=block.id)
+
+        self.block_path = "/ipam/tenants/111/private_ip_blocks"
+        response = self.app.get("%s/%s/ip_addresses"
+                                 % (self.block_path, block.id),
+                                 status='*')
+
+        self.assertEqual(response.status_int, 404)
+
+    def test_restore_fails_for_non_existent_block_for_given_tenant(self):
+        block = PrivateIpBlockFactory(tenant_id=123)
+        ip_address = IpAddressFactory(ip_block_id=block.id)
+        block.deallocate_ip(ip_address.address)
+        self.block_path = "/ipam/tenants/111/private_ip_blocks"
+        response = self.app.put("%s/%s/ip_addresses/%s/restore"
+                                 % (self.block_path, block.id,
+                                    ip_address.address),
+                                 status='*')
+
+        self.assertEqual(response.status_int, 404)
+
+    def test_create_fails_for_non_existent_block_for_given_tenant(self):
+        block = PrivateIpBlockFactory(tenant_id=123)
+        ip_address = IpAddressFactory(ip_block_id=block.id)
+        self.block_path = "/ipam/tenants/111/private_ip_blocks"
+        response = self.app.post("%s/%s/ip_addresses"
+                                 % (self.block_path, block.id),
+                                 {'offset': 1, 'length': 20},
+                                 status='*')
+
+        self.assertEqual(response.status_int, 404)
+
+    def test_delete_fails_for_non_existent_block_for_given_tenant(self):
+        block = PrivateIpBlockFactory(tenant_id=123)
+        ip_address = IpAddressFactory(ip_block_id=block.id)
+        self.block_path = "/ipam/tenants/111/private_ip_blocks"
+        response = self.app.delete("%s/%s/ip_addresses/%s"
+                                 % (self.block_path, block.id,
+                                    ip_address.address),
+                                 status='*')
+
+        self.assertEqual(response.status_int, 404)
 
 
 class TestPublicIpAddressController(IpAddressControllerBase,

@@ -15,7 +15,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 import webob
-from webtest import TestApp
 from tests.unit import BaseTest
 
 from melange.common import wsgi

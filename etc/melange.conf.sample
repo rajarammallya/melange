@@ -43,7 +43,9 @@ pipeline = authorization extensions melangeapp
 paste.filter_factory = melange.common.extensions:ExtensionMiddleware.factory
 
 [filter:authorization]
+url_auth_factory = melange.ipam.service.UrlAuthorizationFactory
 paste.filter_factory = melange.common.auth:AuthorizationMiddleware.factory
+
 
 [app:melangeapp]
 paste.app_factory = melange.ipam.service:app_factory

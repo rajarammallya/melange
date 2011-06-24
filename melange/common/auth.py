@@ -16,27 +16,33 @@
 #    under the License.
 import wsgi
 from webob.exc import HTTPForbidden
-import routes
+
+from melange.common.utils import import_class
 
 
 class AuthorizationMiddleware(wsgi.Middleware):
 
+    def __init__(self, application, secure_url_factory, **local_config):
+        self.secure_url_factory = secure_url_factory
+        super(AuthorizationMiddleware, self).__init__(application,
+                                                      **local_config)
+
     def process_request(self, request):
         role = request.headers.get('X_ROLE', None)
-        tenant_id = request.headers.get('X_TENANT', None)
+        authorized_tenant_id = request.headers.get('X_TENANT', None)
         resource_path = wsgi.ResourcePath(request.path)
-        if role == 'Admin' or resource_path.tenant_scoped() is False:
-            return
-        if resource_path.elements['tenant_id'] != tenant_id:
+        url = self.secure_url_factory(request.path_info)
+
+        if(resource_path.tenant_scoped() and (role != 'Admin' and
+           resource_path.elements['tenant_id'] != authorized_tenant_id)):
             raise HTTPForbidden
 
-
-def authorize(method):
-    def decorater(self, req):
-        arg_dict = req.environ['wsgiorg.routing_args'][1]
-        action = arg_dict['action']
-        role = req.headers.get('X_ROLE', None)
-        if role != 'Admin' and action in self.admin_actions:
+        if(not url.is_accessible_by(role)):
             raise HTTPForbidden
-        return method(self, req)
-    return decorater
+
+    @classmethod
+    def factory(cls, global_config, **local_config):
+        def _factory(app):
+            secure_url_factory = import_class(local_config['url_auth_factory'])
+            return cls(app, secure_url_factory, **local_config)
+        return _factory

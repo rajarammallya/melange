@@ -19,7 +19,6 @@ import logging
 import webob.dec
 from webob.exc import HTTPBadRequest, HTTPInternalServerError
 from melange.common.wsgi import Request, Response, Serializer
-from melange.common.auth import authorize
 from melange.common.exception import MelangeError
 
 
@@ -31,14 +30,14 @@ class Controller(object):
     which is the incoming webob.Request.  They raise a webob.exc exception,
     or return a dict which will be serialized by requested content type.
     """
+    exception_map = {}
     admin_actions = []
 
-    def __init__(self, http_exception_map={}, admin_actions=[]):
-        self.model_exception_map = self._invert_dict_list(http_exception_map)
+    def __init__(self, admin_actions=[]):
+        self.model_exception_map = self._invert_dict_list(self.exception_map)
         self.admin_actions = admin_actions
 
     @webob.dec.wsgify(RequestClass=Request)
-    @authorize
     def __call__(self, req):
         """
         Call the method specified in req.environ by RoutesMiddleware.

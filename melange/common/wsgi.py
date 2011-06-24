@@ -152,8 +152,9 @@ class Middleware(object):
             return cls(app, **local_config)
         return _factory
 
-    def __init__(self, application):
+    def __init__(self, application, **local_config):
         self.application = application
+        self.local_config = local_config
 
     def process_request(self, req):
         """

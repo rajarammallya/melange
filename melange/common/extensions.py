@@ -229,7 +229,6 @@ class ExtensionMiddleware(wsgi.Middleware):
 
     def __init__(self, application, config_params,
                  ext_mgr=None):
-
         self.ext_mgr = (ext_mgr
                    or ExtensionManager(config_params.get('api_extensions_path',
                                                          '')))

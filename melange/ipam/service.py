@@ -19,6 +19,7 @@ import routes
 from webob.exc import (HTTPUnprocessableEntity, HTTPBadRequest,
                        HTTPNotFound)
 
+from melange.common import service
 from melange.common import wsgi
 from melange.ipam import models
 from melange.ipam.models import (IpBlock, IpAddress, Policy, IpRange,
@@ -26,18 +27,14 @@ from melange.ipam.models import (IpBlock, IpAddress, Policy, IpRange,
 from melange.common.utils import exclude
 
 
-class BaseController(wsgi.Controller):
-
-    def __init__(self):
-        exception_map = {HTTPUnprocessableEntity:
-                         [models.NoMoreAddressesError,
-                          models.DuplicateAddressError,
-                          models.AddressDoesNotBelongError,
-                          models.AddressLockedError],
-                         HTTPBadRequest: [models.InvalidModelError],
-                         HTTPNotFound: [models.ModelNotFoundError]}
-
-        super(BaseController, self).__init__(exception_map)
+class BaseController(service.Controller):
+    exception_map = {HTTPUnprocessableEntity:
+                     [models.NoMoreAddressesError,
+                      models.DuplicateAddressError,
+                      models.AddressDoesNotBelongError,
+                      models.AddressLockedError],
+                     HTTPBadRequest: [models.InvalidModelError],
+                     HTTPNotFound: [models.ModelNotFoundError]}
 
     def _extract_limits(self, params):
         return dict([(key, params[key]) for key in params.keys()
@@ -57,9 +54,9 @@ class BaseController(wsgi.Controller):
 
 class IpBlockController(BaseController):
 
-    def __init__(self, type):
-        self.type = type
-        super(IpBlockController, self).__init__()
+    def __init__(self, block_type, admin_actions=[]):
+        self.type = block_type
+        super(IpBlockController, self).__init__(admin_actions=admin_actions)
 
     def index(self, request, tenant_id=None):
         all_ips = IpBlock.find_all(tenant_id=tenant_id,
@@ -69,9 +66,8 @@ class IpBlockController(BaseController):
         return dict(ip_blocks=[ip_block.data() for ip_block in blocks])
 
     def create(self, request, tenant_id=None):
-        params = exclude(request.params, 'tenant_id', 'type')
         block = IpBlock.create(tenant_id=tenant_id,
-                               type=self.type, **params)
+                               type=self.type, **request.params)
         return dict(ip_block=block.data()), 201
 
     def show(self, request, id, tenant_id=None):
@@ -85,8 +81,7 @@ class IpBlockController(BaseController):
 class IpAddressController(BaseController):
 
     def index(self, request, ip_block_id, tenant_id=None):
-        ip_block = IpBlock.find_by(id=ip_block_id, tenant_id=tenant_id)
-        find_all_query = IpAddress.find_all_by_ip_block(ip_block.id)
+        find_all_query = IpAddress.find_all_by_ip_block(ip_block_id)
         addresses = IpAddress.with_limits(find_all_query,
                                        **self._extract_limits(request.params))
 
@@ -94,15 +89,14 @@ class IpAddressController(BaseController):
                                    for ip_address in addresses])
 
     def show(self, request, address, ip_block_id, tenant_id=None):
-        ip_block = IpBlock.find_by(id=ip_block_id, tenant_id=tenant_id)
+        ip_block = IpBlock.find(ip_block_id)
         return dict(ip_address=ip_block.find_allocated_ip(address).data())
 
     def delete(self, request, address, ip_block_id, tenant_id=None):
-        IpBlock.find_by(id=ip_block_id,
-                        tenant_id=tenant_id).deallocate_ip(address)
+        IpBlock.find(ip_block_id).deallocate_ip(address)
 
     def create(self, request, ip_block_id, tenant_id=None):
-        ip_block = IpBlock.find_by(id=ip_block_id, tenant_id=tenant_id)
+        ip_block = IpBlock.find(ip_block_id)
         address, port_id = self._get_optionals(request.params,
                                                *['address', 'port_id'])
         ip_address = ip_block.allocate_ip(address=address,
@@ -110,8 +104,7 @@ class IpAddressController(BaseController):
         return dict(ip_address=ip_address.data()), 201
 
     def restore(self, request, ip_block_id, address, tenant_id=None):
-        ip_address = IpBlock.find_by(id=ip_block_id, tenant_id=tenant_id).\
-                             find_allocated_ip(address)
+        ip_address = IpBlock.find(ip_block_id).find_allocated_ip(address)
         ip_address.restore()
 
 
@@ -154,61 +147,54 @@ class InsideLocalsController(BaseController):
 class UnusableIpRangesController(BaseController):
 
     def create(self, request, policy_id, tenant_id=None):
-        policy = Policy.find_by(id=policy_id, tenant_id=tenant_id)
+        policy = Policy.find(policy_id)
         ip_range = policy.create_unusable_range(**request.params.copy())
         return dict(ip_range=ip_range.data()), 201
 
     def show(self, request, policy_id, id, tenant_id=None):
-        ip_range = Policy.find_by(id=policy_id,
-                                  tenant_id=tenant_id).find_ip_range(id)
+        ip_range = Policy.find(policy_id).find_ip_range(id)
         return dict(ip_range=ip_range.data())
 
     def index(self, request, policy_id, tenant_id=None):
-        ip_range_all = Policy.find_by(id=policy_id,
-                                      tenant_id=tenant_id).unusable_ip_ranges
+        ip_range_all = Policy.find(policy_id).unusable_ip_ranges
         ip_ranges = IpRange.with_limits(ip_range_all,
                                         **self._extract_limits(request.params))
         return dict(ip_ranges=[ip_range.data() for ip_range in ip_ranges])
 
     def update(self, request, policy_id, id, tenant_id=None):
-        ip_range = Policy.find_by(id=policy_id,
-                                  tenant_id=tenant_id).find_ip_range(id)
-        ip_range.update(exclude(request.params, 'policy_id'))
+        ip_range = Policy.find(policy_id).find_ip_range(id)
+        ip_range.update(request.params)
         return dict(ip_range=ip_range.data())
 
     def delete(self, request, policy_id, id, tenant_id=None):
-        ip_range = Policy.find_by(id=policy_id,
-                                  tenant_id=tenant_id).find_ip_range(id)
+        ip_range = Policy.find(policy_id).find_ip_range(id)
         ip_range.delete()
 
 
 class UnusableIpOctetsController(BaseController):
 
     def index(self, request, policy_id, tenant_id=None):
-        policy = Policy.find_by(id=policy_id, tenant_id=tenant_id)
+        policy = Policy.find(policy_id)
         ip_octets = IpOctet.with_limits(policy.unusable_ip_octets,
                                         **self._extract_limits(request.params))
         return dict(ip_octets=[ip_octet.data() for ip_octet in ip_octets])
 
     def create(self, request, policy_id, tenant_id=None):
-        policy = Policy.find_by(id=policy_id, tenant_id=tenant_id)
+        policy = Policy.find(policy_id)
         ip_octet = policy.create_unusable_ip_octet(**request.params.copy())
         return dict(ip_octet=ip_octet.data()), 201
 
     def show(self, request, policy_id, id, tenant_id=None):
-        ip_octet = Policy.find_by(id=policy_id,
-                                  tenant_id=tenant_id).find_ip_octet(id)
+        ip_octet = Policy.find(policy_id).find_ip_octet(id)
         return dict(ip_octet=ip_octet.data())
 
     def update(self, request, policy_id, id, tenant_id=None):
-        ip_octet = Policy.find_by(id=policy_id,
-                                  tenant_id=tenant_id).find_ip_octet(id)
-        ip_octet.update(exclude(request.params, 'policy_id'))
+        ip_octet = Policy.find(policy_id).find_ip_octet(id)
+        ip_octet.update(request.params)
         return dict(ip_octet=ip_octet.data())
 
     def delete(self, request, policy_id, id, tenant_id=None):
-        ip_octet = Policy.find_by(id=policy_id,
-                                  tenant_id=tenant_id).find_ip_octet(id)
+        ip_octet = Policy.find(policy_id).find_ip_octet(id)
         ip_octet.delete()
 
 
@@ -244,7 +230,9 @@ class API(wsgi.Router):
 
         self._block_and_address_mapper(mapper, "public_ip_block",
                                 "/ipam/public_ip_blocks",
-                                IpBlockController('public'))
+                                IpBlockController('public',
+                                                  admin_actions=['create',
+                                                                 'delete']))
         self._block_and_address_mapper(mapper, "private_ip_block",
                                 "/ipam/tenants/{tenant_id}/private_ip_blocks",
                                 IpBlockController('private'))
@@ -309,6 +297,31 @@ class API(wsgi.Router):
                 "%(nat_type)s/{%(nat_type)s_address:.+?}" % locals(),
                 action="delete",
                 conditions=dict(method=["DELETE"]))
+
+
+def UrlAuthorizationFactory(path):
+    return SecureUrl(path, API().map)
+
+
+class SecureUrl(object):
+
+    @classmethod
+    def factory(cls):
+        return cls
+
+    def __init__(self, path, mapper):
+        self.path = path
+        self.mapper = mapper
+
+    def is_accessible_by(self, role):
+        if(role == 'Admin'):
+            return True
+        match = self.mapper.match(self.path)
+        if match is None:
+            return True
+        controller = match['controller']
+        action = match['action']
+        return action not in controller.admin_actions
 
 
 def app_factory(global_conf, **local_conf):

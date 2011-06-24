@@ -17,11 +17,11 @@
 import unittest
 import routes
 import webob
+import mox
 
-from melange.common import auth, config, service, wsgi
+from melange.common import auth, service, wsgi
+from melange.ipam.service import SecureUrl
 from webtest import TestApp
-from tests.unit import test_config_path
-from webob.exc import HTTPForbidden
 
 
 class MiddlewareTestApp(object):
@@ -39,24 +39,42 @@ class TestAuthMiddleware(unittest.TestCase):
 
     def setUp(self):
         self.dummy_app = MiddlewareTestApp()
-        auth_middleware = auth.AuthorizationMiddleware(self.dummy_app)
+        self.mocker = mox.Mox()
+        url_mock_factory = self.mocker.CreateMockAnything()
+        self.url_mock = self.mocker.CreateMockAnything()
+        url_mock_factory.__call__(mox.IgnoreArg()).AndReturn(self.url_mock)
+        auth_middleware = auth.AuthorizationMiddleware(self.dummy_app,
+                                                       url_mock_factory)
         self.app = TestApp(auth_middleware)
 
+    def tearDown(self):
+        self.mocker.VerifyAll()
+
     def test_forbids_tenant_accessing_other_tenants_resource(self):
+        self.mocker.ReplayAll()
+
         response = self.app.get("/ipam/tenants/123/resources", status="*",
-                                headers={'X_TENANT': "124"})
+                                headers={'X_TENANT': "124",
+                                         'X_ROLE': "Tenant"})
 
         self.assertEqual(response.status_int, 403)
         self.assertFalse(self.dummy_app.was_called)
 
     def test_authorizes_tenant_accessing_its_own_resources(self):
+        self.url_mock.is_accessible_by('Tenant').AndReturn(True)
+        self.mocker.ReplayAll()
+
         response = self.app.get("/ipam/tenants/123/resources", status="*",
-                                headers={'X_TENANT': "123"})
+                                headers={'X_TENANT': "123",
+                                         'X_ROLE': 'Tenant'})
 
         self.assertEqual(response.status_int, 200)
         self.assertTrue(self.dummy_app.was_called)
 
     def test_authorize_admins_to_access_any_resource(self):
+        self.url_mock.is_accessible_by('Admin').AndReturn(True)
+        self.mocker.ReplayAll()
+
         response = self.app.get("/ipam/tenants/124/resources",
                                 headers={'X_TENANT': "123", 'X_ROLE': "Admin"})
 
@@ -64,6 +82,9 @@ class TestAuthMiddleware(unittest.TestCase):
         self.assertTrue(self.dummy_app.was_called)
 
     def test_authorizes_tenant_accessing_resources_not_scoped_by_tenant(self):
+        self.url_mock.is_accessible_by('Tenant').AndReturn(True)
+        self.mocker.ReplayAll()
+
         response = self.app.get("/ipam/resources",
                                 headers={'X_TENANT': "123",
                                          'X_ROLE': "Tenant"})
@@ -72,6 +93,8 @@ class TestAuthMiddleware(unittest.TestCase):
         self.assertTrue(self.dummy_app.was_called)
 
     def test_forbids_tenants_without_id_accessing_tenants_resources(self):
+        self.mocker.ReplayAll()
+
         response = self.app.get("/ipam/tenants/124/resources", status="*",
                                 headers={'X_ROLE': "Tenant"})
 
@@ -82,14 +105,18 @@ class TestAuthMiddleware(unittest.TestCase):
 class DecoratorTestApp(wsgi.Router):
 
     def __init__(self, options={}):
-        mapper = routes.Mapper()
-        admin_actions = ['admin_action']
-        controller = StubController(admin_actions=admin_actions)
-        mapper.resource("resource", "/resources",
-                        controller=controller,
-                        collection={'unrestricted': 'get',
-                                    'admin_action': 'get'})
-        super(DecoratorTestApp, self).__init__(mapper)
+        super(DecoratorTestApp, self).__init__(mapper())
+
+
+def mapper():
+    mapper = routes.Mapper()
+    admin_actions = ['admin_action']
+    controller = StubController(admin_actions=admin_actions)
+    mapper.resource("resource", "/resources",
+                    controller=controller,
+                    collection={'unrestricted': 'get',
+                                'admin_action': 'get'})
+    return mapper
 
 
 class StubController(service.Controller):
@@ -101,44 +128,19 @@ class StubController(service.Controller):
         pass
 
 
-class TestAuthDecorator(unittest.TestCase):
+class TestSecureUrl(unittest.TestCase):
 
-    def test_forbids_tenants_accessing_admin_actions(self):
-        app = TestApp(DecoratorTestApp())
+    def test_accesibility_of_admin_url(self):
+        admin_url = SecureUrl("/resources/admin_action", mapper=mapper())
 
-        response = app.get("/resources/admin_action", status='*',
-                           headers={'X_ROLE': "Tenant"})
-        self.assertEqual(response.status_int, 403)
+        self.assertTrue(admin_url.is_accessible_by('Admin'))
+        self.assertFalse(admin_url.is_accessible_by('Tenant'))
+        self.assertFalse(admin_url.is_accessible_by(None))
 
-    def test_authorizes_admins_accessing_admin_actions(self):
-        app = TestApp(DecoratorTestApp())
+    def test_accesibility_of_unrestricted_url(self):
+        unrestricted_url = SecureUrl("/resources/unrestricted",
+                                     mapper=mapper())
 
-        response = app.get("/resources/admin_action", status='*',
-                           headers={'X_ROLE': "Admin"})
-        self.assertEqual(response.status_int, 200)
-
-    def test_authorizes_tenants_accessing_unrestricted_actions(self):
-        app = TestApp(DecoratorTestApp())
-
-        response = app.get("/resources/unrestricted", status='*',
-                           headers={'X_ROLE': "Tenant"})
-        self.assertEqual(response.status_int, 200)
-
-    def test_authorizes_admins_accessing_unrestricted_actions(self):
-        app = TestApp(DecoratorTestApp())
-
-        response = app.get("/resources/unrestricted", status='*',
-                           headers={'X_ROLE': "Admin"})
-        self.assertEqual(response.status_int, 200)
-
-    def test_authorizes_accessing_unrestricted_actions_without_role(self):
-        app = TestApp(DecoratorTestApp())
-
-        response = app.get("/resources/unrestricted", status='*')
-        self.assertEqual(response.status_int, 200)
-
-    def test_forbids_accessing_admin_actions_without_role(self):
-        app = TestApp(DecoratorTestApp())
-
-        response = app.get("/resources/admin_action", status='*')
-        self.assertEqual(response.status_int, 403)
+        self.assertTrue(unrestricted_url.is_accessible_by('Tenant'))
+        self.assertTrue(unrestricted_url.is_accessible_by('Admin'))
+        self.assertTrue(unrestricted_url.is_accessible_by(None))

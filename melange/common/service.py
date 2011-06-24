@@ -17,8 +17,10 @@
 import inspect
 import logging
 import webob.dec
+
+from webob import Response
 from webob.exc import HTTPBadRequest, HTTPInternalServerError
-from melange.common.wsgi import Request, Response, Serializer
+from melange.common.wsgi import Request, Serializer
 from melange.common.exception import MelangeError
 
 

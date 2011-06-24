@@ -21,7 +21,6 @@
 Utility methods for working with WSGI servers
 """
 import datetime
-import inspect
 import json
 import logging
 import sys
@@ -31,9 +30,6 @@ import webob.dec
 import webob.exc
 
 from xml.dom import minidom
-from webob.exc import HTTPBadRequest
-
-from webob import Response
 from melange.common import utils
 from melange.common.exception import InvalidContentType
 
@@ -389,18 +385,3 @@ class Serializer(object):
                     result[child.nodeName] = self._from_xml_node(child,
                                                                  listnames)
             return result
-
-
-class ResourcePath(object):
-    mapper = routes.Mapper()
-    mapper.connect("{prefix_path:.*}/tenants/{tenant_id}/{suffix_path:.*}")
-
-    def __init__(self, path):
-        self.path = path
-
-    def tenant_scoped(self):
-        return self.elements != None
-
-    @utils.cached_property
-    def elements(self):
-        return self.mapper.match(self.path)

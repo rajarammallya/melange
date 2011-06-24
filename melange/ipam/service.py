@@ -313,15 +313,15 @@ class SecureUrl(object):
         self.path = path
         self.mapper = mapper
 
-    def is_accessible_by(self, role):
+    def is_not_accessible_by(self, role):
         if(role == 'Admin'):
-            return True
+            return False
         match = self.mapper.match(self.path)
         if match is None:
-            return True
+            return False
         controller = match['controller']
         action = match['action']
-        return action not in controller.admin_actions
+        return action in controller.admin_actions
 
 
 def app_factory(global_conf, **local_conf):

@@ -21,6 +21,8 @@ import mox
 
 from melange.common import auth, service, wsgi
 from melange.ipam.service import SecureUrl
+from melange.common.auth import SecureTenantScope
+from melange.common.utils import cached_property
 from webtest import TestApp
 
 
@@ -32,7 +34,6 @@ class MiddlewareTestApp(object):
     @webob.dec.wsgify
     def __call__(self, req):
         self.was_called = True
-        pass
 
 
 class TestAuthMiddleware(unittest.TestCase):
@@ -40,66 +41,45 @@ class TestAuthMiddleware(unittest.TestCase):
     def setUp(self):
         self.dummy_app = MiddlewareTestApp()
         self.mocker = mox.Mox()
-        url_mock_factory = self.mocker.CreateMockAnything()
+        self.url_mock_factory = self.mocker.CreateMockAnything()
+        self.scope_mock_factory = self.mocker.CreateMockAnything()
         self.url_mock = self.mocker.CreateMockAnything()
-        url_mock_factory.__call__(mox.IgnoreArg()).AndReturn(self.url_mock)
+        self.scope_mock = self.mocker.CreateMockAnything()
         auth_middleware = auth.AuthorizationMiddleware(self.dummy_app,
-                                                       url_mock_factory)
+                                                       self.url_mock_factory,
+                                                       self.scope_mock_factory)
         self.app = TestApp(auth_middleware)
 
     def tearDown(self):
         self.mocker.VerifyAll()
 
-    def test_forbids_tenant_accessing_other_tenants_resource(self):
+    def test_scope_unauthorized_gives_forbidden_response(self):
+        self.scope_mock_factory.__call__("/dummy_url",
+                               "tenant_id").AndReturn(self.scope_mock)
+        self.scope_mock.is_unauthorized_for('xxxx').AndReturn(True)
         self.mocker.ReplayAll()
 
-        response = self.app.get("/ipam/tenants/123/resources", status="*",
-                                headers={'X_TENANT': "124",
-                                         'X_ROLE': "Tenant"})
+        response = self.app.get("/dummy_url", status="*",
+                                headers={'X_TENANT': "tenant_id",
+                                         'X_ROLE': "xxxx"})
 
         self.assertEqual(response.status_int, 403)
-        self.assertFalse(self.dummy_app.was_called)
 
-    def test_authorizes_tenant_accessing_its_own_resources(self):
-        self.url_mock.is_accessible_by('Tenant').AndReturn(True)
+    def test_url_unauthorized_gives_forbidden_response(self):
+        self.scope_mock_factory.__call__("/dummy_url",
+                               "tenant_id").AndReturn(self.scope_mock)
+        self.scope_mock.is_unauthorized_for('xxxx').AndReturn(False)
+
+        self.url_mock_factory.__call__("/dummy_url").AndReturn(self.url_mock)
+        self.url_mock.is_not_accessible_by('xxxx').AndReturn(True)
+
         self.mocker.ReplayAll()
 
-        response = self.app.get("/ipam/tenants/123/resources", status="*",
-                                headers={'X_TENANT': "123",
-                                         'X_ROLE': 'Tenant'})
-
-        self.assertEqual(response.status_int, 200)
-        self.assertTrue(self.dummy_app.was_called)
-
-    def test_authorize_admins_to_access_any_resource(self):
-        self.url_mock.is_accessible_by('Admin').AndReturn(True)
-        self.mocker.ReplayAll()
-
-        response = self.app.get("/ipam/tenants/124/resources",
-                                headers={'X_TENANT': "123", 'X_ROLE': "Admin"})
-
-        self.assertEqual(response.status_int, 200)
-        self.assertTrue(self.dummy_app.was_called)
-
-    def test_authorizes_tenant_accessing_resources_not_scoped_by_tenant(self):
-        self.url_mock.is_accessible_by('Tenant').AndReturn(True)
-        self.mocker.ReplayAll()
-
-        response = self.app.get("/ipam/resources",
-                                headers={'X_TENANT': "123",
-                                         'X_ROLE': "Tenant"})
-
-        self.assertEqual(response.status_int, 200)
-        self.assertTrue(self.dummy_app.was_called)
-
-    def test_forbids_tenants_without_id_accessing_tenants_resources(self):
-        self.mocker.ReplayAll()
-
-        response = self.app.get("/ipam/tenants/124/resources", status="*",
-                                headers={'X_ROLE': "Tenant"})
+        response = self.app.get("/dummy_url", status="*",
+                                headers={'X_TENANT': "tenant_id",
+                                         'X_ROLE': "xxxx"})
 
         self.assertEqual(response.status_int, 403)
-        self.assertFalse(self.dummy_app.was_called)
 
 
 class DecoratorTestApp(wsgi.Router):
@@ -133,14 +113,54 @@ class TestSecureUrl(unittest.TestCase):
     def test_accesibility_of_admin_url(self):
         admin_url = SecureUrl("/resources/admin_action", mapper=mapper())
 
-        self.assertTrue(admin_url.is_accessible_by('Admin'))
-        self.assertFalse(admin_url.is_accessible_by('Tenant'))
-        self.assertFalse(admin_url.is_accessible_by(None))
+        self.assertFalse(admin_url.is_not_accessible_by('Admin'))
+        self.assertTrue(admin_url.is_not_accessible_by('Tenant'))
+        self.assertTrue(admin_url.is_not_accessible_by(None))
 
     def test_accesibility_of_unrestricted_url(self):
         unrestricted_url = SecureUrl("/resources/unrestricted",
                                      mapper=mapper())
 
-        self.assertTrue(unrestricted_url.is_accessible_by('Tenant'))
-        self.assertTrue(unrestricted_url.is_accessible_by('Admin'))
-        self.assertTrue(unrestricted_url.is_accessible_by(None))
+        self.assertFalse(unrestricted_url.is_not_accessible_by('Tenant'))
+        self.assertFalse(unrestricted_url.is_not_accessible_by('Admin'))
+        self.assertFalse(unrestricted_url.is_not_accessible_by(None))
+
+
+class TestSecureScope(unittest.TestCase):
+
+    def test_authorizes_tenant_accessing_its_own_resources(self):
+        secure_tenant_scope = SecureTenantScope("/tenants/1/resources",
+                                                authorized_tenant_id="1")
+
+        self.assertFalse(secure_tenant_scope.is_unauthorized_for("Tenant"))
+
+    def test_tenant_accessing_other_tenants_resources_is_unauthorized(self):
+        unauthorized_scope = SecureTenantScope("/tenants/1/resources",
+                                                authorized_tenant_id="blah")
+
+        self.assertTrue(unauthorized_scope.is_unauthorized_for("Tenant"))
+
+    def test_authorizes_tenant_accessing_resources_not_scoped_by_tenant(self):
+        non_tenant_scope = SecureTenantScope("/xxxx/1/resources",
+                                                authorized_tenant_id=None)
+
+        self.assertFalse(non_tenant_scope.is_unauthorized_for("Tenant"))
+
+    def test_authorizes_admin_accessing_tenant_resources(self):
+        authorized_scope = SecureTenantScope("/tenants/1/resources",
+                                                authorized_tenant_id="1")
+        unauthorized_scope = SecureTenantScope("/tenants/1/resources",
+                                                authorized_tenant_id="blah")
+
+        self.assertFalse(authorized_scope.is_unauthorized_for("Admin"))
+        self.assertFalse(unauthorized_scope.is_unauthorized_for("Admin"))
+
+    def test_authorizes_admin_accessing_resources_not_scoped_by_tenant(self):
+        non_tenant_scope = SecureTenantScope("/xxxx/1/resources",
+                                                authorized_tenant_id="1")
+
+        self.assertFalse(non_tenant_scope.is_unauthorized_for("Admin"))
+
+    def test_elements_are_cached(self):
+        self.assertTrue(isinstance(SecureTenantScope.elements,
+                                   cached_property))

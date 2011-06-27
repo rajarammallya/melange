@@ -207,3 +207,39 @@ def if_not_null(**kwargs):
 def exclude(key_values, *exclude_keys):
     return dict((key, value) for key, value in key_values.iteritems()
                 if key not in exclude_keys)
+
+
+def find(predicate, items):
+    for item in items:
+        if predicate(item) is True:
+            return item
+
+
+class cached_property(object):
+    """
+    Taken from : https://github.com/nshah/python-memoize
+    A decorator that converts a function into a lazy property. The
+    function wrapped is called the first time to retrieve the result
+    and than that calculated result is used the next time you access
+    the value::
+
+        class Foo(object):
+
+            @cached_property
+            def bar(self):
+                # calculate something important here
+                return 42
+
+    """
+
+    def __init__(self, func, name=None, doc=None):
+        self.func = func
+        self.__name__ = name or func.__name__
+        self.__doc__ = doc or func.__doc__
+
+    def __get__(self, obj, type=None):
+        if obj is None:
+            return self
+        value = self.func(obj)
+        setattr(obj, self.__name__, value)
+        return value

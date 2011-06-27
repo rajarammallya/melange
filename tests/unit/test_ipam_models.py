@@ -275,6 +275,12 @@ class TestIpBlock(BaseTest):
         self.assertTrue(len(IpAddress.
                             find_all_by_ip_block(ip_block.id).all()) is 0)
 
+    def test_contains_address(self):
+        ip_block = IpBlock(cidr="10.0.0.0/20")
+
+        self.assertTrue(ip_block.contains("10.0.0.232"))
+        self.assertFalse(ip_block.contains("20.0.0.232"))
+
 
 class TestIpAddress(unittest.TestCase):
 
@@ -799,8 +805,9 @@ class TestNetwork(BaseTest):
         ip_block = PublicIpBlockFactory(network_id=1, cidr="10.0.0.0/31")
         network = Network.find_by(id=1)
 
-        self.assertRaises(AddressDoesNotBelongError,
-                          network.allocate_ip, address="20.0.0.1")
+        self.assertRaisesExcMessage(AddressDoesNotBelongError,
+                                    "Address does not belong to network",
+                                    network.allocate_ip, address="20.0.0.1")
 
     def test_allocate_ip_fails_if_given_address_is_already_allocated(self):
         ip_block1 = PublicIpBlockFactory(network_id=1, cidr="10.0.0.0/31")

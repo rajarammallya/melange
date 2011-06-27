@@ -216,7 +216,7 @@ class IpBlock(ModelBase):
         if address in allocated_addresses:
             raise DuplicateAddressError()
 
-        if netaddr.IPAddress(address) not in IPNetwork(self.cidr):
+        if not self.contains(address):
             raise AddressDoesNotBelongError(
                 "Address does not belong to IpBlock")
 
@@ -226,6 +226,9 @@ class IpBlock(ModelBase):
                 "Block policy does not allow this address")
 
         return address
+
+    def contains(self, address):
+        return netaddr.IPAddress(address) in IPNetwork(self.cidr)
 
     def _generate_ip(self, allocated_addresses):
         #TODO: very inefficient way to generate ips,
@@ -425,16 +428,25 @@ class Network(ModelBase):
         return cls(id=id, ip_blocks=ip_blocks)
 
     def allocate_ip(self, address=None, port_id=None):
+        if(address):
+            return self._allocate_specific_ip(address, port_id)
+        return self._allocate_first_free_ip(port_id)
+
+    def _allocate_specific_ip(self, address, port_id):
+        ip_block = utils.find(lambda ip_block: ip_block.contains(address),
+                              self.ip_blocks)
+        if(ip_block is None):
+            raise AddressDoesNotBelongError(
+                "Address does not belong to network")
+        return ip_block.allocate_ip(port_id=port_id, address=address)
+
+    def _allocate_first_free_ip(self, port_id):
         for ip_block in self.ip_blocks:
             try:
-                return ip_block.allocate_ip(address=address, port_id=port_id)
-            except (NoMoreAddressesError, AddressDoesNotBelongError):
+                return ip_block.allocate_ip(port_id=port_id)
+            except (NoMoreAddressesError):
                 pass
-
-        if(address):
-            raise AddressDoesNotBelongError
-        else:
-            raise NoMoreAddressesError
+        raise NoMoreAddressesError
 
 
 def models():

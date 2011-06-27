@@ -40,6 +40,15 @@ class BaseTest(unittest.TestCase):
         """ implement this in inheritors instead of using setup directly """
         pass
 
+    def assertRaisesExcMessage(self, exception, message,
+                               func, *args, **kwargs):
+        try:
+            func(*args, **kwargs)
+            self.fail("Expected {0} to raise {1}".\
+                      format(func, repr(exception)))
+        except exception as e:
+            self.assertEqual(e.message, message)
+
 
 def test_config_path():
     return os.path.abspath("../etc/melange.conf.test")

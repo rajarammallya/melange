@@ -495,6 +495,11 @@ class TestPolicy(BaseTest):
         self.assertEqual(policy.description, "desc")
         self.assertEqual(policy.tenant_id, "123")
 
+    def test_validates_presence_of_name(self):
+        policy = PolicyFactory.build(name="")
+        self.assertFalse(policy.is_valid())
+        self.assertEqual(policy.errors['name'], ["name should be present"])
+
     def test_allows_address_not_in_last_ip_octets(self):
         policy = PolicyFactory(name="blah")
         ip_octet1 = IpOctetFactory(octet=123, policy_id=policy.id)

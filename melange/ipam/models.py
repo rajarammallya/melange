@@ -73,7 +73,7 @@ class ModelBase(object):
         return self.errors == {}
 
     def _validate_presence_of(self, attribute_name):
-        if (self[attribute_name] is None):
+        if (self[attribute_name] in [None, ""]):
             self._add_error(attribute_name,
                             "{0} should be present".format(attribute_name))
 
@@ -333,6 +333,9 @@ class Policy(ModelBase):
     @classmethod
     def find_by_name(cls, name):
         return db_api.find_by(Policy, name=name)
+
+    def _validate(self):
+        self._validate_presence_of('name')
 
     def delete(self):
         db_api.delete_all(self.unusable_ip_ranges)

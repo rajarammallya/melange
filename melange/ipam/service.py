@@ -17,7 +17,7 @@
 import json
 import routes
 from webob.exc import (HTTPUnprocessableEntity, HTTPBadRequest,
-                       HTTPNotFound)
+                       HTTPNotFound, HTTPConflict)
 
 from melange.common import wsgi
 from melange.ipam import models
@@ -29,11 +29,11 @@ from melange.common.utils import exclude
 class BaseController(wsgi.Controller):
     exception_map = {HTTPUnprocessableEntity:
                      [models.NoMoreAddressesError,
-                      models.DuplicateAddressError,
                       models.AddressDoesNotBelongError,
                       models.AddressLockedError],
                      HTTPBadRequest: [models.InvalidModelError],
-                     HTTPNotFound: [models.ModelNotFoundError]}
+                     HTTPNotFound: [models.ModelNotFoundError],
+                     HTTPConflict: [models.DuplicateAddressError]}
 
     def _extract_limits(self, params):
         return dict([(key, params[key]) for key in params.keys()

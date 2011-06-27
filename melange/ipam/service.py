@@ -224,8 +224,9 @@ class PoliciesController(BaseController):
 
 class NetworksController(BaseController):
 
-    def allocate_ip(self, request, network_id):
-        ip_address = Network.find(network_id).allocate_ip()
+    def allocate_ip(self, request, network_id, tenant_id=None):
+        ip_address = Network.find_by(id=network_id, tenant_id=tenant_id).\
+                     allocate_ip()
         return dict(ip_address=ip_address.data()), 201
 
 
@@ -251,6 +252,10 @@ class API(wsgi.Router):
                                       "/ipam/tenants/{tenant_id}/policies")
         mapper.connect("/ipam/networks/{network_id}/ip_addresses",
                        controller=NetworksController(),
+                       action='allocate_ip',
+                       conditions=dict(method=['POST']))
+        mapper.connect("/ipam/tenants/{tenant_id}/networks/{network_id}"
+                       "/ip_addresses", controller=NetworksController(),
                        action='allocate_ip',
                        conditions=dict(method=['POST']))
         super(API, self).__init__(mapper)

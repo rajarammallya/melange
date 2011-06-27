@@ -1169,28 +1169,62 @@ class TestTenantPoliciesController(BaseTestController):
         self.assertEqual(response.status_int, 404)
 
 
-class TestNetworksController(BaseTestController):
+class NetworksControllerBase():
 
     def test_allocate_ip_address(self):
-        ip_block = PublicIpBlockFactory(network_id=1)
+        ip_block = self._ip_block_factory(network_id=1)
 
-        response = self.app.post("/ipam/networks/1/ip_addresses", status='*')
+        response = self.app.post("{0}/networks/1/ip_addresses"\
+                                 .format(self.network_path))
 
         ip_address = IpAddress.find_by(ip_block_id=ip_block.id)
         self.assertEqual(response.status_int, 201)
         self.assertEqual(ip_address.data(), response.json['ip_address'])
 
     def test_allocate_ip_fails_if_network_not_found(self):
-        response = self.app.post("/ipam/networks/1/ip_addresses", status="*")
+        response = self.app.post("{0}/networks/1/ip_addresses"\
+                                 .format(self.network_path), status="*")
 
         self.assertEqual(response.status_int, 404)
 
     def test_allocate_ip_fails_if_network_has_no_free_ip(self):
-        full_ip_block = PublicIpBlockFactory(network_id=1, cidr="10.0.0.0/32")
+        full_ip_block = self._ip_block_factory(network_id=1,
+                                               cidr="10.0.0.0/32")
         IpAddressFactory(ip_block_id=full_ip_block.id)
-        response = self.app.post("/ipam/networks/1/ip_addresses", status="*")
+        response = self.app.post("{0}/networks/1/ip_addresses"\
+                                 .format(self.network_path), status="*")
 
         self.assertEqual(response.status_int, 422)
+
+
+class TestNetworksController(NetworksControllerBase,
+                             BaseTestController):
+
+    def setUp(self):
+        self.network_path = "/ipam"
+        super(TestNetworksController, self).setUp()
+
+    def _ip_block_factory(self, **kwargs):
+        return PublicIpBlockFactory(**kwargs)
+
+
+class TestTenantNetworksController(NetworksControllerBase,
+                                   BaseTestController):
+
+    def setUp(self):
+        self.network_path = "/ipam/tenants/123"
+        super(TestTenantNetworksController, self).setUp()
+
+    def _ip_block_factory(self, **kwargs):
+        return PrivateIpBlockFactory(tenant_id=123, **kwargs)
+
+    def test_allocate_ip_fails_if_tenant_does_not_own_network(self):
+        ip_block = PublicIpBlockFactory(network_id=1, tenant_id=999)
+
+        response = self.app.post("/ipam/tenants/123/networks/1/ip_addresses",
+                                 status='*')
+
+        self.assertEqual(response.status_int, 404)
 
 
 def _allocate_ips(*args):

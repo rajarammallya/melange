@@ -418,8 +418,8 @@ class IpOctet(ModelBase):
 class Network(ModelBase):
 
     @classmethod
-    def find(cls, id):
-        ip_blocks = IpBlock.find_all(network_id=id).all()
+    def find_by(cls, id, tenant_id=None):
+        ip_blocks = IpBlock.find_all(network_id=id, tenant_id=tenant_id).all()
         if(len(ip_blocks) == 0):
             raise ModelNotFoundError("Network {0} not found".format(id))
         return cls(id=id, ip_blocks=ip_blocks)

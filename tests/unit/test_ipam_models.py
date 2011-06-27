@@ -729,10 +729,20 @@ class TestNetwork(BaseTest):
         ip_block2 = PublicIpBlockFactory(network_id=1)
         noise_ip_block = PublicIpBlockFactory(network_id=9999)
 
-        network = Network.find(1)
+        network = Network.find_by(id=1)
 
         self.assertEqual(network.id, 1)
         self.assertEqual(network.ip_blocks, [ip_block1, ip_block2])
+
+    def test_find_when_ip_blocks_for_given_tenant_network_exist(self):
+        ip_block1 = PublicIpBlockFactory(network_id=1, tenant_id=123)
+        noise_ip_block1 = PublicIpBlockFactory(network_id=1, tenant_id=321)
+        noise_ip_block2 = PublicIpBlockFactory(network_id=9999)
+
+        network = Network.find_by(id=1, tenant_id=123)
+
+        self.assertEqual(network.id, 1)
+        self.assertEqual(network.ip_blocks, [ip_block1])
 
     def test_find_when_no_ip_blocks_for_given_network_exist(self):
         noise_ip_block = PublicIpBlockFactory(network_id=9999)
@@ -741,7 +751,7 @@ class TestNetwork(BaseTest):
 
     def test_allocate_ip(self):
         ip_block = PublicIpBlockFactory(network_id=1)
-        network = Network.find(1)
+        network = Network.find_by(id=1)
         allocated_ip = network.allocate_ip()
 
         ip_address = IpAddress.find_by(ip_block_id=ip_block.id)
@@ -751,7 +761,7 @@ class TestNetwork(BaseTest):
         full_ip_block = PublicIpBlockFactory(network_id=1, cidr="10.0.0.0/32")
         IpAddressFactory(ip_block_id=full_ip_block.id)
         free_ip_block = PublicIpBlockFactory(network_id=1, cidr="10.0.1.0/31")
-        network = Network.find(1)
+        network = Network.find_by(id=1)
         allocated_ip = network.allocate_ip()
 
         ip_address = IpAddress.find_by(ip_block_id=free_ip_block.id)
@@ -760,6 +770,6 @@ class TestNetwork(BaseTest):
     def test_allocate_ip_raises_error_when_all_ip_blocks_are_full(self):
         full_ip_block = PublicIpBlockFactory(network_id=1, cidr="10.0.0.0/32")
         IpAddressFactory(ip_block_id=full_ip_block.id)
-        network = Network.find(1)
+        network = Network.find_by(id=1)
 
         self.assertRaises(NoMoreAddressesError, network.allocate_ip)

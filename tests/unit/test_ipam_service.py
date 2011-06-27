@@ -40,7 +40,7 @@ class BaseTestController(BaseTest):
     def assertErrorResponse(self, response, error_type, expected_error):
         self.assertEqual(response.status_int, error_type().code)
         self.assertTrue(expected_error in
-                        response.json[error_type.__name__]['detail'])
+                        response.json[error_type.__name__[4:]]['detail'])
 
 
 class IpBlockControllerBase():

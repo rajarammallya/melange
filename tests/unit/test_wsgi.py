@@ -18,7 +18,7 @@ import webob
 import routes
 from tests.unit import BaseTest
 from webtest import TestApp
-from webob.exc import HTTPNotFound
+from webob.exc import HTTPNotFound, HTTPBadRequest
 from melange.common import wsgi
 
 
@@ -133,18 +133,16 @@ class TestFault(BaseTest):
         response = app.get("/", status="*")
         self.assertEqual(response.status_int, 404)
         self.assertEqual(response.content_type, "application/json")
-        self.assertEqual(response.json['HTTPNotFound'],
+        self.assertEqual(response.json['NotFound'],
                          dict(code=404,
                               message="The resource could not be found.",
                               detail="some error"))
 
     def test_fault_gives_back_xml(self):
-        app = TestApp(wsgi.Fault(HTTPNotFound("some error")))
+        app = TestApp(wsgi.Fault(HTTPBadRequest("some error")))
         response = app.get("/x.xml", status="*")
         self.assertEqual(response.content_type, "application/xml")
-        self.assertEqual(response.xml.tag, 'HTTPNotFound')
-        self.assertEqual(response.xml.attrib['code'], '404')
-        self.assertEqual(response.xml.find('message').text.strip(),
-                         'The resource could not be found.')
+        self.assertEqual(response.xml.tag, 'BadRequest')
+        self.assertEqual(response.xml.attrib['code'], '400')
         self.assertEqual(response.xml.find('detail').text.strip(),
                          'some error')

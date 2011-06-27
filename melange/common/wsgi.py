@@ -337,7 +337,7 @@ class Controller(object):
         MIME types to information needed to serialize to that type.
         """
         _metadata = getattr(type(self), "_serialization_metadata", {})
-        serializer = Serializer(request.environ, _metadata)
+        serializer = Serializer(_metadata)
         return serializer.serialize(data, request.best_match_content_type())
 
     def _deserialize(self, data, content_type):
@@ -491,15 +491,16 @@ class Fault(webob.exc.HTTPException):
         """Generate a WSGI response based on the exception passed to ctor."""
         # Replace the body with fault details.
         fault_name = self.wrapped_exc.__class__.__name__
-        code = self.wrapped_exc.status_int
+        if(fault_name.startswith("HTTP")):
+            fault_name = fault_name[4:]
         fault_data = {
             fault_name: {
-                'code': code,
+                'code': self.wrapped_exc.status_int,
                 'message': self.wrapped_exc.explanation,
                 'detail': self.wrapped_exc.detail}}
         # 'code' is an attribute on the fault tag itself
         metadata = {'application/xml': {'attributes': {fault_name: 'code'}}}
-        serializer = Serializer(metadata=metadata)
+        serializer = Serializer(metadata)
         content_type = req.best_match_content_type()
         self.wrapped_exc.body = serializer.serialize(fault_data, content_type)
         self.wrapped_exc.content_type = content_type

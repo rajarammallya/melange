@@ -225,8 +225,10 @@ class PoliciesController(BaseController):
 class NetworksController(BaseController):
 
     def allocate_ip(self, request, network_id, tenant_id=None):
-        ip_address = Network.find_by(id=network_id, tenant_id=tenant_id).\
-                     allocate_ip()
+        network = Network.find_by(id=network_id, tenant_id=tenant_id)
+        address, port_id = self._get_optionals(request.params,
+                                               *['address', 'port_id'])
+        ip_address = network.allocate_ip(address=address, port_id=port_id)
         return dict(ip_address=ip_address.data()), 201
 
 

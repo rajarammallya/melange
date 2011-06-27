@@ -1181,6 +1181,38 @@ class NetworksControllerBase():
         self.assertEqual(response.status_int, 201)
         self.assertEqual(ip_address.data(), response.json['ip_address'])
 
+    def test_allocate_ip_address_for_a_port(self):
+        ip_block = self._ip_block_factory(network_id=1)
+
+        response = self.app.post("{0}/networks/1/ip_addresses"\
+                                 .format(self.network_path),
+                                 {'port_id': '123'})
+
+        ip_address = IpAddress.find_by(ip_block_id=ip_block.id, port_id=123)
+        self.assertEqual(response.status_int, 201)
+        self.assertEqual(ip_address.data(), response.json['ip_address'])
+
+    def test_allocate_ip_with_given_address(self):
+        ip_block = self._ip_block_factory(network_id=1, cidr='10.0.0.0/31')
+
+        response = self.app.post("{0}/networks/1/ip_addresses"\
+                                 .format(self.network_path),
+                                 {'address': '10.0.0.1'})
+
+        ip_address = IpAddress.find_by(ip_block_id=ip_block.id,
+                                       address='10.0.0.1')
+        self.assertEqual(response.status_int, 201)
+        self.assertEqual(ip_address.data(), response.json['ip_address'])
+
+    def test_allocate_ip_fails_when_network_doesnt_have_given_address(self):
+        ip_block = self._ip_block_factory(network_id=1, cidr='10.0.0.0/31')
+
+        response = self.app.post("{0}/networks/1/ip_addresses"\
+                                 .format(self.network_path),
+                                 {'address': '20.0.0.0'}, status='*')
+
+        self.assertEqual(response.status_int, 422)
+
     def test_allocate_ip_fails_if_network_not_found(self):
         response = self.app.post("{0}/networks/1/ip_addresses"\
                                  .format(self.network_path), status="*")

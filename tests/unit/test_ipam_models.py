@@ -20,7 +20,9 @@ from tests.unit import BaseTest
 
 from melange.ipam.models import (ModelBase, IpBlock, IpAddress, Policy,
                                  IpRange, IpOctet, Network)
-from melange.ipam.models import ModelNotFoundError, NoMoreAddressesError
+from melange.ipam.models import (ModelNotFoundError, NoMoreAddressesError,
+                                 AddressDoesNotBelongError,
+                                 DuplicateAddressError)
 from melange.ipam import models
 from melange.db import session
 from tests.unit.factories.models import (PublicIpBlockFactory,
@@ -773,3 +775,38 @@ class TestNetwork(BaseTest):
         network = Network.find_by(id=1)
 
         self.assertRaises(NoMoreAddressesError, network.allocate_ip)
+
+    def test_allocate_ip_assigns_given_port_and_address(self):
+        ip_block = PublicIpBlockFactory(network_id=1, cidr="10.0.0.0/31")
+        network = Network.find_by(id=1)
+
+        allocated_ip = network.allocate_ip(address="10.0.0.1", port_id=123)
+
+        self.assertEqual(allocated_ip.address, "10.0.0.1")
+        self.assertEqual(allocated_ip.port_id, 123)
+
+    def test_allocate_ip_assigns_given_address_from_its_block(self):
+        ip_block1 = PublicIpBlockFactory(network_id=1, cidr="10.0.0.0/31")
+        ip_block2 = PublicIpBlockFactory(network_id=1, cidr="20.0.0.0/31")
+        network = Network(ip_blocks=[ip_block1, ip_block2])
+
+        allocated_ip = network.allocate_ip(address="20.0.0.1")
+
+        self.assertEqual(allocated_ip.address, "20.0.0.1")
+        self.assertEqual(allocated_ip.ip_block_id, ip_block2.id)
+
+    def test_allocate_ip_fails_if_given_address_is_not_in_network(self):
+        ip_block = PublicIpBlockFactory(network_id=1, cidr="10.0.0.0/31")
+        network = Network.find_by(id=1)
+
+        self.assertRaises(AddressDoesNotBelongError,
+                          network.allocate_ip, address="20.0.0.1")
+
+    def test_allocate_ip_fails_if_given_address_is_already_allocated(self):
+        ip_block1 = PublicIpBlockFactory(network_id=1, cidr="10.0.0.0/31")
+        ip_block2 = PublicIpBlockFactory(network_id=1, cidr="20.0.0.0/31")
+        IpAddressFactory(ip_block_id=ip_block2.id, address="20.0.0.0")
+        network = Network(ip_blocks=[ip_block1, ip_block2])
+
+        self.assertRaises(DuplicateAddressError,
+                          network.allocate_ip, address="20.0.0.0")

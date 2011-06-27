@@ -424,13 +424,17 @@ class Network(ModelBase):
             raise ModelNotFoundError("Network {0} not found".format(id))
         return cls(id=id, ip_blocks=ip_blocks)
 
-    def allocate_ip(self):
+    def allocate_ip(self, address=None, port_id=None):
         for ip_block in self.ip_blocks:
             try:
-                return ip_block.allocate_ip()
-            except NoMoreAddressesError:
+                return ip_block.allocate_ip(address=address, port_id=port_id)
+            except (NoMoreAddressesError, AddressDoesNotBelongError):
                 pass
-        raise NoMoreAddressesError
+
+        if(address):
+            raise AddressDoesNotBelongError
+        else:
+            raise NoMoreAddressesError
 
 
 def models():

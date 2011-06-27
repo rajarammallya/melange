@@ -29,7 +29,8 @@ import webob.dec
 import webob.exc
 from webob import Response
 from xml.dom import minidom
-from webob.exc import HTTPBadRequest, HTTPInternalServerError
+from webob.exc import (HTTPBadRequest, HTTPInternalServerError,
+                       HTTPNotFound)
 
 from melange.common.exception import InvalidContentType
 from melange.common.exception import MelangeError
@@ -293,7 +294,7 @@ class Controller(object):
         """
         arg_dict = req.environ['wsgiorg.routing_args'][1]
         action = arg_dict['action']
-        method = getattr(self, action)
+        method = getattr(self, action, None)
         del arg_dict['controller']
         del arg_dict['action']
         arg_dict['request'] = req
@@ -311,6 +312,8 @@ class Controller(object):
         return result
 
     def _execute_action(self, method, arg_dict):
+        if method is None:
+            raise HTTPNotFound
         try:
             if self._method_doesnt_expect_format_arg(method):
                 arg_dict.pop('format', None)

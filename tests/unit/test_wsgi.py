@@ -126,6 +126,13 @@ class TestController(BaseTest):
         self.assertEqual(response.content_type, "application/json")
         self.assertEqual(response.json, {'fort': 'knox'})
 
+    def test_returns_404_if_action_not_implemented(self):
+        app = TestApp(DummyApp())
+
+        response = app.get("/resources/new", status='*')
+
+        self.assertEqual(response.status_int, 404)
+
 
 class TestFault(BaseTest):
     def test_fault_wraps_webob_exception(self):

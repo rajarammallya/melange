@@ -318,17 +318,14 @@ class Controller(object):
 
         except MelangeError as e:
             httpError = self._get_http_error(e)
-            self.raiseHTTPError(httpError, e.message, arg_dict['request'])
+            return Fault(httpError(e.message, request=arg_dict['request']))
         except Exception as e:
             logging.getLogger('eventlet.wsgi.server').exception(e)
-            self.raiseHTTPError(HTTPInternalServerError, e.message,
-                                arg_dict['request'])
+            return Fault(HTTPInternalServerError(e.message,
+                              request=arg_dict['request']))
 
     def _method_doesnt_expect_format_arg(self, method):
         return not 'format' in inspect.getargspec(method)[0]
-
-    def raiseHTTPError(self, error, error_message, request):
-        raise error(error_message, request=request, content_type="text\plain")
 
     def _get_http_error(self, error):
         return self.model_exception_map.get(type(error), HTTPBadRequest)
@@ -371,13 +368,12 @@ class Serializer(object):
     Serializes a dictionary to a Content Type specified by a WSGI environment.
     """
 
-    def __init__(self, environ, metadata=None):
+    def __init__(self, metadata=None):
         """
         Create a serializer based on the given WSGI environment.
         'metadata' is an optional dict mapping MIME types to information
         needed to serialize a dictionary to that type.
         """
-        self.environ = environ
         self.metadata = metadata or {}
         self._methods = {
             'application/json': self._to_json,
@@ -481,3 +477,30 @@ class Serializer(object):
                     result[child.nodeName] = self._from_xml_node(child,
                                                                  listnames)
             return result
+
+
+class Fault(webob.exc.HTTPException):
+    """Error codes for API faults"""
+
+    def __init__(self, exception):
+        """Create a Fault for the given webob.exc.exception."""
+        self.wrapped_exc = exception
+
+    @webob.dec.wsgify(RequestClass=Request)
+    def __call__(self, req):
+        """Generate a WSGI response based on the exception passed to ctor."""
+        # Replace the body with fault details.
+        fault_name = self.wrapped_exc.__class__.__name__
+        code = self.wrapped_exc.status_int
+        fault_data = {
+            fault_name: {
+                'code': code,
+                'message': self.wrapped_exc.explanation,
+                'detail': self.wrapped_exc.detail}}
+        # 'code' is an attribute on the fault tag itself
+        metadata = {'application/xml': {'attributes': {fault_name: 'code'}}}
+        serializer = Serializer(metadata=metadata)
+        content_type = req.best_match_content_type()
+        self.wrapped_exc.body = serializer.serialize(fault_data, content_type)
+        self.wrapped_exc.content_type = content_type
+        return self.wrapped_exc

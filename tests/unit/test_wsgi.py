@@ -15,10 +15,11 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 import webob
+import routes
 from tests.unit import BaseTest
-
+from webtest import TestApp
+from webob.exc import HTTPNotFound
 from melange.common import wsgi
-from melange.common.utils import cached_property
 
 
 class RequestTest(BaseTest):
@@ -85,3 +86,65 @@ class RequestTest(BaseTest):
         request.headers["Accept"] = "application/unsupported1"
         result = request.best_match_content_type()
         self.assertEqual(result, "application/json")
+
+
+class DummyApp(wsgi.Router):
+
+    def __init__(self, options={}):
+        mapper = routes.Mapper()
+        controller = StubController()
+        mapper.resource("resource", "/resources",
+                        controller=controller)
+        super(DummyApp, self).__init__(mapper)
+
+
+class StubController(wsgi.Controller):
+
+    def index(self, request, format=None):
+        return  {'fort': 'knox'}
+
+    def show(self, request, id, format=None):
+        return {'fort': 'knox'}
+
+
+class TestController(BaseTest):
+    def test_response_content_type_matches_accept_header(self):
+        app = TestApp(DummyApp())
+
+        response = app.get("/resources", headers={'Accept': "application/xml"})
+
+        self.assertEqual(response.content_type, "application/xml")
+        self.assertEqual(response.xml.tag, "fort")
+        self.assertEqual(response.xml.text.strip(), "knox")
+
+    def test_response_content_type_matches_url_format_over_accept_header(self):
+        app = TestApp(DummyApp())
+
+        response = app.get("/resources.json",
+                           headers={'Accept': "application/xml"})
+
+        self.assertEqual(response.content_type, "application/json")
+        self.assertEqual(response.json, {'fort': 'knox'})
+
+
+class TestFault(BaseTest):
+    def test_fault_wraps_webob_exception(self):
+        app = TestApp(wsgi.Fault(HTTPNotFound("some error")))
+        response = app.get("/", status="*")
+        self.assertEqual(response.status_int, 404)
+        self.assertEqual(response.content_type, "application/json")
+        self.assertEqual(response.json['HTTPNotFound'],
+                         dict(code=404,
+                              message="The resource could not be found.",
+                              detail="some error"))
+
+    def test_fault_gives_back_xml(self):
+        app = TestApp(wsgi.Fault(HTTPNotFound("some error")))
+        response = app.get("/x.xml", status="*")
+        self.assertEqual(response.content_type, "application/xml")
+        self.assertEqual(response.xml.tag, 'HTTPNotFound')
+        self.assertEqual(response.xml.attrib['code'], '404')
+        self.assertEqual(response.xml.find('message').text.strip(),
+                         'The resource could not be found.')
+        self.assertEqual(response.xml.find('detail').text.strip(),
+                         'some error')

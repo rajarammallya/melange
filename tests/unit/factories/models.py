@@ -22,7 +22,7 @@ from melange.ipam.models import *
 
 class PublicIpBlockFactory(factory.Factory):
     FACTORY_FOR = IpBlock
-    cidr = "192.168.0.0/29"
+    cidr = factory.Sequence(lambda n: "192.168.0.{0}/29".format(n))
     tenant_id = None
     type = "public"
 

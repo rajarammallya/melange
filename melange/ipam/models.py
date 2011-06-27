@@ -416,6 +416,19 @@ class IpOctet(ModelBase):
         return ['id', 'octet', 'policy_id']
 
 
+class Network(ModelBase):
+
+    @classmethod
+    def find(cls, id):
+        ip_blocks = IpBlock.find_all(network_id=id).all()
+        if(len(ip_blocks) == 0):
+            raise ModelNotFoundError("Network {0} not found".format(id))
+        return cls(id=id, ip_blocks=ip_blocks)
+
+    def allocate_ip(self):
+        return self.ip_blocks[0].allocate_ip()
+
+
 def models():
     return {'IpBlock': IpBlock, 'IpAddress': IpAddress, 'Policy': Policy,
             'IpRange': IpRange, 'IpOctet': IpOctet}

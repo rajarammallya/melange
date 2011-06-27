@@ -1169,6 +1169,23 @@ class TestTenantPoliciesController(BaseTestController):
         self.assertEqual(response.status_int, 404)
 
 
+class TestNetworksController(BaseTestController):
+
+    def test_allocate_ip_address(self):
+        ip_block = PublicIpBlockFactory(network_id=1)
+
+        response = self.app.post("/ipam/networks/1/ip_addresses", status='*')
+
+        ip_address = IpAddress.find_by(ip_block_id=ip_block.id)
+        self.assertEqual(response.status_int, 201)
+        self.assertEqual(ip_address.data(), response.json['ip_address'])
+
+    def test_allocate_ip_fails_if_network_not_found(self):
+        response = self.app.post("/ipam/networks/1/ip_addresses", status="*")
+
+        self.assertEqual(response.status_int, 404)
+
+
 def _allocate_ips(*args):
     return [[ip_block.allocate_ip() for i in range(num_of_ips)]
             for ip_block, num_of_ips in args]

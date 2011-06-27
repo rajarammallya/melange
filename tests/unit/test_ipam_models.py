@@ -19,7 +19,7 @@ import unittest
 from tests.unit import BaseTest
 
 from melange.ipam.models import (ModelBase, IpBlock, IpAddress, Policy,
-                                 IpRange, IpOctet)
+                                 IpRange, IpOctet, Network, ModelNotFoundError)
 from melange.ipam import models
 from melange.db import session
 from tests.unit.factories.models import (PublicIpBlockFactory,
@@ -719,3 +719,21 @@ class TestIpOctet(BaseTest):
         self.assertTrue(ip_octet.applies_to("10.0.0.123"))
         self.assertTrue(ip_octet.applies_to("192.168.0.123"))
         self.assertFalse(ip_octet.applies_to("123.0.0.124"))
+
+
+class TestNetwork(BaseTest):
+
+    def test_find_when_ip_blocks_for_given_network_exist(self):
+        ip_block1 = PublicIpBlockFactory(network_id=1)
+        ip_block2 = PublicIpBlockFactory(network_id=1)
+        noise_ip_block = PublicIpBlockFactory(network_id=9999)
+
+        network = Network.find(1)
+
+        self.assertEqual(network.id, 1)
+        self.assertEqual(network.ip_blocks, [ip_block1, ip_block2])
+
+    def test_find_when_no_ip_blocks_for_given_network_exist(self):
+        noise_ip_block = PublicIpBlockFactory(network_id=9999)
+
+        self.assertRaises(ModelNotFoundError, Network.find, 1)

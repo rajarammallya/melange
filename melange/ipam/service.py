@@ -23,7 +23,7 @@ from melange.common import service
 from melange.common import wsgi
 from melange.ipam import models
 from melange.ipam.models import (IpBlock, IpAddress, Policy, IpRange,
-                                 IpOctet)
+                                 IpOctet, Network)
 from melange.common.utils import exclude
 
 
@@ -223,6 +223,13 @@ class PoliciesController(BaseController):
         policy.delete()
 
 
+class NetworksController(BaseController):
+
+    def allocate_ip(self, request, network_id):
+        ip_address = Network.find(network_id).allocate_ip()
+        return dict(ip_address=ip_address.data()), 201
+
+
 class API(wsgi.Router):
     def __init__(self, options={}):
         self.options = options
@@ -243,6 +250,10 @@ class API(wsgi.Router):
         self._policy_and_rules_mapper(mapper, "/ipam/policies")
         self._policy_and_rules_mapper(mapper,
                                       "/ipam/tenants/{tenant_id}/policies")
+        mapper.connect("/ipam/networks/{network_id}/ip_addresses",
+                       controller=NetworksController(),
+                       action='allocate_ip',
+                       conditions=dict(method=['POST']))
         super(API, self).__init__(mapper)
 
     def _policy_and_rules_mapper(self, mapper, policy_path):

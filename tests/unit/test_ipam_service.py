@@ -1185,6 +1185,13 @@ class TestNetworksController(BaseTestController):
 
         self.assertEqual(response.status_int, 404)
 
+    def test_allocate_ip_fails_if_network_has_no_free_ip(self):
+        full_ip_block = PublicIpBlockFactory(network_id=1, cidr="10.0.0.0/32")
+        IpAddressFactory(ip_block_id=full_ip_block.id)
+        response = self.app.post("/ipam/networks/1/ip_addresses", status="*")
+
+        self.assertEqual(response.status_int, 422)
+
 
 def _allocate_ips(*args):
     return [[ip_block.allocate_ip() for i in range(num_of_ips)]

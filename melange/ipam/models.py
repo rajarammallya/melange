@@ -426,7 +426,12 @@ class Network(ModelBase):
         return cls(id=id, ip_blocks=ip_blocks)
 
     def allocate_ip(self):
-        return self.ip_blocks[0].allocate_ip()
+        for ip_block in self.ip_blocks:
+            try:
+                return ip_block.allocate_ip()
+            except NoMoreAddressesError:
+                pass
+        raise NoMoreAddressesError
 
 
 def models():

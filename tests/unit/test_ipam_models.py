@@ -19,7 +19,8 @@ import unittest
 from tests.unit import BaseTest
 
 from melange.ipam.models import (ModelBase, IpBlock, IpAddress, Policy,
-                                 IpRange, IpOctet, Network, ModelNotFoundError)
+                                 IpRange, IpOctet, Network)
+from melange.ipam.models import ModelNotFoundError, NoMoreAddressesError
 from melange.ipam import models
 from melange.db import session
 from tests.unit.factories.models import (PublicIpBlockFactory,
@@ -737,3 +738,28 @@ class TestNetwork(BaseTest):
         noise_ip_block = PublicIpBlockFactory(network_id=9999)
 
         self.assertRaises(ModelNotFoundError, Network.find, 1)
+
+    def test_allocate_ip(self):
+        ip_block = PublicIpBlockFactory(network_id=1)
+        network = Network.find(1)
+        allocated_ip = network.allocate_ip()
+
+        ip_address = IpAddress.find_by(ip_block_id=ip_block.id)
+        self.assertEqual(allocated_ip, ip_address)
+
+    def test_allocate_ip_from_first_free_ip_block(self):
+        full_ip_block = PublicIpBlockFactory(network_id=1, cidr="10.0.0.0/32")
+        IpAddressFactory(ip_block_id=full_ip_block.id)
+        free_ip_block = PublicIpBlockFactory(network_id=1, cidr="10.0.1.0/31")
+        network = Network.find(1)
+        allocated_ip = network.allocate_ip()
+
+        ip_address = IpAddress.find_by(ip_block_id=free_ip_block.id)
+        self.assertEqual(allocated_ip, ip_address)
+
+    def test_allocate_ip_raises_error_when_all_ip_blocks_are_full(self):
+        full_ip_block = PublicIpBlockFactory(network_id=1, cidr="10.0.0.0/32")
+        IpAddressFactory(ip_block_id=full_ip_block.id)
+        network = Network.find(1)
+
+        self.assertRaises(NoMoreAddressesError, network.allocate_ip)

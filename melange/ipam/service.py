@@ -19,7 +19,6 @@ import routes
 from webob.exc import (HTTPUnprocessableEntity, HTTPBadRequest,
                        HTTPNotFound)
 
-from melange.common import service
 from melange.common import wsgi
 from melange.ipam import models
 from melange.ipam.models import (IpBlock, IpAddress, Policy, IpRange,
@@ -27,7 +26,7 @@ from melange.ipam.models import (IpBlock, IpAddress, Policy, IpRange,
 from melange.common.utils import exclude
 
 
-class BaseController(service.Controller):
+class BaseController(wsgi.Controller):
     exception_map = {HTTPUnprocessableEntity:
                      [models.NoMoreAddressesError,
                       models.DuplicateAddressError,

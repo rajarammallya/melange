@@ -20,19 +20,15 @@
 Routines for configuring Glance
 """
 
-import ConfigParser
 import logging
 import logging.config
 import logging.handlers
 import optparse
 import os
-import re
 import sys
 
 from paste import deploy
 
-import melange.common.exception as exception
-from melange.common import extensions
 
 DEFAULT_LOG_FORMAT = "%(asctime)s %(levelname)8s [%(name)s] %(message)s"
 DEFAULT_LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"

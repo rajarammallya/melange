@@ -1,7 +1,6 @@
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 
-# Copyright 2010 United States Government as represented by the
-# Administrator of the National Aeronautics and Space Administration.
+# Copyright 2010-2011 OpenStack LLC.
 # All Rights Reserved.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -233,8 +232,8 @@ class IpBlock(ModelBase):
         #will look at better algos for this
         policy = self.policy()
         for ip in IPNetwork(self.cidr):
-            if IpBlock.allowed_by_policy(self, policy, str(ip)) and (str(ip)
-                                                   not in allocated_addresses):
+            if (IpBlock.allowed_by_policy(self, policy, str(ip))
+                and (str(ip) not in allocated_addresses)):
                 return str(ip)
         return None
 

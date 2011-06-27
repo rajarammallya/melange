@@ -15,15 +15,12 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 import routes
-import json
 import os
 
-from melange.common import service
 from melange.common import wsgi
-from webob import Response
 
 
-class VersionsController(service.Controller):
+class VersionsController(wsgi.Controller):
 
     _serialization_metadata = {
             "application/xml": {

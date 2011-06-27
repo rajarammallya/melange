@@ -19,7 +19,7 @@ import routes
 import webob
 import mox
 
-from melange.common import auth, service, wsgi
+from melange.common import auth, wsgi
 from melange.ipam.service import SecureUrl
 from melange.common.auth import SecureTenantScope
 from melange.common.utils import cached_property
@@ -135,7 +135,7 @@ def mapper():
     return mapper
 
 
-class StubController(service.Controller):
+class StubController(wsgi.Controller):
 
     def admin_action(self, request):
         pass

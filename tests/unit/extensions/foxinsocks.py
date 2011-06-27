@@ -17,11 +17,11 @@
 
 import json
 
-from melange.common import service
 from melange.common import extensions
+from melange.common import wsgi
 
 
-class FoxInSocksController(service.Controller):
+class FoxInSocksController(wsgi.Controller):
 
     def index(self, request):
         return "Try to say this Mr. Knox, sir..."

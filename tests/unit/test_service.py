@@ -19,7 +19,6 @@ from webtest import TestApp
 from tests.unit import BaseTest
 
 from melange.common import wsgi
-from melange.common import service
 
 
 class DummyApp(wsgi.Router):
@@ -32,7 +31,7 @@ class DummyApp(wsgi.Router):
         super(DummyApp, self).__init__(mapper)
 
 
-class StubController(service.Controller):
+class StubController(wsgi.Controller):
 
     def index(self, request, format=None):
         return  {'fort': 'knox'}

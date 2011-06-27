@@ -21,7 +21,6 @@ from tests.unit import test_config_path
 from webtest import TestApp
 from melange.common import extensions
 from melange.common import wsgi
-from melange.common import service
 from melange.common import config
 
 
@@ -167,7 +166,7 @@ class ExtensionsTestApp(wsgi.Router):
         super(ExtensionsTestApp, self).__init__(mapper)
 
 
-class StubController(service.Controller):
+class StubController(wsgi.Controller):
 
     def __init__(self, body):
         self.body = body

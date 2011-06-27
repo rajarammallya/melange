@@ -313,7 +313,7 @@ class SecureUrl(object):
         self.path = path
         self.mapper = mapper
 
-    def is_not_accessible_by(self, role):
+    def is_unauthorized_for(self, role):
         if(role == 'Admin'):
             return False
         match = self.mapper.match(self.path)

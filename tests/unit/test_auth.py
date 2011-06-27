@@ -57,6 +57,7 @@ class TestAuthMiddleware(unittest.TestCase):
         self.scope_mock_factory.__call__("/dummy_url",
                                "tenant_id").AndReturn(self.scope_mock)
         self.scope_mock.is_unauthorized_for('xxxx').AndReturn(True)
+
         self.mocker.ReplayAll()
 
         response = self.app.get("/dummy_url", status="*",
@@ -64,6 +65,23 @@ class TestAuthMiddleware(unittest.TestCase):
                                          'X_ROLE': "xxxx"})
 
         self.assertEqual(response.status_int, 403)
+        self.assertTrue("Access was denied to this tenant resource: tenant_id"
+                        in response.body)
+
+    def test_scope_authorized_gives_success_response(self):
+        self.scope_mock_factory.__call__("/dummy_url",
+                               "tenant_id").AndReturn(self.scope_mock)
+        self.scope_mock.is_unauthorized_for('xxxx').AndReturn(False)
+        self.url_mock_factory.__call__("/dummy_url").AndReturn(self.url_mock)
+        self.url_mock.is_unauthorized_for('xxxx').AndReturn(False)
+
+        self.mocker.ReplayAll()
+
+        response = self.app.get("/dummy_url", status="*",
+                                headers={'X_TENANT': "tenant_id",
+                                         'X_ROLE': "xxxx"})
+
+        self.assertEqual(response.status_int, 200)
 
     def test_url_unauthorized_gives_forbidden_response(self):
         self.scope_mock_factory.__call__("/dummy_url",
@@ -71,7 +89,7 @@ class TestAuthMiddleware(unittest.TestCase):
         self.scope_mock.is_unauthorized_for('xxxx').AndReturn(False)
 
         self.url_mock_factory.__call__("/dummy_url").AndReturn(self.url_mock)
-        self.url_mock.is_not_accessible_by('xxxx').AndReturn(True)
+        self.url_mock.is_unauthorized_for('xxxx').AndReturn(True)
 
         self.mocker.ReplayAll()
 
@@ -80,6 +98,24 @@ class TestAuthMiddleware(unittest.TestCase):
                                          'X_ROLE': "xxxx"})
 
         self.assertEqual(response.status_int, 403)
+        self.assertTrue("Access was denied to this role: xxxx"
+                        in response.body)
+
+    def test_url_authorized_gives_success_response(self):
+        self.scope_mock_factory.__call__("/dummy_url",
+                               "tenant_id").AndReturn(self.scope_mock)
+        self.scope_mock.is_unauthorized_for('xxxx').AndReturn(False)
+
+        self.url_mock_factory.__call__("/dummy_url").AndReturn(self.url_mock)
+        self.url_mock.is_unauthorized_for('xxxx').AndReturn(False)
+
+        self.mocker.ReplayAll()
+
+        response = self.app.get("/dummy_url", status="*",
+                                headers={'X_TENANT': "tenant_id",
+                                         'X_ROLE': "xxxx"})
+
+        self.assertEqual(response.status_int, 200)
 
 
 class DecoratorTestApp(wsgi.Router):
@@ -113,17 +149,17 @@ class TestSecureUrl(unittest.TestCase):
     def test_accesibility_of_admin_url(self):
         admin_url = SecureUrl("/resources/admin_action", mapper=mapper())
 
-        self.assertFalse(admin_url.is_not_accessible_by('Admin'))
-        self.assertTrue(admin_url.is_not_accessible_by('Tenant'))
-        self.assertTrue(admin_url.is_not_accessible_by(None))
+        self.assertFalse(admin_url.is_unauthorized_for('Admin'))
+        self.assertTrue(admin_url.is_unauthorized_for('Tenant'))
+        self.assertTrue(admin_url.is_unauthorized_for(None))
 
     def test_accesibility_of_unrestricted_url(self):
         unrestricted_url = SecureUrl("/resources/unrestricted",
                                      mapper=mapper())
 
-        self.assertFalse(unrestricted_url.is_not_accessible_by('Tenant'))
-        self.assertFalse(unrestricted_url.is_not_accessible_by('Admin'))
-        self.assertFalse(unrestricted_url.is_not_accessible_by(None))
+        self.assertFalse(unrestricted_url.is_unauthorized_for('Tenant'))
+        self.assertFalse(unrestricted_url.is_unauthorized_for('Admin'))
+        self.assertFalse(unrestricted_url.is_unauthorized_for(None))
 
 
 class TestSecureScope(unittest.TestCase):

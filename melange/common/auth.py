@@ -34,14 +34,16 @@ class AuthorizationMiddleware(wsgi.Middleware):
     def process_request(self, request):
         role = request.headers.get('X_ROLE', None)
         authorized_tenant_id = request.headers.get('X_TENANT', None)
-        scope = self.secure_tenant_scope_factory(request.path_info,
+        secure_tenant_scope = self.secure_tenant_scope_factory(
+                                                 request.path_info,
                                                  authorized_tenant_id)
-        if(scope.is_unauthorized_for(role)):
-            raise HTTPForbidden
+        if(secure_tenant_scope.is_unauthorized_for(role)):
+            raise HTTPForbidden("Access was denied to this tenant resource: %s"
+                                % secure_tenant_scope.tenant_id)
 
         url = self.secure_url_factory(request.path_info)
-        if(url.is_not_accessible_by(role)):
-            raise HTTPForbidden
+        if(url.is_unauthorized_for(role)):
+            raise HTTPForbidden("Access was denied to this role: %s" % role)
 
     @classmethod
     def factory(cls, global_config, **local_config):
@@ -69,4 +71,8 @@ class SecureTenantScope(object):
 
     def is_unauthorized_for(self, role):
         return (self._tenant_scoped() and (role != 'Admin' and
-                self.elements['tenant_id'] != self.authorized_tenant_id))
+                self.tenant_id != self.authorized_tenant_id))
+
+    @property
+    def tenant_id(self):
+        return self.elements['tenant_id']

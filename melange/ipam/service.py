@@ -242,7 +242,10 @@ class API(wsgi.Router):
                                 IpBlockController('public',
                                                   admin_actions=['create',
                                                                  'delete']))
-        self._block_and_address_mapper(mapper, "private_ip_block",
+        self._block_and_address_mapper(mapper, "global_private_ip_block",
+                                 "/ipam/private_ip_blocks",
+                                 IpBlockController('private'))
+        self._block_and_address_mapper(mapper, "tenant_private_ip_block",
                                 "/ipam/tenants/{tenant_id}/private_ip_blocks",
                                 IpBlockController('private'))
         self._natting_mapper(mapper, "inside_globals",

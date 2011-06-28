@@ -173,12 +173,25 @@ class TestPublicIpBlockController(IpBlockControllerBase, BaseTestController):
                         in duplicate_block_response.body)
 
 
-class TestPrivateIpBlockController(IpBlockControllerBase, BaseTestController):
+class TestGlobalPrivateIpBlockController(IpBlockControllerBase,
+                                        BaseTestController):
+
+    def setUp(self):
+        self.ip_block_path = "/ipam/private_ip_blocks"
+        self.ip_block_type = "private"
+        super(TestGlobalPrivateIpBlockController, self).setUp()
+
+    def _ip_block_factory(self, **kwargs):
+        return PrivateIpBlockFactory(tenant_id=None, **kwargs)
+
+
+class TestTenantPrivateIpBlockController(IpBlockControllerBase,
+                                        BaseTestController):
 
     def setUp(self):
         self.ip_block_path = "/ipam/tenants/123/private_ip_blocks"
         self.ip_block_type = "private"
-        super(TestPrivateIpBlockController, self).setUp()
+        super(TestTenantPrivateIpBlockController, self).setUp()
 
     def _ip_block_factory(self, **kwargs):
         return PrivateIpBlockFactory(tenant_id=123, **kwargs)

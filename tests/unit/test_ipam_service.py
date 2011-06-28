@@ -77,6 +77,10 @@ class TestBaseController(unittest.TestCase):
         self._assert_mapping(models.AddressLockedError, 422)
         self._assert_mapping(models.DuplicateAddressError, 409)
 
+    def test_http_excpetions_are_bubbled_up(self):
+        self._assert_mapping(HTTPUnprocessableEntity, 422)
+        self._assert_mapping(HTTPNotFound, 404)
+
 
 class IpBlockControllerBase():
 

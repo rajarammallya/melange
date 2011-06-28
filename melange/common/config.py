@@ -324,3 +324,12 @@ def get_option(options, option, **kwargs):
         return kwargs['default']
     else:
         raise KeyError("option '%s' not found" % option)
+
+
+class Config(object):
+
+    instance = {}
+
+    @classmethod
+    def get(cls, key, default=None):
+        return cls.instance.get(key, default)

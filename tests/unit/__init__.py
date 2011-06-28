@@ -26,6 +26,7 @@ import urlparse
 
 from melange.db import session
 from melange.common import config
+from melange.common.config import Config
 from melange.db import migration
 from melange.ipam import models
 
@@ -52,6 +53,21 @@ class BaseTest(unittest.TestCase):
 
 def test_config_path():
     return os.path.abspath("../etc/melange.conf.test")
+
+
+class StubConfig():
+
+    def __init__(self, **options):
+        self.options = options
+
+    def __enter__(self):
+        self.actual_config = Config.instance
+        temp_config = self.actual_config.copy()
+        temp_config.update(self.options)
+        Config.instance = temp_config
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        Config.instance = self.actual_config
 
 
 def setup():

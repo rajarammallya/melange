@@ -266,8 +266,6 @@ class IpBlock(ModelBase):
     def _validate(self):
         self.validate_cidr()
         self.validate_uniqueness_for_public_ip_block()
-        if(self.type == 'private'):
-            self._validate_presence_of('tenant_id')
 
     def data_fields(self):
         return ['id', 'cidr', 'network_id']
@@ -422,6 +420,7 @@ class IpOctet(ModelBase):
 
 
 class Network(ModelBase):
+    DEFAULT_CIDR = '10.0.0.0/24'
 
     @classmethod
     def find_by(cls, id, tenant_id=None):
@@ -429,6 +428,15 @@ class Network(ModelBase):
         if(len(ip_blocks) == 0):
             raise ModelNotFoundError("Network {0} not found".format(id))
         return cls(id=id, ip_blocks=ip_blocks)
+
+    @classmethod
+    def find_or_create_by(cls, id, tenant_id=None):
+        try:
+            return cls.find_by(id=id, tenant_id=tenant_id)
+        except ModelNotFoundError:
+            ip_block = IpBlock.create(cidr=cls.DEFAULT_CIDR, network_id=id,
+                                      tenant_id=tenant_id)
+            return cls(id=id, ip_blocks=[ip_block])
 
     def allocate_ip(self, address=None, port_id=None):
         if(address):

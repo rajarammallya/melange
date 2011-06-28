@@ -95,10 +95,6 @@ class TestIpBlock(BaseTest):
         self.assertEqual(dup_block.errors,
                          {'cidr': ['cidr for public ip is not unique']})
 
-    def test_presence_of_tenant_id_for_private_block(self):
-        ip_block = PrivateIpBlockFactory.build(tenant_id=None)
-        self.assertFalse(ip_block.is_valid())
-
     def test_find_by_network_id(self):
         PrivateIpBlockFactory(cidr="10.0.0.1/8", network_id=999)
         PrivateIpBlockFactory(cidr="10.1.1.1/2", network_id=987)
@@ -760,7 +756,19 @@ class TestNetwork(BaseTest):
     def test_find_when_no_ip_blocks_for_given_network_exist(self):
         noise_ip_block = PublicIpBlockFactory(network_id=9999)
 
-        self.assertRaises(ModelNotFoundError, Network.find, 1)
+        self.assertRaises(ModelNotFoundError, Network.find_by, id=1)
+
+    def test_find_or_create_when_no_ip_blocks_for_given_network_exist(self):
+        noise_ip_block = PublicIpBlockFactory(network_id=9999)
+
+        network = Network.find_or_create_by(id='1', tenant_id='123')
+
+        self.assertEqual(network.id, '1')
+        self.assertEqual(len(network.ip_blocks), 1)
+        self.assertEqual(network.ip_blocks[0].cidr, Network.DEFAULT_CIDR)
+        self.assertEqual(network.ip_blocks[0].tenant_id, '123')
+        self.assertEqual(network.ip_blocks[0].network_id, '1')
+        self.assertEqual(network.ip_blocks[0].type, 'private')
 
     def test_allocate_ip(self):
         ip_block = PublicIpBlockFactory(network_id=1)

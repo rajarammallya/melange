@@ -1246,12 +1246,6 @@ class NetworksControllerBase():
 
         self.assertEqual(response.status_int, 422)
 
-    def test_allocate_ip_fails_if_network_not_found(self):
-        response = self.app.post("{0}/networks/1/ip_addresses"\
-                                 .format(self.network_path), status="*")
-
-        self.assertEqual(response.status_int, 404)
-
     def test_allocate_ip_fails_if_network_has_no_free_ip(self):
         full_ip_block = self._ip_block_factory(network_id=1,
                                                cidr="10.0.0.0/32")
@@ -1272,6 +1266,15 @@ class TestNetworksController(NetworksControllerBase,
     def _ip_block_factory(self, **kwargs):
         return PublicIpBlockFactory(**kwargs)
 
+    def test_allocate_ip_creates_network_if_network_not_found(self):
+        response = self.app.post("/ipam/networks/1/ip_addresses")
+
+        self.assertEqual(response.status_int, 201)
+        ip_block = IpBlock.find(response.json['ip_address']['ip_block_id'])
+        self.assertEqual(ip_block.network_id, '1')
+        self.assertEqual(ip_block.type, 'private')
+        self.assertEqual(ip_block.tenant_id, None)
+
 
 class TestTenantNetworksController(NetworksControllerBase,
                                    BaseTestController):
@@ -1283,13 +1286,14 @@ class TestTenantNetworksController(NetworksControllerBase,
     def _ip_block_factory(self, **kwargs):
         return PrivateIpBlockFactory(tenant_id=123, **kwargs)
 
-    def test_allocate_ip_fails_if_tenant_does_not_own_network(self):
-        ip_block = PublicIpBlockFactory(network_id=1, tenant_id=999)
+    def test_allocate_ip_creates_network_if_network_not_found(self):
+        response = self.app.post("/ipam/tenants/123/networks/1/ip_addresses")
 
-        response = self.app.post("/ipam/tenants/123/networks/1/ip_addresses",
-                                 status='*')
-
-        self.assertEqual(response.status_int, 404)
+        self.assertEqual(response.status_int, 201)
+        ip_block = IpBlock.find(response.json['ip_address']['ip_block_id'])
+        self.assertEqual(ip_block.network_id, '1')
+        self.assertEqual(ip_block.type, 'private')
+        self.assertEqual(ip_block.tenant_id, '123')
 
 
 def _allocate_ips(*args):

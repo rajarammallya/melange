@@ -16,7 +16,6 @@
 #    under the License.
 
 import unittest
-import mox
 from tests import unit
 from tests.unit import BaseTest
 
@@ -58,8 +57,16 @@ class TestModelBase(BaseTest):
 
 class MockIpGenerator():
 
+    ip_list = ["10.1.1.1", "10.2.2.2"]
+
     def __init__(self, ip_block):
         self.ip_block = ip_block
+
+    def __iter__(self):
+        return self.ip_list.__iter__()
+
+    def next(self):
+        return self.ip_list.next()
 
 
 class TestIpGeneratorFactory(BaseTest):
@@ -184,17 +191,12 @@ class TestIpBlock(BaseTest):
         self.assertEqual(ip.port_id, "1234")
 
     def test_allocate_ip_calls_factory(self):
-        mocker = mox.Mox()
-        mock_ip_generator = mocker.CreateMockAnything()
-        models.ip_generator_factory = mock_ip_generator
-        block = PrivateIpBlockFactory(cidr="10.5.5.5/31")
-        mock_ip_generator.__call__(block).AndReturn(["10.1.1.1", "10.1.1.2"])
+        block = PrivateIpBlockFactory(cidr="169.1.1.1/31")
 
-        mocker.ReplayAll()
-
-        self.assertEqual(block.allocate_ip().address, "10.1.1.1")
-
-        mocker.VerifyAll()
+        with(StubConfig(
+            ip_generator="tests.unit.test_ipam_models.MockIpGenerator")):
+            self.assertEqual(block.allocate_ip().address,
+                             MockIpGenerator.ip_list[0])
 
     def test_allocate_ip_from_outside_cidr(self):
         block = PrivateIpBlockFactory(cidr="10.1.1.1/32")

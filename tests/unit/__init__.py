@@ -41,6 +41,7 @@ class BaseTest(unittest.TestCase):
         """ implement this in inheritors instead of using setup directly """
         pass
 
+    #This is similar to assertRaisesRegexp in python 2.7
     def assertRaisesExcMessage(self, exception, message,
                                func, *args, **kwargs):
         try:
@@ -48,7 +49,12 @@ class BaseTest(unittest.TestCase):
             self.fail("Expected {0} to raise {1}".\
                       format(func, repr(exception)))
         except exception as e:
-            self.assertEqual(e.message, message)
+            self.assertIn(message, e.message)
+
+    #This is similar to assertIn in python 2.7
+    def assertIn(self, expected, actual):
+        self.assertTrue(expected in actual,
+            "{0} does not contain {1}".format(repr(actual), repr(expected)))
 
 
 def test_config_path():

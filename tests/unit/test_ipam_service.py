@@ -18,10 +18,12 @@ import json
 import routes
 import unittest
 from webtest import TestApp
-
+from webob.exc import (HTTPUnprocessableEntity, HTTPBadRequest,
+                       HTTPNotFound, HTTPConflict)
 from tests.unit import BaseTest
 from tests.unit import test_config_path
 from melange.common import config, wsgi
+from melange.common.config import Config
 from melange.ipam import models
 from melange.ipam.service import BaseController
 from melange.ipam.models import IpBlock, IpAddress, Policy, IpRange, IpOctet
@@ -40,10 +42,10 @@ class BaseTestController(BaseTest):
                 {"config_file": test_config_path()}, None)
         self.app = TestApp(melange_app)
 
-    def assertErrorResponse(self, response, expected_status,
-                            expected_error):
-        self.assertEqual(response.status, expected_status)
-        self.assertTrue(expected_error in response.body)
+    def assertErrorResponse(self, response, error_type, expected_error):
+        self.assertEqual(response.status_int, error_type().code)
+        self.assertIn(expected_error,
+                        response.json[error_type.__name__[4:]]['detail'])
 
 
 class DummyApp(wsgi.Router):
@@ -83,8 +85,8 @@ class IpBlockControllerBase():
                                  {'network_id': "300", 'cidr': "10..."},
                                  status="*")
 
-        self.assertEqual(response.status, "400 Bad Request")
-        self.assertTrue('cidr is invalid' in response.body)
+        self.assertErrorResponse(response, HTTPBadRequest,
+                                 'cidr is invalid')
 
     def test_create_ignores_type_from_params(self):
         response = self.app.post("%s" % self.ip_block_path,
@@ -252,8 +254,8 @@ class IpAddressControllerBase():
         response = self.app.post("/ipam/tenants/111/private_ip_blocks"
                                  "/%s/ip_addresses" % block.id,
                                  status="*")
-        self.assertEqual(response.status, "422 Unprocessable Entity")
-        self.assertTrue("IpBlock is full" in response.body)
+        self.assertErrorResponse(response, HTTPUnprocessableEntity,
+                                 "IpBlock is full")
 
     def test_create_fails_when_addresses_are_duplicated(self):
         block = self.ip_block_factory(cidr="10.1.1.0/29", tenant_id="111")
@@ -263,8 +265,8 @@ class IpAddressControllerBase():
                                  "/%s/ip_addresses" % block.id,
                                  {'address': '10.1.1.2'},
                                  status="*")
-        self.assertEqual(response.status_int, 409)
-        self.assertTrue("Address is already allocated" in response.body)
+        self.assertErrorResponse(response, HTTPConflict,
+                                 "Address is already allocated")
 
     def test_create_fails_when_address_doesnt_belong_to_block(self):
         block = self.ip_block_factory(cidr="10.1.1.0/32", tenant_id="111")
@@ -273,8 +275,8 @@ class IpAddressControllerBase():
                                  "/ip_addresses" % block.id,
                                  {'address': '10.1.1.2'},
                                  status="*")
-        self.assertEqual(response.status, "422 Unprocessable Entity")
-        self.assertTrue("Address does not belong to IpBlock" in response.body)
+        self.assertErrorResponse(response, HTTPUnprocessableEntity,
+                         "Address does not belong to IpBlock")
 
     def test_create_with_port(self):
         block = self.ip_block_factory(tenant_id="111")
@@ -489,7 +491,7 @@ class TestInsideGlobalsController(BaseTestController):
                                        "10.1.1.2"),
                                 status='*')
 
-        self.assertErrorResponse(response, "404 Not Found",
+        self.assertErrorResponse(response, HTTPNotFound,
                                      "IpBlock Not Found")
 
     def test_index_for_nonexistent_address(self):
@@ -498,7 +500,7 @@ class TestInsideGlobalsController(BaseTestController):
         response = self.app.get(url % (ip_block.id, '10.1.1.2'),
                                 status='*')
 
-        self.assertErrorResponse(response, "404 Not Found",
+        self.assertErrorResponse(response, HTTPNotFound,
                                      "IpAddress Not Found")
 
     def test_create(self):
@@ -556,7 +558,7 @@ class TestInsideGlobalsController(BaseTestController):
         response = self.app.delete(url % (non_existant_block_id,
                                           '10.1.1.2'), status='*')
 
-        self.assertErrorResponse(response, "404 Not Found",
+        self.assertErrorResponse(response, HTTPNotFound,
                                      "IpBlock Not Found")
 
     def test_delete_for_nonexistent_address(self):
@@ -565,7 +567,7 @@ class TestInsideGlobalsController(BaseTestController):
         response = self.app.delete(url % (ip_block.id, '10.1.1.2'),
                                     status='*')
 
-        self.assertErrorResponse(response, "404 Not Found",
+        self.assertErrorResponse(response, HTTPNotFound,
                                      "IpAddress Not Found")
 
 
@@ -609,7 +611,7 @@ class TestInsideLocalsController(BaseTestController):
                                        "10.1.1.2"),
                                 status='*')
 
-        self.assertErrorResponse(response, "404 Not Found",
+        self.assertErrorResponse(response, HTTPNotFound,
                                  "IpBlock Not Found")
 
     def test_index_for_nonexistent_address(self):
@@ -618,7 +620,7 @@ class TestInsideLocalsController(BaseTestController):
         response = self.app.get(url % (ip_block.id, '10.1.1.2'),
                                 status='*')
 
-        self.assertErrorResponse(response, "404 Not Found",
+        self.assertErrorResponse(response, HTTPNotFound,
                                      "IpAddress Not Found")
 
     def test_create(self):
@@ -681,7 +683,7 @@ class TestInsideLocalsController(BaseTestController):
         response = self.app.delete(url % (non_existant_block_id,
                                           '10.1.1.2'), status='*')
 
-        self.assertErrorResponse(response, "404 Not Found",
+        self.assertErrorResponse(response, HTTPNotFound,
                                      "IpBlock Not Found")
 
     def test_delete_for_nonexistent_address(self):
@@ -690,7 +692,7 @@ class TestInsideLocalsController(BaseTestController):
         response = self.app.delete(url % (ip_block.id, '10.1.1.2'),
                                    status='*')
 
-        self.assertErrorResponse(response, "404 Not Found",
+        self.assertErrorResponse(response, HTTPNotFound,
                                  "IpAddress Not Found")
 
 
@@ -712,7 +714,7 @@ class UnusableIpRangesControllerBase():
                                  % self.policy_path,
                                  {'offset': '1', 'length': '2'}, status="*")
 
-        self.assertErrorResponse(response, "404 Not Found",
+        self.assertErrorResponse(response, HTTPNotFound,
                                  "Policy Not Found")
 
     def test_show(self):
@@ -732,7 +734,7 @@ class UnusableIpRangesControllerBase():
                                 % (self.policy_path, policy.id, 1000000),
                                 status="*")
 
-        self.assertErrorResponse(response, "404 Not Found",
+        self.assertErrorResponse(response, HTTPNotFound,
                                   "Can't find IpRange for policy")
 
     def test_update(self):
@@ -772,7 +774,7 @@ class UnusableIpRangesControllerBase():
                                  % (self.policy_path, policy.id, "invalid_id"),
                                  {'offset': 1111, 'length': 222}, status="*")
 
-        self.assertErrorResponse(response, "404 Not Found",
+        self.assertErrorResponse(response, HTTPNotFound,
                                   "Can't find IpRange for policy")
 
     def test_index(self):
@@ -914,7 +916,7 @@ class UnusableIpOctetsControllerBase():
                                  % self.policy_path,
                                  {'octet': '2'}, status="*")
 
-        self.assertErrorResponse(response, "404 Not Found",
+        self.assertErrorResponse(response, HTTPNotFound,
                                  "Policy Not Found")
 
     def test_show(self):
@@ -934,7 +936,7 @@ class UnusableIpOctetsControllerBase():
                                 % (self.policy_path, policy.id, 1000000),
                                 status="*")
 
-        self.assertErrorResponse(response, "404 Not Found",
+        self.assertErrorResponse(response, HTTPNotFound,
                                   "Can't find IpOctet for policy")
 
     def test_update(self):
@@ -970,7 +972,7 @@ class UnusableIpOctetsControllerBase():
                                  % (self.policy_path, policy.id, "invalid_id"),
                                  {'octet': 222}, status="*")
 
-        self.assertErrorResponse(response, "404 Not Found",
+        self.assertErrorResponse(response, HTTPNotFound,
                                   "Can't find IpOctet for policy")
 
     def test_delete(self):
@@ -1090,7 +1092,7 @@ class TestPoliciesController(BaseTestController):
     def test_show_when_requested_policy_does_not_exist(self):
         response = self.app.get("/ipam/policies/invalid_id", status="*")
 
-        self.assertErrorResponse(response, "404 Not Found",
+        self.assertErrorResponse(response, HTTPNotFound,
                                  "Policy Not Found")
 
     def test_update(self):
@@ -1110,7 +1112,7 @@ class TestPoliciesController(BaseTestController):
         response = self.app.put("/ipam/policies/invalid",
                                 {'name': "Updated Name"}, status="*")
 
-        self.assertErrorResponse(response, "404 Not Found",
+        self.assertErrorResponse(response, HTTPNotFound,
                                  "Policy Not Found")
 
     def test_delete(self):
@@ -1256,6 +1258,25 @@ class NetworksControllerBase():
 
         self.assertEqual(response.status_int, 422)
 
+    #When given network does not exist
+    def test_allocate_ip_given_address_is_outside_config_default_cidr(self):
+        with(StubConfig(default_cidr="10.0.0.0/24")):
+            response = self.app.post("{0}/networks/1/ip_addresses"\
+                                    .format(self.network_path),
+                                    {'address': '20.0.0.0'}, status="*")
+
+        self.assertErrorResponse(response, HTTPUnprocessableEntity,
+                         "Address does not belong to network")
+
+    #When given network does not exist
+    def test_allocate_ip_given_address_is_inside_config_default_cidr(self):
+        with(StubConfig(default_cidr="10.0.0.0/24")):
+            response = self.app.post("{0}/networks/1/ip_addresses"\
+                                    .format(self.network_path),
+                                    {'address': '10.0.0.0'}, status="*")
+
+        self.assertEqual(response.status_int, 201)
+
 
 class TestNetworksController(NetworksControllerBase,
                              BaseTestController):
@@ -1268,13 +1289,12 @@ class TestNetworksController(NetworksControllerBase,
         return PublicIpBlockFactory(**kwargs)
 
     def test_allocate_ip_creates_network_if_network_not_found(self):
-        with(StubConfig(default_cidr="10.10.10.10/24")):
-            response = self.app.post("/ipam/networks/1/ip_addresses")
+        response = self.app.post("/ipam/networks/1/ip_addresses")
 
         self.assertEqual(response.status_int, 201)
         ip_block = IpBlock.find(response.json['ip_address']['ip_block_id'])
         self.assertEqual(ip_block.network_id, '1')
-        self.assertEqual(ip_block.cidr, '10.10.10.10/24')
+        self.assertEqual(ip_block.cidr, Config.get('default_cidr'))
         self.assertEqual(ip_block.type, 'private')
         self.assertEqual(ip_block.tenant_id, None)
 
@@ -1290,14 +1310,12 @@ class TestTenantNetworksController(NetworksControllerBase,
         return PrivateIpBlockFactory(tenant_id=123, **kwargs)
 
     def test_allocate_ip_creates_network_if_network_not_found(self):
-        with(StubConfig(default_cidr="10.10.10.10/24")):
-            response = self.app.post("/ipam/tenants/123/networks/1/"
-                                     "ip_addresses")
+        response = self.app.post("/ipam/tenants/123/networks/1/ip_addresses")
 
         self.assertEqual(response.status_int, 201)
         ip_block = IpBlock.find(response.json['ip_address']['ip_block_id'])
         self.assertEqual(ip_block.network_id, '1')
-        self.assertEqual(ip_block.cidr, '10.10.10.10/24')
+        self.assertEqual(ip_block.cidr, Config.get('default_cidr'))
         self.assertEqual(ip_block.type, 'private')
         self.assertEqual(ip_block.tenant_id, '123')
 

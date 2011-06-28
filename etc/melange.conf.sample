@@ -11,8 +11,8 @@ bind_host = 0.0.0.0
 # Port the bind the API server to
 bind_port = 9292
 
-# SQLAlchemy connection string for the reference implementation          
-# registry server. Any valid SQLAlchemy connection string is fine. 
+# SQLAlchemy connection string for the reference implementation
+# registry server. Any valid SQLAlchemy connection string is fine.
 # See: http://www.sqlalchemy.org/docs/05/reference/sqlalchemy/connections.html#sqlalchemy.create_engine
 sql_connection = sqlite:///melange.sqlite
 
@@ -27,6 +27,9 @@ sql_idle_timeout = 3600
 
 # Path to the extensions
 api_extensions_path = extensions
+
+# Cidr used for auto creating private ip block in a network
+default_cidr = 10.0.0.0/24
 
 [composite:melange]
 use = egg:Paste#urlmap

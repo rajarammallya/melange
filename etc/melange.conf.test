@@ -28,6 +28,9 @@ sql_connection = sqlite:///melange_tests.sqlite
 # before MySQL can drop the connection.
 sql_idle_timeout = 3600
 
+# Cidr used for auto creating private ip block in a network
+default_cidr = 10.0.0.0/24
+
 [pipeline:extensions_app_with_filter]
 pipeline = extensions extensions_test_app
 

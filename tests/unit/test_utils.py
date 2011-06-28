@@ -31,7 +31,7 @@ class ParseIntTest(unittest.TestCase):
         self.assertEqual(utils.parse_int("123"), 123)
 
 
-class Exclude(unittest.TestCase):
+class TestExclude(unittest.TestCase):
 
     def test_excludes_given_keys(self):
         dictionary = {'key1': "value1", 'key2': "value2", 'key3': "value3"}
@@ -42,6 +42,29 @@ class Exclude(unittest.TestCase):
         dictionary = {'key1': "value1", 'key2': "value2", 'key3': "value3"}
         self.assertEqual(utils.exclude(dictionary, 'key2', 'nonexistant'),
                          {'key1': "value1", 'key3': "value3"})
+
+
+class TestFilterDict(unittest.TestCase):
+
+    def test_filters_given_keys(self):
+        dictionary = {'key1': "value1", 'key2': "value2", 'key3': "value3"}
+        self.assertEqual(utils.filter_dict(dictionary, 'key2', 'key3'),
+                         {'key2': "value2", 'key3': "value3"})
+
+    def test_filter_ignore_non_exsistant_keys(self):
+        dictionary = {'key1': "value1", 'key2': "value2", 'key3': "value3"}
+        self.assertEqual(utils.filter_dict(dictionary, 'key2', 'nonexistant'),
+                         {'key2': "value2"})
+
+
+class TestStringifyKeys(unittest.TestCase):
+
+    def test_converts_keys_to_string(self):
+        dictionary = {u'key1': "value1", 'key2': u"value2"}
+        converted_dictionary = utils.stringify_keys(dictionary)
+
+        for key in converted_dictionary:
+            self.assertEqual(type(key), str)
 
 
 class Foo(object):

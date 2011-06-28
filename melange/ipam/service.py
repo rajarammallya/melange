@@ -24,7 +24,7 @@ from melange.common.config import Config
 from melange.ipam import models
 from melange.ipam.models import (IpBlock, IpAddress, Policy, IpRange,
                                  IpOctet, Network)
-from melange.common.utils import exclude
+from melange.common.utils import exclude, stringify_keys
 
 
 class BaseController(wsgi.Controller):
@@ -209,8 +209,8 @@ class PoliciesController(BaseController):
         return dict(policy=Policy.find_by(id=id, tenant_id=tenant_id).data())
 
     def create(self, request, tenant_id=None):
-        params = exclude(request.params, 'tenant_id')
-        policy = Policy.create(tenant_id=tenant_id, **params)
+        params = exclude(request.deserialized_params['policy'], 'tenant_id')
+        policy = Policy.create(tenant_id=tenant_id, **stringify_keys(params))
         return dict(policy=policy.data()), 201
 
     def update(self, request, id, tenant_id=None):

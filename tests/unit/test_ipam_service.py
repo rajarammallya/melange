@@ -17,7 +17,7 @@
 import json
 import routes
 import unittest
-from webtest import TestApp
+from tests.unit import TestApp
 from webob.exc import (HTTPUnprocessableEntity, HTTPBadRequest,
                        HTTPNotFound, HTTPConflict)
 from tests.unit import BaseTest
@@ -1076,7 +1076,8 @@ class TestUnusableIpOctetControllerForTenantPolicies(
 class TestPoliciesController(BaseTestController):
 
     def test_create(self):
-        response = self.app.post("/ipam/policies", {'name': "infrastructure"})
+        response = self.app.post_json("/ipam/policies",
+                                {'policy': {'name': "infrastructure"}})
 
         self.assertTrue(Policy.find_by(name="infrastructure") is not None)
         self.assertEqual(response.status, "201 Created")
@@ -1148,16 +1149,17 @@ class TestTenantPoliciesController(BaseTestController):
         self.assertEqual(response.json["policies"], _data_of(policy1, policy3))
 
     def test_create(self):
-        response = self.app.post("/ipam/tenants/1111/policies",
-                                 {'name': "infrastructure"})
+        response = self.app.post_json("/ipam/tenants/1111/policies",
+                                 {'policy': {'name': "infrastructure"}})
 
         self.assertTrue(Policy.find_by(tenant_id="1111") is not None)
         self.assertEqual(response.status, "201 Created")
         self.assertEqual(response.json['policy']['tenant_id'], "1111")
 
     def test_create_ignores_tenant_id_passed_in_post_body(self):
-        response = self.app.post("/ipam/tenants/123/policies",
-                                {'name': "Standard", 'tenant_id': "124"})
+        response = self.app.post_json("/ipam/tenants/123/policies",
+                                {'policy': {'name': "Standard",
+                                            'tenant_id': "124"}})
 
         self.assertEqual(response.status_int, 201)
         self.assertEqual(response.json['policy']['name'], "Standard")

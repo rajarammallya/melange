@@ -209,6 +209,15 @@ def exclude(key_values, *exclude_keys):
                 if key not in exclude_keys)
 
 
+def filter_dict(key_values, *include_keys):
+    return dict((key, value) for key, value in key_values.iteritems()
+                if key in include_keys)
+
+
+def stringify_keys(dictionary):
+    return dict((str(key), value) for key, value in dictionary.iteritems())
+
+
 def find(predicate, items):
     for item in items:
         if predicate(item) is True:

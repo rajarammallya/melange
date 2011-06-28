@@ -59,6 +59,10 @@ def run_server(application, port):
 
 class Request(webob.Request):
 
+    @property
+    def deserialized_params(self):
+        return Serializer().deserialize(self.body, self.get_content_type())
+
     def best_match_content_type(self):
         """Determine the most acceptable content-type.
 

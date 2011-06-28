@@ -23,12 +23,14 @@ setattr(__builtin__, '_', lambda x: x)
 import unittest
 import os
 import urlparse
+import json
 
 from melange.db import session
 from melange.common import config
 from melange.common.config import Config
 from melange.db import migration
 from melange.ipam import models
+import webtest
 
 
 class BaseTest(unittest.TestCase):
@@ -74,6 +76,13 @@ class StubConfig():
 
     def __exit__(self, exc_type, exc_value, traceback):
         Config.instance = self.actual_config
+
+
+class TestApp(webtest.TestApp):
+
+    def post_json(self, url, body, **kwargs):
+        kwargs['content_type'] = "application/json"
+        return self.post(url, json.dumps(body), **kwargs)
 
 
 def setup():

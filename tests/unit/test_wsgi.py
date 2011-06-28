@@ -16,9 +16,11 @@
 #    under the License.
 import webob
 import routes
+import json
 from tests.unit import BaseTest
 from webtest import TestApp
-from webob.exc import HTTPNotFound, HTTPBadRequest
+from webob.exc import (HTTPNotFound, HTTPBadRequest,
+                       HTTPUnsupportedMediaType)
 from melange.common import wsgi
 
 
@@ -86,6 +88,34 @@ class RequestTest(BaseTest):
         request.headers["Accept"] = "application/unsupported1"
         result = request.best_match_content_type()
         self.assertEqual(result, "application/json")
+
+    def test_desirializes_json_params_to_hash(self):
+        request = wsgi.Request.blank('/tests/123')
+        request.method = "POST"
+        request.body = json.dumps({'a': {'b': 1, 'c': 2}})
+        request.headers["CONTENT-TYPE"] = "application/json"
+        self.assertEqual(request.deserialized_params, {'a': {'b': 1, 'c': 2}})
+
+    def test_desirializes_xml_params_to_hash(self):
+        request = wsgi.Request.blank('/tests/123')
+        request.method = "POST"
+        request.body = """
+        <a>
+            <b>1</b>
+            <c>2</c>
+        </a>
+        """
+        request.headers["CONTENT-TYPE"] = "application/xml"
+        self.assertEqual(request.deserialized_params,
+                         {'a': {'b': "1", 'c': "2"}})
+
+    def test_desirialized_params_raises_error_for_unsupported_type(self):
+        request = wsgi.Request.blank('/tests/123')
+        request.method = "POST"
+        request.body = "a=b"
+        request.headers["CONTENT-TYPE"] = "application/unsupported"
+        self.assertRaises(HTTPUnsupportedMediaType,
+                        lambda: request.deserialized_params)
 
 
 class DummyApp(wsgi.Router):

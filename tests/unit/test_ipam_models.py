@@ -16,6 +16,8 @@
 #    under the License.
 
 import unittest
+import mox
+from tests import unit
 from tests.unit import BaseTest
 
 from melange.ipam.models import (ModelBase, IpBlock, IpAddress, Policy,
@@ -52,6 +54,25 @@ class TestModelBase(BaseTest):
         model._convert_columns_to_proper_type()
 
         self.assertEqual(model.foo, True)
+
+
+class MockIpGenerator():
+
+    def __init__(self, ip_block):
+        self.ip_block = ip_block
+
+
+class TestIpGeneratorFactory(BaseTest):
+
+    def test_loads_ip_generator_factory_from_config_file(self):
+        expected_ip_block = PublicIpBlockFactory()
+        with(StubConfig(
+            ip_generator="tests.unit.test_ipam_models.MockIpGenerator")):
+            actual_ip_generator = models.ip_generator_factory(
+                                                           expected_ip_block)
+            self.assertEqual(actual_ip_generator.ip_block, expected_ip_block)
+            self.assertTrue(isinstance(actual_ip_generator,
+                                       unit.test_ipam_models.MockIpGenerator))
 
 
 class TestIpBlock(BaseTest):
@@ -161,6 +182,19 @@ class TestIpBlock(BaseTest):
         saved_ip = IpAddress.find(ip.id)
         self.assertEqual(ip.address, saved_ip.address)
         self.assertEqual(ip.port_id, "1234")
+
+    def test_allocate_ip_calls_factory(self):
+        mocker = mox.Mox()
+        mock_ip_generator = mocker.CreateMockAnything()
+        models.ip_generator_factory = mock_ip_generator
+        block = PrivateIpBlockFactory(cidr="10.5.5.5/31")
+        mock_ip_generator.__call__(block).AndReturn(["10.1.1.1", "10.1.1.2"])
+
+        mocker.ReplayAll()
+
+        self.assertEqual(block.allocate_ip().address, "10.1.1.1")
+
+        mocker.VerifyAll()
 
     def test_allocate_ip_from_outside_cidr(self):
         block = PrivateIpBlockFactory(cidr="10.1.1.1/32")

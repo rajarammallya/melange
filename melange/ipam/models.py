@@ -159,6 +159,18 @@ class ModelBase(object):
         self.errors[attribute_name].append(error_message)
 
 
+class DefaultIpGenerator(IPNetwork):
+    def __init__(self, ip_block):
+        super(DefaultIpGenerator, self).__init__(ip_block.cidr)
+
+
+def ip_generator_factory(ip_block):
+    ip_generator_class_name = Config.get("ip_generator",
+                           "melange.ipam.models.DefaultIpGenerator")
+    ip_generator = utils.import_class(ip_generator_class_name)
+    return ip_generator(ip_block)
+
+
 class IpBlock(ModelBase):
 
     def __init__(self, **kwargs):
@@ -235,7 +247,7 @@ class IpBlock(ModelBase):
         #TODO: very inefficient way to generate ips,
         #will look at better algos for this
         policy = self.policy()
-        for ip in IPNetwork(self.cidr):
+        for ip in ip_generator_factory(self):
             if (IpBlock.allowed_by_policy(self, policy, str(ip))
                 and (str(ip) not in allocated_addresses)):
                 return str(ip)

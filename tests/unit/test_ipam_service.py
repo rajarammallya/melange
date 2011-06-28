@@ -25,6 +25,7 @@ from melange.common import config, wsgi
 from melange.ipam import models
 from melange.ipam.service import BaseController
 from melange.ipam.models import IpBlock, IpAddress, Policy, IpRange, IpOctet
+from tests.unit import StubConfig
 from tests.unit.factories.models import (PublicIpBlockFactory,
                                          PrivateIpBlockFactory,
                                          IpAddressFactory, PolicyFactory,
@@ -1267,11 +1268,13 @@ class TestNetworksController(NetworksControllerBase,
         return PublicIpBlockFactory(**kwargs)
 
     def test_allocate_ip_creates_network_if_network_not_found(self):
-        response = self.app.post("/ipam/networks/1/ip_addresses")
+        with(StubConfig(default_cidr="10.10.10.10/24")):
+            response = self.app.post("/ipam/networks/1/ip_addresses")
 
         self.assertEqual(response.status_int, 201)
         ip_block = IpBlock.find(response.json['ip_address']['ip_block_id'])
         self.assertEqual(ip_block.network_id, '1')
+        self.assertEqual(ip_block.cidr, '10.10.10.10/24')
         self.assertEqual(ip_block.type, 'private')
         self.assertEqual(ip_block.tenant_id, None)
 
@@ -1287,11 +1290,14 @@ class TestTenantNetworksController(NetworksControllerBase,
         return PrivateIpBlockFactory(tenant_id=123, **kwargs)
 
     def test_allocate_ip_creates_network_if_network_not_found(self):
-        response = self.app.post("/ipam/tenants/123/networks/1/ip_addresses")
+        with(StubConfig(default_cidr="10.10.10.10/24")):
+            response = self.app.post("/ipam/tenants/123/networks/1/"
+                                     "ip_addresses")
 
         self.assertEqual(response.status_int, 201)
         ip_block = IpBlock.find(response.json['ip_address']['ip_block_id'])
         self.assertEqual(ip_block.network_id, '1')
+        self.assertEqual(ip_block.cidr, '10.10.10.10/24')
         self.assertEqual(ip_block.type, 'private')
         self.assertEqual(ip_block.tenant_id, '123')
 

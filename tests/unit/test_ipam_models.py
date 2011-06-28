@@ -25,6 +25,7 @@ from melange.ipam.models import (ModelNotFoundError, NoMoreAddressesError,
                                  DuplicateAddressError)
 from melange.ipam import models
 from melange.db import session
+from tests.unit import StubConfig
 from tests.unit.factories.models import (PublicIpBlockFactory,
                                          PrivateIpBlockFactory,
                                          IpAddressFactory,
@@ -761,11 +762,12 @@ class TestNetwork(BaseTest):
     def test_find_or_create_when_no_ip_blocks_for_given_network_exist(self):
         noise_ip_block = PublicIpBlockFactory(network_id=9999)
 
-        network = Network.find_or_create_by(id='1', tenant_id='123')
+        with(StubConfig(default_cidr="10.10.10.10/24")):
+            network = Network.find_or_create_by(id='1', tenant_id='123')
 
         self.assertEqual(network.id, '1')
         self.assertEqual(len(network.ip_blocks), 1)
-        self.assertEqual(network.ip_blocks[0].cidr, Network.DEFAULT_CIDR)
+        self.assertEqual(network.ip_blocks[0].cidr, "10.10.10.10/24")
         self.assertEqual(network.ip_blocks[0].tenant_id, '123')
         self.assertEqual(network.ip_blocks[0].network_id, '1')
         self.assertEqual(network.ip_blocks[0].type, 'private')

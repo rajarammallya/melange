@@ -24,6 +24,7 @@ from melange.common.exception import MelangeError
 from melange.db import api as db_api
 from melange.common import utils
 from melange.common.utils import cached_property
+from melange.common.config import Config
 from melange.common import data_types
 
 
@@ -420,7 +421,6 @@ class IpOctet(ModelBase):
 
 
 class Network(ModelBase):
-    DEFAULT_CIDR = '10.0.0.0/24'
 
     @classmethod
     def find_by(cls, id, tenant_id=None):
@@ -434,8 +434,8 @@ class Network(ModelBase):
         try:
             return cls.find_by(id=id, tenant_id=tenant_id)
         except ModelNotFoundError:
-            ip_block = IpBlock.create(cidr=cls.DEFAULT_CIDR, network_id=id,
-                                      tenant_id=tenant_id)
+            ip_block = IpBlock.create(cidr=Config.get('default_cidr'),
+                                     network_id=id, tenant_id=tenant_id)
             return cls(id=id, ip_blocks=[ip_block])
 
     def allocate_ip(self, address=None, port_id=None):

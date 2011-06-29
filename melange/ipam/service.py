@@ -257,7 +257,7 @@ class API(wsgi.Router):
     def __init__(self, options={}):
         self.options = options
         mapper = routes.Mapper()
-
+        super(API, self).__init__(mapper)
         self._block_and_address_mapper(mapper, "public_ip_block",
                                 "/ipam/public_ip_blocks",
                                 IpBlockController('public',
@@ -276,15 +276,14 @@ class API(wsgi.Router):
         self._policy_and_rules_mapper(mapper, "/ipam/policies")
         self._policy_and_rules_mapper(mapper,
                                       "/ipam/tenants/{tenant_id}/policies")
-        mapper.connect("/ipam/networks/{network_id}/ip_addresses",
+        self._connect(mapper, "/ipam/networks/{network_id}/ip_addresses",
                        controller=NetworksController(),
                        action='allocate_ip',
                        conditions=dict(method=['POST']))
-        mapper.connect("/ipam/tenants/{tenant_id}/networks/{network_id}"
+        self._connect(mapper, "/ipam/tenants/{tenant_id}/networks/{network_id}"
                        "/ip_addresses", controller=NetworksController(),
                        action='allocate_ip',
                        conditions=dict(method=['POST']))
-        super(API, self).__init__(mapper)
 
     def _policy_and_rules_mapper(self, mapper, policy_path):
         mapper.resource("policy", policy_path,
@@ -309,35 +308,41 @@ class API(wsgi.Router):
 
     def _ip_address_mapper(self, mapper, ip_address_controller,
                            parent_resource):
-        prefix_path = "%s/{%s_id}" % (parent_resource["collection_name"],
+        path_prefix = "%s/{%s_id}" % (parent_resource["collection_name"],
                                       parent_resource["member_name"])
-        mapper.connect(prefix_path + "/ip_addresses/{address:.+?}",
-                       controller=ip_address_controller, action="show",
-                       conditions=dict(method=["GET"]))
-        mapper.connect(prefix_path + "/ip_addresses/{address:.+?}",
-                       controller=ip_address_controller, action="delete",
-                       conditions=dict(method=["DELETE"]))
-        mapper.connect(prefix_path + "/ip_addresses/{address:.+?}/restore",
-                       controller=ip_address_controller, action="restore",
-                       conditions=dict(method=["PUT"]))
-        mapper.resource("ip_address", "ip_addresses",
-                        controller=ip_address_controller,
-                        parent_resource=parent_resource)
+        with mapper.submapper(controller=ip_address_controller,
+                              path_prefix=path_prefix) as submap:
+            self._connect(submap, "/ip_addresses/{address:.+?}",
+                           action="show", conditions=dict(method=["GET"]))
+            self._connect(submap, "/ip_addresses/{address:.+?}",
+                           action="delete", conditions=dict(method=["DELETE"]))
+            self._connect(submap, "/ip_addresses/{address:.+?}""/restore",
+                          action="restore", conditions=dict(method=["PUT"]))
+
+            #mapper.resource here for ip addresses was slowing down the tests
+            self._connect(submap, "/ip_addresses",
+                           action="create", conditions=dict(method=["POST"]))
+            self._connect(submap, "/ip_addresses",
+                           action="index", conditions=dict(method=["GET"]))
 
     def _natting_mapper(self, mapper, nat_type, nat_controller):
         with mapper.submapper(controller=nat_controller,
                               path_prefix="/ipam/ip_blocks/{ip_block_id}/"
                               "ip_addresses/{address:.+?}/") as submap:
-            submap.connect(nat_type, action="create",
+            self._connect(submap, nat_type, action="create",
                            conditions=dict(method=["POST"]))
-            submap.connect(nat_type, action="index",
+            self._connect(submap, nat_type, action="index",
                            conditions=dict(method=["GET"]))
-            submap.connect(nat_type, action="delete",
+            self._connect(submap, nat_type, action="delete",
                            conditions=dict(method=["DELETE"]))
-            submap.connect(
+            self._connect(submap,
                 "%(nat_type)s/{%(nat_type)s_address:.+?}" % locals(),
                 action="delete",
                 conditions=dict(method=["DELETE"]))
+
+    def _connect(self, mapper, path, *args, **kwargs):
+        return mapper.connect(mapper, path + "{.format:(json|xml)?}",
+                              *args, **kwargs)
 
 
 def UrlAuthorizationFactory(path):

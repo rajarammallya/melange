@@ -314,7 +314,7 @@ class IpAddressControllerBase():
         block_2.allocate_ip(port_id="9999")
 
         response = self.app.get("/ipam/tenants/111/private_ip_blocks/"
-                                "%s/ip_addresses/%s" %
+                                "%s/ip_addresses/%s.json" %
                                 (block_1.id, ip.address))
 
         self.assertEqual(response.status, "200 OK")
@@ -345,7 +345,7 @@ class IpAddressControllerBase():
         block_2.allocate_ip()
 
         response = self.app.delete("/ipam/tenants/111/private_ip_blocks/"
-                                   "%s/ip_addresses/%s" %
+                                   "%s/ip_addresses/%s.xml" %
                                 (block_1.id, ip.address))
 
         self.assertEqual(response.status, "200 OK")

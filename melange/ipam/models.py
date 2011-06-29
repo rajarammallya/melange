@@ -87,15 +87,19 @@ class ModelBase(object):
         return db_api.find_by(cls, id=id)
 
     @classmethod
-    def find_by(cls, **kwargs):
-        model = db_api.find_by(cls, **kwargs)
+    def find_by(cls, **conditions):
+        model = cls.get(**conditions)
         if model == None:
             raise ModelNotFoundError("%s Not Found" % cls.__name__)
         return model
 
     @classmethod
-    def find_all(cls, **kwargs):
-        return db_api.find_all_by(cls, **kwargs)
+    def get(cls, **conditions):
+        return db_api.find_by(cls, **conditions)
+
+    @classmethod
+    def find_all(cls, **conditions):
+        return db_api.find_all_by(cls, **conditions)
 
     @classmethod
     def with_limits(cls, query, **kwargs):
@@ -179,12 +183,12 @@ class IpBlock(ModelBase):
 
     @classmethod
     def find_by_network_id(cls, network_id):
-        return db_api.find_by(cls, network_id=network_id)
+        return cls.find_by(network_id=network_id)
 
     @classmethod
     def find_or_allocate_ip(cls, ip_block_id, address):
         block = IpBlock.find(ip_block_id)
-        allocated_ip = IpAddress.find_by_block_and_address(block.id, address)
+        allocated_ip = IpAddress.get(ip_block_id=block.id, address=address)
 
         if allocated_ip and allocated_ip.locked():
             raise AddressLockedError()
@@ -193,7 +197,7 @@ class IpBlock(ModelBase):
 
     @classmethod
     def find_all_by_policy(cls, policy_id):
-        return db_api.find_all_by(cls, policy_id=policy_id)
+        return cls.find_all(policy_id=policy_id)
 
     @classmethod
     def allowed_by_policy(cls, ip_block, policy, address):
@@ -272,8 +276,7 @@ class IpBlock(ModelBase):
 
     def validate_uniqueness_for_public_ip_block(self):
         if (self.type == 'public' and
-                         db_api.find_by(IpBlock,
-                                        type=self.type, cidr=self.cidr)):
+                         IpBlock.get(type=self.type, cidr=self.cidr)):
             self._add_error('cidr', 'cidr for public ip is not unique')
 
     def _validate(self):
@@ -288,12 +291,11 @@ class IpAddress(ModelBase):
 
     @classmethod
     def find_all_by_ip_block(cls, ip_block_id, **kwargs):
-        return db_api.find_all_by(IpAddress, ip_block_id=ip_block_id, **kwargs)
+        return cls.find_all(ip_block_id=ip_block_id, **kwargs)
 
     @classmethod
     def find_by_block_and_address(cls, ip_block_id, address):
-        return db_api.find_by(IpAddress, ip_block_id=ip_block_id,
-                              address=address)
+        return cls.find_by(ip_block_id=ip_block_id, address=address)
 
     @classmethod
     def delete_deallocated_addresses(self):
@@ -343,7 +345,7 @@ class Policy(ModelBase):
 
     @classmethod
     def find_by_name(cls, name):
-        return db_api.find_by(Policy, name=name)
+        return cls.find_by(name=name)
 
     def _validate(self):
         self._validate_presence_of('name')
@@ -379,16 +381,10 @@ class Policy(ModelBase):
                        for ip_range in self.unusable_ip_ranges)
 
     def find_ip_range(self, ip_range_id):
-        ip_range = db_api.find_by(IpRange, id=ip_range_id, policy_id=self.id)
-        if ip_range is None:
-            raise ModelNotFoundError("Can't find IpRange for policy")
-        return ip_range
+        return IpRange.find_by(id=ip_range_id, policy_id=self.id)
 
     def find_ip_octet(self, ip_octet_id):
-        ip_octet = db_api.find_by(IpOctet, id=ip_octet_id, policy_id=self.id)
-        if ip_octet is None:
-            raise ModelNotFoundError("Can't find IpOctet for policy")
-        return ip_octet
+        return IpOctet.find_by(id=ip_octet_id, policy_id=self.id)
 
     def data_fields(self):
         return ['id', 'name', 'tenant_id']
@@ -400,7 +396,7 @@ class IpRange(ModelBase):
 
     @classmethod
     def find_all_by_policy(cls, policy_id):
-        return db_api.find_all_by(cls, policy_id=policy_id)
+        return cls.find_all(policy_id=policy_id)
 
     def contains(self, cidr, address):
         end_index = self.offset + self.length
@@ -423,7 +419,7 @@ class IpOctet(ModelBase):
 
     @classmethod
     def find_all_by_policy(cls, policy_id):
-        return db_api.find_all_by(cls, policy_id=policy_id)
+        return cls.find_all(policy_id=policy_id)
 
     def applies_to(self, address):
         return self.octet == IPAddress(address).words[-1]

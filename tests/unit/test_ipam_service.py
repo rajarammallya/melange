@@ -753,7 +753,7 @@ class UnusableIpRangesControllerBase():
                                 status="*")
 
         self.assertErrorResponse(response, HTTPNotFound,
-                                  "Can't find IpRange for policy")
+                                 "IpRange Not Found")
 
     def test_update(self):
         policy = self._policy_factory()
@@ -793,7 +793,7 @@ class UnusableIpRangesControllerBase():
                                  {'offset': 1111, 'length': 222}, status="*")
 
         self.assertErrorResponse(response, HTTPNotFound,
-                                  "Can't find IpRange for policy")
+                                  "IpRange Not Found")
 
     def test_index(self):
         policy = self._policy_factory()
@@ -955,7 +955,7 @@ class UnusableIpOctetsControllerBase():
                                 status="*")
 
         self.assertErrorResponse(response, HTTPNotFound,
-                                  "Can't find IpOctet for policy")
+                                  "IpOctet Not Found")
 
     def test_update(self):
         policy = self._policy_factory()
@@ -991,7 +991,7 @@ class UnusableIpOctetsControllerBase():
                                  {'octet': 222}, status="*")
 
         self.assertErrorResponse(response, HTTPNotFound,
-                                  "Can't find IpOctet for policy")
+                                  "IpOctet Not Found")
 
     def test_delete(self):
         policy = self._policy_factory()

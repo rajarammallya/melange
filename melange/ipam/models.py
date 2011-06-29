@@ -83,18 +83,18 @@ class ModelBase(object):
         return cls.find_by(id=id)
 
     @classmethod
-    def find_by_id(cls, id):
-        return db_api.find_by(cls, id=id)
+    def get(cls, id):
+        return cls.get_by(id=id)
 
     @classmethod
     def find_by(cls, **conditions):
-        model = cls.get(**conditions)
+        model = cls.get_by(**conditions)
         if model == None:
             raise ModelNotFoundError("%s Not Found" % cls.__name__)
         return model
 
     @classmethod
-    def get(cls, **conditions):
+    def get_by(cls, **conditions):
         return db_api.find_by(cls, **conditions)
 
     @classmethod
@@ -182,13 +182,9 @@ class IpBlock(ModelBase):
         super(IpBlock, self).__init__(**kwargs)
 
     @classmethod
-    def find_by_network_id(cls, network_id):
-        return cls.find_by(network_id=network_id)
-
-    @classmethod
     def find_or_allocate_ip(cls, ip_block_id, address):
         block = IpBlock.find(ip_block_id)
-        allocated_ip = IpAddress.get(ip_block_id=block.id, address=address)
+        allocated_ip = IpAddress.get_by(ip_block_id=block.id, address=address)
 
         if allocated_ip and allocated_ip.locked():
             raise AddressLockedError()
@@ -204,17 +200,17 @@ class IpBlock(ModelBase):
         return policy == None or policy.allows(ip_block.cidr, address)
 
     def delete(self):
-        db_api.delete_all(IpAddress.find_all_by_ip_block(self.id))
+        db_api.delete_all(IpAddress.find_all(ip_block_id=self.id))
         super(IpBlock, self).delete()
 
     def policy(self):
-        return Policy.find_by_id(self.policy_id)
+        return Policy.get(self.policy_id)
 
     def allocate_ip(self, port_id=None, address=None):
         candidate_ip = None
         allocated_addresses = [ip_addr.address
                                for ip_addr in
-                               IpAddress.find_all_by_ip_block(self.id)]
+                               IpAddress.find_all(ip_block_id=self.id)]
 
         candidate_ip = self._check_address(address, allocated_addresses) or \
                        self._generate_ip(allocated_addresses)
@@ -258,13 +254,13 @@ class IpBlock(ModelBase):
         return None
 
     def find_allocated_ip(self, address):
-        ip_address = IpAddress.find_by_block_and_address(self.id, address)
+        ip_address = IpAddress.find_by(ip_block_id=self.id, address=address)
         if ip_address == None:
             raise ModelNotFoundError("IpAddress Not Found")
         return ip_address
 
     def deallocate_ip(self, address):
-        ip_address = IpAddress.find_by_block_and_address(self.id, address)
+        ip_address = IpAddress.find_by(ip_block_id=self.id, address=address)
         if ip_address != None:
             ip_address.deallocate()
 
@@ -276,7 +272,7 @@ class IpBlock(ModelBase):
 
     def validate_uniqueness_for_public_ip_block(self):
         if (self.type == 'public' and
-                         IpBlock.get(type=self.type, cidr=self.cidr)):
+                         IpBlock.get_by(type=self.type, cidr=self.cidr)):
             self._add_error('cidr', 'cidr for public ip is not unique')
 
     def _validate(self):
@@ -290,19 +286,11 @@ class IpBlock(ModelBase):
 class IpAddress(ModelBase):
 
     @classmethod
-    def find_all_by_ip_block(cls, ip_block_id, **kwargs):
-        return cls.find_all(ip_block_id=ip_block_id, **kwargs)
-
-    @classmethod
-    def find_by_block_and_address(cls, ip_block_id, address):
-        return cls.find_by(ip_block_id=ip_block_id, address=address)
-
-    @classmethod
     def delete_deallocated_addresses(self):
         return db_api.delete_deallocated_addresses()
 
     def ip_block(self):
-        return IpBlock.find_by_id(self.ip_block_id)
+        return IpBlock.get(self.ip_block_id)
 
     def add_inside_locals(self, ip_addresses):
         return db_api.save_nat_relationships([
@@ -343,17 +331,13 @@ class IpAddress(ModelBase):
 
 class Policy(ModelBase):
 
-    @classmethod
-    def find_by_name(cls, name):
-        return cls.find_by(name=name)
-
     def _validate(self):
         self._validate_presence_of('name')
 
     def delete(self):
         db_api.delete_all(self.unusable_ip_ranges)
         db_api.delete_all(self.unusable_ip_octets)
-        ip_blocks = IpBlock.find_all_by_policy(self.id)
+        ip_blocks = IpBlock.find_all(id=self.id)
         ip_blocks.update({'policy_id': None})
         super(Policy, self).delete()
 
@@ -367,11 +351,11 @@ class Policy(ModelBase):
 
     @cached_property
     def unusable_ip_ranges(self):
-        return IpRange.find_all_by_policy(self.id)
+        return IpRange.find_all(policy_id=self.id)
 
     @cached_property
     def unusable_ip_octets(self):
-        return IpOctet.find_all_by_policy(self.id)
+        return IpOctet.find_all(policy_id=self.id)
 
     def allows(self, cidr, address):
         if (any(ip_octet.applies_to(address)
@@ -393,10 +377,6 @@ class Policy(ModelBase):
 class IpRange(ModelBase):
 
     _columns = {'offset': data_types.integer, 'length': data_types.integer}
-
-    @classmethod
-    def find_all_by_policy(cls, policy_id):
-        return cls.find_all(policy_id=policy_id)
 
     def contains(self, cidr, address):
         end_index = self.offset + self.length

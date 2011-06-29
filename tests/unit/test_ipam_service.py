@@ -99,7 +99,7 @@ class IpBlockControllerBase():
                                  status="*")
 
         self.assertEqual(response.status_int, 201)
-        created_block = IpBlock.find_by_network_id("300")
+        created_block = IpBlock.find_by(network_id="300")
         self.assertNotEqual(created_block.type, "Ignored")
         self.assertEqual(created_block.type, self.ip_block_type)
 
@@ -159,7 +159,7 @@ class TestPublicIpBlockController(IpBlockControllerBase, BaseTestController):
                                                'cidr': "10.1.1.0/2"}})
 
         self.assertEqual(response.status, "201 Created")
-        saved_block = IpBlock.find_by_network_id("300")
+        saved_block = IpBlock.find_by(network_id="300")
         self.assertEqual(saved_block.cidr, "10.1.1.0/2")
         self.assertEqual(saved_block.type, "public")
         self.assertEqual(saved_block.tenant_id, None)
@@ -207,7 +207,7 @@ class TestTenantPrivateIpBlockController(IpBlockControllerBase,
                      {'ip_block': {'network_id': "300", 'cidr': "10.1.1.0/2"}})
 
         self.assertEqual(response.status, "201 Created")
-        saved_block = IpBlock.find_by_network_id("300")
+        saved_block = IpBlock.find_by(network_id="300")
         self.assertEqual(saved_block.cidr, "10.1.1.0/2")
         self.assertEqual(saved_block.type, "private")
         self.assertEqual(saved_block.tenant_id, "111")
@@ -218,7 +218,7 @@ class TestTenantPrivateIpBlockController(IpBlockControllerBase,
                        {'ip_block': {'network_id': "300", 'cidr': "10.1.1.0/2",
                                      'tenant_id': "543"}})
 
-        saved_block = IpBlock.find_by_network_id("300")
+        saved_block = IpBlock.find_by(network_id="300")
         self.assertEqual(saved_block.tenant_id, "111")
         self.assertEqual(response.json, dict(ip_block=saved_block.data()))
 
@@ -250,7 +250,7 @@ class IpAddressControllerBase():
                                  "/%s/ip_addresses" % block.id)
 
         self.assertEqual(response.status, "201 Created")
-        allocated_address = IpAddress.find_all_by_ip_block(block.id).first()
+        allocated_address = IpAddress.find_all(ip_block_id=block.id).first()
         self.assertEqual(allocated_address.address, "10.1.1.0")
         self.assertEqual(response.json,
                          dict(ip_address=allocated_address.data()))
@@ -263,8 +263,8 @@ class IpAddressControllerBase():
                                  {'ip_address': {"address": '10.1.1.2'}})
 
         self.assertEqual(response.status, "201 Created")
-        self.assertNotEqual(IpAddress.find_by_block_and_address(block.id,
-                                                             "10.1.1.2"), None)
+        self.assertNotEqual(IpAddress.find_by(ip_block_id=block.id,
+                                              address="10.1.1.2"), None)
 
     def test_create_when_no_more_addresses(self):
         block = self.ip_block_factory(cidr="10.1.1.0/32", tenant_id="111")
@@ -304,7 +304,7 @@ class IpAddressControllerBase():
                       "%s/ip_addresses" % block.id,
                                  {'ip_address': {"port_id": "1111"}})
 
-        allocated_address = IpAddress.find_all_by_ip_block(block.id).first()
+        allocated_address = IpAddress.find_all(ip_block_id=block.id).first()
         self.assertEqual(allocated_address.port_id, "1111")
 
     def test_show(self):
@@ -389,7 +389,7 @@ class IpAddressControllerBase():
                                 "%s/restore" % (block.id, ips[0].address))
 
         ip_addresses = [ip.address for ip in
-                        IpAddress.find_all_by_ip_block(block.id)]
+                        IpAddress.find_all(ip_block_id=block.id)]
         self.assertEqual(response.status, "200 OK")
         self.assertEqual(ip_addresses, [ip.address for ip in ips])
 
@@ -661,8 +661,8 @@ class TestInsideLocalsController(BaseTestController):
         self.assertEqual(len(inside_locals), 2)
         self.assertTrue("10.1.1.1" in inside_locals)
         self.assertTrue("10.0.0.1" in inside_locals)
-        local_ip = IpAddress.find_by_block_and_address(local_block1.id,
-                                                       "10.1.1.1")
+        local_ip = IpAddress.find_by(ip_block_id=local_block1.id,
+                                     address="10.1.1.1")
         self.assertEqual(local_ip.inside_globals()[0].address, "169.1.1.1")
 
     def test_delete_for_specific_address(self):
@@ -723,7 +723,7 @@ class UnusableIpRangesControllerBase():
                                  % (self.policy_path, policy.id),
                                  {'ip_range': {'offset': '10', 'length': '2'}})
 
-        unusable_range = IpRange.find_all_by_policy(policy.id).first()
+        unusable_range = IpRange.find_all(policy_id=policy.id).first()
         self.assertEqual(response.status, "201 Created")
         self.assertEqual(response.json, dict(ip_range=unusable_range.data()))
 
@@ -933,7 +933,7 @@ class UnusableIpOctetsControllerBase():
                                  % (self.policy_path, policy.id),
                                  {'ip_octet': {'octet': '123'}})
 
-        ip_octet = IpOctet.find_all_by_policy(policy.id).first()
+        ip_octet = IpOctet.find_all(policy_id=policy.id).first()
         self.assertEqual(response.status, "201 Created")
         self.assertEqual(response.json['ip_octet'], ip_octet.data())
 
@@ -1236,7 +1236,7 @@ class TestTenantPoliciesController(BaseTestController):
         response = self.app.delete("/ipam/tenants/123/policies/%s" % policy.id)
 
         self.assertEqual(response.status_int, 200)
-        self.assertTrue(Policy.find_by_id(policy.id) is None)
+        self.assertTrue(Policy.get(policy.id) is None)
 
     def test_delete_fails_for_incorrect_tenant_id(self):
         policy = PolicyFactory(tenant_id="123")

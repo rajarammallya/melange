@@ -90,7 +90,7 @@ class IpAddressController(BaseController):
 
     def index(self, request, ip_block_id, tenant_id=None):
         ip_block = IpBlock.find_by(id=ip_block_id, tenant_id=tenant_id)
-        find_all_query = IpAddress.find_all_by_ip_block(ip_block.id)
+        find_all_query = IpAddress.find_all(ip_block_id=ip_block.id)
         addresses = IpAddress.with_limits(find_all_query,
                                        **self._extract_limits(request.params))
 

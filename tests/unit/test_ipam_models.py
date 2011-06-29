@@ -88,14 +88,14 @@ class TestIpBlock(BaseTest):
         IpBlock.create(cidr="10.0.0.1/8", network_id='18888',
                        tenant_id='aaa')
 
-        saved_block = IpBlock.find_by_network_id(18888)
+        saved_block = IpBlock.find_by(network_id=18888)
         self.assertEqual(saved_block.type, "private")
 
     def test_create_ip_block(self):
         PrivateIpBlockFactory(cidr="10.0.0.1/8",
                         network_id="18888", tenant_id='xxxx')
 
-        saved_block = IpBlock.find_by_network_id(18888)
+        saved_block = IpBlock.find_by(network_id=18888)
         self.assertEqual(saved_block.cidr, "10.0.0.1/8")
         self.assertEqual(saved_block.network_id, '18888')
         self.assertEqual(saved_block.type, "private")
@@ -124,23 +124,6 @@ class TestIpBlock(BaseTest):
         self.assertEqual(dup_block.errors,
                          {'cidr': ['cidr for public ip is not unique']})
 
-    def test_find_by_network_id(self):
-        PrivateIpBlockFactory(cidr="10.0.0.1/8", network_id=999)
-        PrivateIpBlockFactory(cidr="10.1.1.1/2", network_id=987)
-
-        block = IpBlock.find_by_network_id(987)
-
-        self.assertEqual(block.cidr, "10.1.1.1/2")
-
-    def test_find_by_tenant_id(self):
-        ip_block1 = PrivateIpBlockFactory(cidr="10.0.0.1/8", tenant_id='999')
-        ip_block2 = PrivateIpBlockFactory(cidr="10.0.0.2/8", tenant_id='999')
-        PrivateIpBlockFactory(cidr="10.1.1.1/2", tenant_id='987')
-
-        blocks = IpBlock.find_all(tenant_id='999').all()
-
-        self.assertEqual(blocks, [ip_block1, ip_block2])
-
     def test_find_ip_block(self):
         block1 = PrivateIpBlockFactory(cidr="10.0.0.1/8")
         PrivateIpBlockFactory(cidr="10.1.1.1/8")
@@ -163,16 +146,6 @@ class TestIpBlock(BaseTest):
 
         self.assertRaises(models.ModelNotFoundError, block.find_allocated_ip,
                          '10.0.0.1')
-
-    def test_find_all_by_policy(self):
-        policy = PolicyFactory()
-        ip_block1 = PrivateIpBlockFactory(cidr="10.0.0.0/29",
-                                          policy_id=policy.id)
-        ip_block2 = PrivateIpBlockFactory(cidr="192.168.0.0/29",
-                                          policy_id=policy.id)
-
-        self.assertEqual(IpBlock.find_all_by_policy(policy.id).all(),
-                         [ip_block1, ip_block2])
 
     def test_policy(self):
         policy = PolicyFactory(name="Some Policy")
@@ -238,7 +211,7 @@ class TestIpBlock(BaseTest):
         block = PrivateIpBlockFactory(cidr="10.0.0.0/30")
         self.assertEqual(block.allocate_ip().address, "10.0.0.0")
         self.assertEqual(
-            IpAddress.find_all_by_ip_block(block.id).first().address,
+            IpAddress.find_all(ip_block_id=block.id).first().address,
             "10.0.0.0")
         self.assertEqual(block.allocate_ip().address, "10.0.0.1")
 
@@ -247,7 +220,7 @@ class TestIpBlock(BaseTest):
 
         IpBlock.find_or_allocate_ip(block.id, '10.0.0.1')
 
-        address = IpAddress.find_by_block_and_address(block.id, '10.0.0.1')
+        address = IpAddress.find_by(ip_block_id=block.id, address='10.0.0.1')
         self.assertTrue(address is not None)
 
     def test_deallocate_ip(self):
@@ -295,18 +268,18 @@ class TestIpBlock(BaseTest):
     def test_delete(self):
         ip_block = PrivateIpBlockFactory(cidr="10.0.0.0/29")
         ip_block.delete()
-        self.assertTrue(IpBlock.find_by_id(ip_block.id) is None)
+        self.assertTrue(IpBlock.get(ip_block.id) is None)
 
     def test_delete_to_cascade_delete_ip_addresses(self):
         ip_block = PrivateIpBlockFactory(cidr="10.0.0.0/29")
         ipa_1 = IpAddressFactory(ip_block_id=ip_block.id, address="10.0.0.0")
         ipa_2 = IpAddressFactory(ip_block_id=ip_block.id, address="10.0.0.1")
         self.assertTrue(len(IpAddress.
-                            find_all_by_ip_block(ip_block.id).all()) is 2)
+                            find_all(ip_block_id=ip_block.id).all()) is 2)
 
         ip_block.delete()
         self.assertTrue(len(IpAddress.
-                            find_all_by_ip_block(ip_block.id).all()) is 0)
+                            find_all(ip_block_id=ip_block.id).all()) is 0)
 
     def test_contains_address(self):
         ip_block = IpBlock(cidr="10.0.0.0/20")
@@ -317,19 +290,6 @@ class TestIpBlock(BaseTest):
 
 class TestIpAddress(unittest.TestCase):
 
-    def test_find_all_by_ip_block(self):
-        block = PrivateIpBlockFactory(cidr="10.0.0.1/8")
-        IpAddressFactory(ip_block_id=block.id, address="10.0.0.1")
-        IpAddressFactory(ip_block_id=block.id, address="10.0.0.2")
-
-        ips = IpAddress.find_all_by_ip_block(block.id)
-        self.assertEqual(len(ips.all()), 2)
-        self.assertEqual(ips[0].ip_block_id, block.id)
-        self.assertEqual(ips[1].ip_block_id, block.id)
-        addresses = [ip.address for ip in ips]
-        self.assertTrue("10.0.0.1" in addresses)
-        self.assertTrue("10.0.0.2" in addresses)
-
     def test_limited_find_all(self):
         block = PrivateIpBlockFactory(cidr="10.0.0.1/8")
         ips = [block.allocate_ip() for i in range(6)]
@@ -337,7 +297,7 @@ class TestIpAddress(unittest.TestCase):
         addrs_after_marker = [ips[i].address for i in range(2, 6)]
 
         ip_addresses = IpAddress.with_limits(
-                                 IpAddress.find_all_by_ip_block(block.id),
+                                 IpAddress.find_all(ip_block_id=block.id),
                                  limit=3, marker=marker)
         limited_addrs = [ip.address for ip in ip_addresses]
         self.assertEqual(len(limited_addrs), 3)
@@ -360,7 +320,7 @@ class TestIpAddress(unittest.TestCase):
 
         ip.delete()
 
-        self.assertEqual(IpAddress.find_by_id(ip.id), None)
+        self.assertEqual(IpAddress.get(ip.id), None)
         deleted_ip = session.raw_query(IpAddress).filter_by(id=ip.id).first()
         self.assertTrue(deleted_ip.deleted)
 
@@ -507,7 +467,7 @@ class TestIpAddress(unittest.TestCase):
 
         IpAddress.delete_deallocated_addresses()
 
-        self.assertEqual(IpAddress.find_all_by_ip_block(ip_block.id).all(), [])
+        self.assertEqual(IpAddress.find_all(ip_block_id=ip_block.id).all(), [])
 
     def test_ip_block(self):
         ip_block = PrivateIpBlockFactory()
@@ -522,7 +482,7 @@ class TestPolicy(BaseTest):
         PolicyFactory(name="new policy", tenant_id="123",
                        description="desc")
 
-        policy = Policy.find_by_name("new policy")
+        policy = Policy.find_by(name="new policy")
 
         self.assertEqual(policy.name, "new policy")
         self.assertEqual(policy.description, "desc")
@@ -621,7 +581,7 @@ class TestPolicy(BaseTest):
         ip_range = policy.create_unusable_range(offset=1, length=2)
 
         self.assertEqual(ip_range,
-                         IpRange.find_all_by_policy(policy.id).first())
+                         IpRange.find_all(policy_id=policy.id).first())
         self.assertEqual(ip_range.offset, 1)
         self.assertEqual(ip_range.length, 2)
 
@@ -631,10 +591,10 @@ class TestPolicy(BaseTest):
         ip_range2 = IpRangeFactory(offset=4, length=2, policy_id=policy.id)
         noise_ip_range = IpRangeFactory()
 
-        self.assertEqual(IpRange.find_all_by_policy(policy.id).all(),
+        self.assertEqual(IpRange.find_all(policy_id=policy.id).all(),
                          [ip_range1, ip_range2])
         policy.delete()
-        self.assertTrue(len(IpRange.find_all_by_policy(policy.id).all()) is 0)
+        self.assertTrue(len(IpRange.find_all(policy_id=policy.id).all()) is 0)
         self.assertTrue(IpRange.find(noise_ip_range.id) is not None)
 
     def test_delete_to_cascade_delete_ip_octets(self):
@@ -643,10 +603,10 @@ class TestPolicy(BaseTest):
         ip_octet2 = IpOctetFactory(octet=255, policy_id=policy.id)
         noise_ip_octet = IpOctetFactory()
 
-        self.assertEqual(IpOctet.find_all_by_policy(policy.id).all(),
+        self.assertEqual(IpOctet.find_all(policy_id=policy.id).all(),
                          [ip_octet1, ip_octet2])
         policy.delete()
-        self.assertTrue(len(IpOctet.find_all_by_policy(policy.id).all()) is 0)
+        self.assertTrue(len(IpOctet.find_all(policy_id=policy.id).all()) is 0)
         self.assertTrue(IpOctet.find(noise_ip_octet.id) is not None)
 
     def test_delete_to_update_associated_ip_blocks_policy(self):
@@ -686,19 +646,6 @@ class TestIpRange(BaseTest):
         self.assertEqual(data['offset'], 10)
         self.assertEqual(data['length'], 3)
         self.assertEqual(data['policy_id'], policy.id)
-
-    def test_find_all_by_policy(self):
-        policy1 = PolicyFactory(name='blah')
-        policy2 = PolicyFactory(name='blah')
-        ip_range1 = IpRangeFactory(offset=3, length=10,
-                                    policy_id=policy1.id)
-        ip_range2 = IpRangeFactory(offset=11, length=10,
-                                    policy_id=policy1.id)
-        noise_ip_range = IpRangeFactory(offset=11, length=10,
-                                         policy_id=policy2.id)
-
-        self.assertEqual(IpRange.find_all_by_policy(policy1.id).all(),
-                         [ip_range1, ip_range2])
 
     def test_ip_range_offset_is_an_integer(self):
         ip_range = IpRange(offset='spdoe', length=10)

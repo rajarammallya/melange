@@ -85,17 +85,17 @@ class TestBaseController(unittest.TestCase):
 class IpBlockControllerBase():
 
     def test_create_with_bad_cidr(self):
-        response = self.app.post("%s" % self.ip_block_path,
-                                 {'network_id': "300", 'cidr': "10..."},
-                                 status="*")
+        response = self.app.post_json("%s" % self.ip_block_path,
+                          {'ip_block': {'network_id': "300", 'cidr': "10..."}},
+                          status="*")
 
         self.assertErrorResponse(response, HTTPBadRequest,
                                  'cidr is invalid')
 
     def test_create_ignores_type_from_params(self):
-        response = self.app.post("%s" % self.ip_block_path,
-                                 {'network_id': "300", 'cidr': "10.0.0.0/31",
-                                  'type': "Ignored"},
+        response = self.app.post_json("%s" % self.ip_block_path,
+                                 {'ip_block': {'network_id': "300",
+                                  'cidr': "10.0.0.0/31", 'type': "Ignored"}},
                                  status="*")
 
         self.assertEqual(response.status_int, 201)
@@ -154,8 +154,9 @@ class TestPublicIpBlockController(IpBlockControllerBase, BaseTestController):
         return PublicIpBlockFactory(**kwargs)
 
     def test_create(self):
-        response = self.app.post("/ipam/public_ip_blocks.json",
-                                 {'network_id': "300", 'cidr': "10.1.1.0/2"})
+        response = self.app.post_json("/ipam/public_ip_blocks.json",
+                                 {'ip_block': {'network_id': "300",
+                                               'cidr': "10.1.1.0/2"}})
 
         self.assertEqual(response.status, "201 Created")
         saved_block = IpBlock.find_by_network_id("300")
@@ -165,11 +166,11 @@ class TestPublicIpBlockController(IpBlockControllerBase, BaseTestController):
         self.assertEqual(response.json, dict(ip_block=saved_block.data()))
 
     def test_cannot_create_duplicate_public_cidr(self):
-        self.app.post("/ipam/public_ip_blocks",
-                      {"network_id": "12200", 'cidr': "192.1.1.1/2"})
+        self.app.post_json("/ipam/public_ip_blocks",
+                  {'ip_block': {"network_id": "12200", 'cidr': "192.1.1.1/2"}})
 
-        duplicate_block_response = self.app.post("/ipam/public_ip_blocks",
-                      {"network_id": "22200", 'cidr': "192.1.1.1/2"},
+        duplicate_block_response = self.app.post_json("/ipam/public_ip_blocks",
+                  {'ip_block': {"network_id": "22200", 'cidr': "192.1.1.1/2"}},
                        status="*")
 
         self.assertEqual(duplicate_block_response.status, "400 Bad Request")
@@ -201,8 +202,9 @@ class TestTenantPrivateIpBlockController(IpBlockControllerBase,
         return PrivateIpBlockFactory(tenant_id=123, **kwargs)
 
     def test_create(self):
-        response = self.app.post("/ipam/tenants/111/private_ip_blocks.json",
-                                 {'network_id': "300", 'cidr': "10.1.1.0/2"})
+        response = self.app.post_json(
+                     "/ipam/tenants/111/private_ip_blocks.json",
+                     {'ip_block': {'network_id': "300", 'cidr': "10.1.1.0/2"}})
 
         self.assertEqual(response.status, "201 Created")
         saved_block = IpBlock.find_by_network_id("300")
@@ -212,9 +214,9 @@ class TestTenantPrivateIpBlockController(IpBlockControllerBase,
         self.assertEqual(response.json, dict(ip_block=saved_block.data()))
 
     def test_create_ignores_tenant_id_passed_in_post_body(self):
-        response = self.app.post("/ipam/tenants/111/private_ip_blocks",
-                                 {'network_id': "300", 'cidr': "10.1.1.0/2",
-                                  'tenant_id': "543"})
+        response = self.app.post_json("/ipam/tenants/111/private_ip_blocks",
+                       {'ip_block': {'network_id': "300", 'cidr': "10.1.1.0/2",
+                                     'tenant_id': "543"}})
 
         saved_block = IpBlock.find_by_network_id("300")
         self.assertEqual(saved_block.tenant_id, "111")

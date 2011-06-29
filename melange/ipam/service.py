@@ -28,6 +28,7 @@ from melange.common.utils import exclude, stringify_keys
 
 
 class BaseController(wsgi.Controller):
+    exclude_attr = []
     exception_map = {HTTPUnprocessableEntity:
                      [models.NoMoreAddressesError,
                       models.AddressDoesNotBelongError,
@@ -35,6 +36,10 @@ class BaseController(wsgi.Controller):
                      HTTPBadRequest: [models.InvalidModelError],
                      HTTPNotFound: [models.ModelNotFoundError],
                      HTTPConflict: [models.DuplicateAddressError]}
+
+    def _extract_required_params(self, request, model_name):
+        return exclude(request.deserialized_params[model_name],
+                         *self.exclude_attr)
 
     def _extract_limits(self, params):
         return dict([(key, params[key]) for key in params.keys()
@@ -54,6 +59,8 @@ class BaseController(wsgi.Controller):
 
 class IpBlockController(BaseController):
 
+    exclude_attr = ['type', 'tenant_id']
+
     def __init__(self, block_type, admin_actions=[]):
         self.type = block_type
         super(IpBlockController, self).__init__(admin_actions=admin_actions)
@@ -66,8 +73,9 @@ class IpBlockController(BaseController):
         return dict(ip_blocks=[ip_block.data() for ip_block in blocks])
 
     def create(self, request, tenant_id=None):
+        params = self._extract_required_params(request, 'ip_block')
         block = IpBlock.create(tenant_id=tenant_id,
-                               type=self.type, **request.params)
+                               type=self.type, **stringify_keys(params))
         return dict(ip_block=block.data()), 201
 
     def show(self, request, id, tenant_id=None):
@@ -81,7 +89,8 @@ class IpBlockController(BaseController):
 class IpAddressController(BaseController):
 
     def index(self, request, ip_block_id, tenant_id=None):
-        find_all_query = IpAddress.find_all_by_ip_block(ip_block_id)
+        ip_block = IpBlock.find_by(id=ip_block_id, tenant_id=tenant_id)
+        find_all_query = IpAddress.find_all_by_ip_block(ip_block.id)
         addresses = IpAddress.with_limits(find_all_query,
                                        **self._extract_limits(request.params))
 
@@ -89,14 +98,15 @@ class IpAddressController(BaseController):
                                    for ip_address in addresses])
 
     def show(self, request, address, ip_block_id, tenant_id=None):
-        ip_block = IpBlock.find(ip_block_id)
+        ip_block = IpBlock.find_by(id=ip_block_id, tenant_id=tenant_id)
         return dict(ip_address=ip_block.find_allocated_ip(address).data())
 
     def delete(self, request, address, ip_block_id, tenant_id=None):
-        IpBlock.find(ip_block_id).deallocate_ip(address)
+        IpBlock.find_by(id=ip_block_id,
+                        tenant_id=tenant_id).deallocate_ip(address)
 
     def create(self, request, ip_block_id, tenant_id=None):
-        ip_block = IpBlock.find(ip_block_id)
+        ip_block = IpBlock.find_by(id=ip_block_id, tenant_id=tenant_id)
         address, port_id = self._get_optionals(request.params,
                                                *['address', 'port_id'])
         ip_address = ip_block.allocate_ip(address=address,
@@ -104,7 +114,8 @@ class IpAddressController(BaseController):
         return dict(ip_address=ip_address.data()), 201
 
     def restore(self, request, ip_block_id, address, tenant_id=None):
-        ip_address = IpBlock.find(ip_block_id).find_allocated_ip(address)
+        ip_address = IpBlock.find_by(id=ip_block_id, tenant_id=tenant_id).\
+                             find_allocated_ip(address)
         ip_address.restore()
 
 
@@ -147,64 +158,67 @@ class InsideLocalsController(BaseController):
 class UnusableIpRangesController(BaseController):
 
     def create(self, request, policy_id, tenant_id=None):
-        policy = Policy.find(policy_id)
+        policy = Policy.find_by(id=policy_id, tenant_id=tenant_id)
         ip_range = policy.create_unusable_range(**request.params.copy())
         return dict(ip_range=ip_range.data()), 201
 
     def show(self, request, policy_id, id, tenant_id=None):
-        ip_range = Policy.find(policy_id).find_ip_range(id)
+        ip_range = Policy.find_by(id=policy_id,
+                                  tenant_id=tenant_id).find_ip_range(id)
         return dict(ip_range=ip_range.data())
 
     def index(self, request, policy_id, tenant_id=None):
-        ip_range_all = Policy.find(policy_id).unusable_ip_ranges
+        ip_range_all = Policy.find_by(id=policy_id,
+                                      tenant_id=tenant_id).unusable_ip_ranges
         ip_ranges = IpRange.with_limits(ip_range_all,
                                         **self._extract_limits(request.params))
         return dict(ip_ranges=[ip_range.data() for ip_range in ip_ranges])
 
     def update(self, request, policy_id, id, tenant_id=None):
-        ip_range = Policy.find(policy_id).find_ip_range(id)
-        ip_range.update(request.params)
+        ip_range = Policy.find_by(id=policy_id,
+                                  tenant_id=tenant_id).find_ip_range(id)
+        ip_range.update(exclude(request.params, 'policy_id'))
         return dict(ip_range=ip_range.data())
 
     def delete(self, request, policy_id, id, tenant_id=None):
-        ip_range = Policy.find(policy_id).find_ip_range(id)
+        ip_range = Policy.find_by(id=policy_id,
+                                  tenant_id=tenant_id).find_ip_range(id)
         ip_range.delete()
 
 
 class UnusableIpOctetsController(BaseController):
 
     def index(self, request, policy_id, tenant_id=None):
-        policy = Policy.find(policy_id)
+        policy = Policy.find_by(id=policy_id, tenant_id=tenant_id)
         ip_octets = IpOctet.with_limits(policy.unusable_ip_octets,
                                         **self._extract_limits(request.params))
         return dict(ip_octets=[ip_octet.data() for ip_octet in ip_octets])
 
     def create(self, request, policy_id, tenant_id=None):
-        policy = Policy.find(policy_id)
+        policy = Policy.find_by(id=policy_id, tenant_id=tenant_id)
         ip_octet = policy.create_unusable_ip_octet(**request.params.copy())
         return dict(ip_octet=ip_octet.data()), 201
 
     def show(self, request, policy_id, id, tenant_id=None):
-        ip_octet = Policy.find(policy_id).find_ip_octet(id)
+        ip_octet = Policy.find_by(id=policy_id,
+                                  tenant_id=tenant_id).find_ip_octet(id)
         return dict(ip_octet=ip_octet.data())
 
     def update(self, request, policy_id, id, tenant_id=None):
-        ip_octet = Policy.find(policy_id).find_ip_octet(id)
-        ip_octet.update(request.params)
+        ip_octet = Policy.find_by(id=policy_id,
+                                  tenant_id=tenant_id).find_ip_octet(id)
+        ip_octet.update(exclude(request.params, 'policy_id'))
         return dict(ip_octet=ip_octet.data())
 
     def delete(self, request, policy_id, id, tenant_id=None):
-        ip_octet = Policy.find(policy_id).find_ip_octet(id)
+        ip_octet = Policy.find_by(id=policy_id,
+                                  tenant_id=tenant_id).find_ip_octet(id)
         ip_octet.delete()
 
 
 class PoliciesController(BaseController):
 
     exclude_attr = ['tenant_id']
-
-    def _extract_required_params(self, request):
-        return exclude(request.deserialized_params['policy'],
-                         *self.exclude_attr)
 
     def index(self, request, tenant_id=None):
         policies = Policy.with_limits(Policy.find_all(tenant_id=tenant_id),
@@ -215,13 +229,14 @@ class PoliciesController(BaseController):
         return dict(policy=Policy.find_by(id=id, tenant_id=tenant_id).data())
 
     def create(self, request, tenant_id=None):
+        params = self._extract_required_params(request, 'policy')
         policy = Policy.create(tenant_id=tenant_id,
-                     **stringify_keys(self._extract_required_params(request)))
+                               **stringify_keys(params))
         return dict(policy=policy.data()), 201
 
     def update(self, request, id, tenant_id=None):
         policy = Policy.find_by(id=id, tenant_id=tenant_id)
-        policy.update(self._extract_required_params(request))
+        policy.update(self._extract_required_params(request, 'policy'))
         return dict(policy=policy.data())
 
     def delete(self, request, id, tenant_id=None):

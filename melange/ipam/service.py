@@ -200,6 +200,12 @@ class UnusableIpOctetsController(BaseController):
 
 class PoliciesController(BaseController):
 
+    exclude_attr = ['tenant_id']
+
+    def _extract_required_params(self, request):
+        return exclude(request.deserialized_params['policy'],
+                         *self.exclude_attr)
+
     def index(self, request, tenant_id=None):
         policies = Policy.with_limits(Policy.find_all(tenant_id=tenant_id),
                                       **self._extract_limits(request.params))
@@ -209,13 +215,13 @@ class PoliciesController(BaseController):
         return dict(policy=Policy.find_by(id=id, tenant_id=tenant_id).data())
 
     def create(self, request, tenant_id=None):
-        params = exclude(request.deserialized_params['policy'], 'tenant_id')
-        policy = Policy.create(tenant_id=tenant_id, **stringify_keys(params))
+        policy = Policy.create(tenant_id=tenant_id,
+                     **stringify_keys(self._extract_required_params(request)))
         return dict(policy=policy.data()), 201
 
     def update(self, request, id, tenant_id=None):
         policy = Policy.find_by(id=id, tenant_id=tenant_id)
-        policy.update(exclude(request.params, 'tenant_id'))
+        policy.update(self._extract_required_params(request))
         return dict(policy=policy.data())
 
     def delete(self, request, id, tenant_id=None):

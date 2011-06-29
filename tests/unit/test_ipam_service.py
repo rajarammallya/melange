@@ -1116,11 +1116,11 @@ class TestPoliciesController(BaseTestController):
     def test_update(self):
         policy = PolicyFactory(name="DRAC", description='description')
 
-        response = self.app.put("/ipam/policies/%s" % policy.id,
-                                {'name': "Updated Name",
-                                 'description': "Updated Des"})
+        response = self.app.put_json("/ipam/policies/%s" % policy.id,
+                                {'policy': {'name': "Updated Name",
+                                 'description': "Updated Des"}})
 
-        self.assertEqual(response.status, "200 OK")
+        self.assertEqual(response.status_int, 200)
         updated_policy = Policy.find(policy.id)
         self.assertEqual(updated_policy.name, "Updated Name")
         self.assertEqual(updated_policy.description, "Updated Des")
@@ -1128,7 +1128,7 @@ class TestPoliciesController(BaseTestController):
 
     def test_update_fails_for_invalid_policy_id(self):
         response = self.app.put("/ipam/policies/invalid",
-                                {'name': "Updated Name"}, status="*")
+                                {'policy': {'name': "Scrap"}}, status="*")
 
         self.assertErrorResponse(response, HTTPNotFound,
                                  "Policy Not Found")
@@ -1185,23 +1185,27 @@ class TestTenantPoliciesController(BaseTestController):
 
     def test_update_fails_for_incorrect_tenant_id(self):
         policy = PolicyFactory(tenant_id="111")
-        response = self.app.put("/ipam/tenants/123/policies/%s" % policy.id,
-                                {'name': "Standard"}, status="*")
+        response = self.app.put_json("/ipam/tenants/123/policies/%s"
+                                    % policy.id,
+                                {'policy': {'name': "Standard"}}, status="*")
 
         self.assertEqual(response.status_int, 404)
 
     def test_update(self):
         policy = PolicyFactory(name="blah", tenant_id="123")
-        response = self.app.put("/ipam/tenants/123/policies/%s" % policy.id,
-                                {'name': "Standard"})
+        response = self.app.put_json("/ipam/tenants/123/policies/%s"
+                                    % policy.id,
+                                    {'policy': {'name': "Standard"}})
 
         self.assertEqual(response.status_int, 200)
         self.assertEqual("Standard", Policy.find(policy.id).name)
 
     def test_update_cannot_change_tenant_id(self):
         policy = PolicyFactory(name="Infrastructure", tenant_id="123")
-        response = self.app.put("/ipam/tenants/123/policies/%s" % policy.id,
-                                {'name': "Standard", 'tenant_id': "124"})
+        response = self.app.put_json("/ipam/tenants/123/policies/%s"
+                                    % policy.id,
+                                    {'policy': {'name': "Standard",
+                                                'tenant_id': "124"}})
 
         self.assertEqual(response.status_int, 200)
         updated_policy = Policy.find(policy.id)

@@ -257,10 +257,10 @@ class IpAddressControllerBase():
 
     def test_create_with_given_address(self):
         block = self.ip_block_factory(cidr="10.1.1.0/28", tenant_id=111)
-        response = self.app.post("/ipam/tenants/111/"
+        response = self.app.post_json("/ipam/tenants/111/"
                                  "private_ip_blocks/%s/ip_addresses"
                                  % block.id,
-                                 {"address": '10.1.1.2'})
+                                 {'ip_address': {"address": '10.1.1.2'}})
 
         self.assertEqual(response.status, "201 Created")
         self.assertNotEqual(IpAddress.find_by_block_and_address(block.id,
@@ -280,9 +280,9 @@ class IpAddressControllerBase():
         block = self.ip_block_factory(cidr="10.1.1.0/29", tenant_id="111")
         block.allocate_ip(address='10.1.1.2')
 
-        response = self.app.post("/ipam/tenants/111/private_ip_blocks"
+        response = self.app.post_json("/ipam/tenants/111/private_ip_blocks"
                                  "/%s/ip_addresses" % block.id,
-                                 {'address': '10.1.1.2'},
+                                 {'ip_address': {'address': '10.1.1.2'}},
                                  status="*")
         self.assertErrorResponse(response, HTTPConflict,
                                  "Address is already allocated")
@@ -290,9 +290,9 @@ class IpAddressControllerBase():
     def test_create_fails_when_address_doesnt_belong_to_block(self):
         block = self.ip_block_factory(cidr="10.1.1.0/32", tenant_id="111")
 
-        response = self.app.post("/ipam/tenants/111/private_ip_blocks/%s"
+        response = self.app.post_json("/ipam/tenants/111/private_ip_blocks/%s"
                                  "/ip_addresses" % block.id,
-                                 {'address': '10.1.1.2'},
+                                 {'ip_address': {'address': '10.1.1.2'}},
                                  status="*")
         self.assertErrorResponse(response, HTTPUnprocessableEntity,
                          "Address does not belong to IpBlock")
@@ -300,9 +300,9 @@ class IpAddressControllerBase():
     def test_create_with_port(self):
         block = self.ip_block_factory(tenant_id="111")
 
-        self.app.post("/ipam/tenants/111/private_ip_blocks/"
+        self.app.post_json("/ipam/tenants/111/private_ip_blocks/"
                       "%s/ip_addresses" % block.id,
-                                 {"port_id": "1111"})
+                                 {'ip_address': {"port_id": "1111"}})
 
         allocated_address = IpAddress.find_all_by_ip_block(block.id).first()
         self.assertEqual(allocated_address.port_id, "1111")
@@ -441,7 +441,6 @@ class TestPrivateIpAddressController(IpAddressControllerBase,
         self.block_path = "/ipam/tenants/111/private_ip_blocks"
         response = self.app.post("%s/%s/ip_addresses"
                                  % (self.block_path, block.id),
-                                 {'offset': 1, 'length': 20},
                                  status='*')
 
         self.assertEqual(response.status_int, 404)

@@ -25,10 +25,9 @@ from melange.common import wsgi
 
 
 class RequestTest(BaseTest):
-    def test_content_type_missing(self):
+    def test_content_type_missing_defaults_to_json(self):
         request = wsgi.Request.blank('/tests/123')
-        self.assertRaises(webob.exc.HTTPBadRequest,
-                          request.get_content_type)
+        self.assertEqual(request.get_content_type(), "application/json")
 
     def test_content_type_unsupported(self):
         request = wsgi.Request.blank('/tests/123')

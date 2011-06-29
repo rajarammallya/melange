@@ -38,7 +38,7 @@ class BaseController(wsgi.Controller):
                      HTTPConflict: [models.DuplicateAddressError]}
 
     def _extract_required_params(self, request, model_name):
-        return exclude(request.deserialized_params[model_name],
+        return exclude(request.deserialized_params.get(model_name, {}),
                          *self.exclude_attr)
 
     def _extract_limits(self, params):
@@ -107,8 +107,8 @@ class IpAddressController(BaseController):
 
     def create(self, request, ip_block_id, tenant_id=None):
         ip_block = IpBlock.find_by(id=ip_block_id, tenant_id=tenant_id)
-        address, port_id = self._get_optionals(request.params,
-                                               *['address', 'port_id'])
+        params = self._extract_required_params(request, 'ip_address')
+        address, port_id = self._get_optionals(params, *['address', 'port_id'])
         ip_address = ip_block.allocate_ip(address=address,
                                           port_id=port_id)
         return dict(ip_address=ip_address.data()), 201

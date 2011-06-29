@@ -81,10 +81,7 @@ class Request(webob.Request):
 
     def get_content_type(self):
         allowed_types = ("application/xml", "application/json")
-        if not "Content-Type" in self.headers:
-            msg = "Missing Content-Type"
-            LOG.debug(msg)
-            raise webob.exc.HTTPBadRequest(msg)
+        self.content_type = self.content_type or "application/json"
         type = self.content_type
         if type in allowed_types:
             return type
@@ -455,7 +452,7 @@ class Serializer(object):
             raise InvalidContentType(content_type=content_type)
 
     def _from_json(self, datastring):
-        return json.loads(datastring)
+        return json.loads(datastring or "{}")
 
     def _from_xml(self, datastring):
         xmldata = self.metadata.get('application/xml', {})

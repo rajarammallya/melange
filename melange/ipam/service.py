@@ -159,7 +159,8 @@ class UnusableIpRangesController(BaseController):
 
     def create(self, request, policy_id, tenant_id=None):
         policy = Policy.find_by(id=policy_id, tenant_id=tenant_id)
-        ip_range = policy.create_unusable_range(**request.params.copy())
+        params = self._extract_required_params(request, 'ip_range')
+        ip_range = policy.create_unusable_range(**stringify_keys(params))
         return dict(ip_range=ip_range.data()), 201
 
     def show(self, request, policy_id, id, tenant_id=None):
@@ -196,7 +197,8 @@ class UnusableIpOctetsController(BaseController):
 
     def create(self, request, policy_id, tenant_id=None):
         policy = Policy.find_by(id=policy_id, tenant_id=tenant_id)
-        ip_octet = policy.create_unusable_ip_octet(**request.params.copy())
+        params = self._extract_required_params(request, 'ip_octet')
+        ip_octet = policy.create_unusable_ip_octet(**stringify_keys(params))
         return dict(ip_octet=ip_octet.data()), 201
 
     def show(self, request, policy_id, id, tenant_id=None):

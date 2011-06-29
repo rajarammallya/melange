@@ -719,9 +719,9 @@ class UnusableIpRangesControllerBase():
     def test_create(self):
         policy = self._policy_factory()
 
-        response = self.app.post("%s/%s/unusable_ip_ranges"
+        response = self.app.post_json("%s/%s/unusable_ip_ranges"
                                  % (self.policy_path, policy.id),
-                                 {'offset': '10', 'length': '2'})
+                                 {'ip_range': {'offset': '10', 'length': '2'}})
 
         unusable_range = IpRange.find_all_by_policy(policy.id).first()
         self.assertEqual(response.status, "201 Created")
@@ -730,7 +730,8 @@ class UnusableIpRangesControllerBase():
     def test_create_on_non_existent_policy(self):
         response = self.app.post("%s/10000/unusable_ip_ranges"
                                  % self.policy_path,
-                                 {'offset': '1', 'length': '2'}, status="*")
+                                 {'ip_range': {'offset': '1', 'length': '2'}},
+                                  status="*")
 
         self.assertErrorResponse(response, HTTPNotFound,
                                  "Policy Not Found")
@@ -849,7 +850,8 @@ class TestUnusableIpRangeControllerForTenantPolicies(
                                  % (self.policy_path, policy.id, ip_range.id),
                                 status='*')
 
-        self.assertEqual(response.status_int, 404)
+        self.assertErrorResponse(response, HTTPNotFound,
+                                 "Policy Not Found")
 
     def test_index_fails_for_non_existent_policy_for_given_tenant(self):
         policy = PolicyFactory(tenant_id=123)
@@ -859,18 +861,20 @@ class TestUnusableIpRangeControllerForTenantPolicies(
                                  % (self.policy_path, policy.id),
                                  status='*')
 
-        self.assertEqual(response.status_int, 404)
+        self.assertErrorResponse(response, HTTPNotFound,
+                                 "Policy Not Found")
 
     def test_create_fails_for_non_existent_policy_for_given_tenant(self):
         policy = PolicyFactory(tenant_id=123)
         ip_range = IpRangeFactory(policy_id=policy.id)
         self.policy_path = "/ipam/tenants/111/policies"
-        response = self.app.post("%s/%s/unusable_ip_ranges"
+        response = self.app.post_json("%s/%s/unusable_ip_ranges"
                                  % (self.policy_path, policy.id),
-                                 {'offset': 1, 'length': 20},
+                                 {'ip_range': {'offset': 1, 'length': 20}},
                                  status='*')
 
-        self.assertEqual(response.status_int, 404)
+        self.assertErrorResponse(response, HTTPNotFound,
+                                 "Policy Not Found")
 
     def test_update_fails_for_non_existent_policy_for_given_tenant(self):
         policy = PolicyFactory(tenant_id=123)
@@ -880,7 +884,8 @@ class TestUnusableIpRangeControllerForTenantPolicies(
                                  % (self.policy_path, policy.id, ip_range.id),
                                  {'offset': 1}, status='*')
 
-        self.assertEqual(response.status_int, 404)
+        self.assertErrorResponse(response, HTTPNotFound,
+                                 "Policy Not Found")
 
     def test_delete_fails_for_non_existent_policy_for_given_tenant(self):
         policy = PolicyFactory(tenant_id=123)
@@ -890,7 +895,8 @@ class TestUnusableIpRangeControllerForTenantPolicies(
                                  % (self.policy_path, policy.id, ip_range.id),
                                  status='*')
 
-        self.assertEqual(response.status_int, 404)
+        self.assertErrorResponse(response, HTTPNotFound,
+                                 "Policy Not Found")
 
 
 class UnusableIpOctetsControllerBase():
@@ -921,18 +927,18 @@ class UnusableIpOctetsControllerBase():
 
     def test_create(self):
         policy = self._policy_factory()
-        response = self.app.post("%s/%s/unusable_ip_octets"
+        response = self.app.post_json("%s/%s/unusable_ip_octets"
                                  % (self.policy_path, policy.id),
-                                 {'octet': '123'})
+                                 {'ip_octet': {'octet': '123'}})
 
         ip_octet = IpOctet.find_all_by_policy(policy.id).first()
         self.assertEqual(response.status, "201 Created")
         self.assertEqual(response.json['ip_octet'], ip_octet.data())
 
     def test_create_on_non_existent_policy(self):
-        response = self.app.post("%s/10000/unusable_ip_octets"
+        response = self.app.post_json("%s/10000/unusable_ip_octets"
                                  % self.policy_path,
-                                 {'octet': '2'}, status="*")
+                                 {'ip_octet': {'octet': '2'}}, status="*")
 
         self.assertErrorResponse(response, HTTPNotFound,
                                  "Policy Not Found")
@@ -1034,7 +1040,8 @@ class TestUnusableIpOctetControllerForTenantPolicies(
                                  % (self.policy_path, policy.id, ip_octet.id),
                                 status='*')
 
-        self.assertEqual(response.status_int, 404)
+        self.assertErrorResponse(response, HTTPNotFound,
+                                 "Policy Not Found")
 
     def test_index_fails_for_non_existent_policy_for_given_tenant(self):
         policy = PolicyFactory(tenant_id=123)
@@ -1044,18 +1051,20 @@ class TestUnusableIpOctetControllerForTenantPolicies(
                                  % (self.policy_path, policy.id),
                                  status='*')
 
-        self.assertEqual(response.status_int, 404)
+        self.assertErrorResponse(response, HTTPNotFound,
+                                 "Policy Not Found")
 
     def test_create_fails_for_non_existent_policy_for_given_tenant(self):
         policy = PolicyFactory(tenant_id=123)
         ip_octet = IpOctetFactory(policy_id=policy.id)
         self.policy_path = "/ipam/tenants/111/policies"
-        response = self.app.post("%s/%s/unusable_ip_octets"
+        response = self.app.post_json("%s/%s/unusable_ip_octets"
                                  % (self.policy_path, policy.id),
-                                 {'octet': 1},
+                                 {'ip_octet': {'octet': 1}},
                                  status='*')
 
-        self.assertEqual(response.status_int, 404)
+        self.assertErrorResponse(response, HTTPNotFound,
+                                 "Policy Not Found")
 
     def test_update_fails_for_non_existent_policy_for_given_tenant(self):
         policy = PolicyFactory(tenant_id=123)
@@ -1065,7 +1074,8 @@ class TestUnusableIpOctetControllerForTenantPolicies(
                                  % (self.policy_path, policy.id, ip_octet.id),
                                  {'octet': 1}, status='*')
 
-        self.assertEqual(response.status_int, 404)
+        self.assertErrorResponse(response, HTTPNotFound,
+                                 "Policy Not Found")
 
     def test_delete_fails_for_non_existent_policy_for_given_tenant(self):
         policy = PolicyFactory(tenant_id=123)
@@ -1075,7 +1085,8 @@ class TestUnusableIpOctetControllerForTenantPolicies(
                                  % (self.policy_path, policy.id, ip_octet.id),
                                  status='*')
 
-        self.assertEqual(response.status_int, 404)
+        self.assertErrorResponse(response, HTTPNotFound,
+                                 "Policy Not Found")
 
 
 class TestPoliciesController(BaseTestController):
@@ -1182,7 +1193,8 @@ class TestTenantPoliciesController(BaseTestController):
         response = self.app.get("/ipam/tenants/1111/policies/%s" % policy.id,
                                 status="*")
 
-        self.assertEqual(response.status_int, 404)
+        self.assertErrorResponse(response, HTTPNotFound,
+                                 "Policy Not Found")
 
     def test_update_fails_for_incorrect_tenant_id(self):
         policy = PolicyFactory(tenant_id="111")
@@ -1190,7 +1202,8 @@ class TestTenantPoliciesController(BaseTestController):
                                     % policy.id,
                                 {'policy': {'name': "Standard"}}, status="*")
 
-        self.assertEqual(response.status_int, 404)
+        self.assertErrorResponse(response, HTTPNotFound,
+                                 "Policy Not Found")
 
     def test_update(self):
         policy = PolicyFactory(name="blah", tenant_id="123")
@@ -1226,7 +1239,8 @@ class TestTenantPoliciesController(BaseTestController):
         response = self.app.delete("/ipam/tenants/111/policies/%s" % policy.id,
                                    status="*")
 
-        self.assertEqual(response.status_int, 404)
+        self.assertErrorResponse(response, HTTPNotFound,
+                                 "Policy Not Found")
 
 
 class NetworksControllerBase():

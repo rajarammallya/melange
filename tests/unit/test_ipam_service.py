@@ -761,9 +761,9 @@ class UnusableIpRangesControllerBase():
         ip_range = IpRangeFactory.create(offset=10, length=11,
                                          policy_id=policy.id)
 
-        response = self.app.put("%s/%s/unusable_ip_ranges/%s"
+        response = self.app.put_json("%s/%s/unusable_ip_ranges/%s"
                                 % (self.policy_path, policy.id, ip_range.id),
-                                {'offset': 1111, 'length': 2222})
+                                {'ip_range': {'offset': 1111, 'length': 2222}})
 
         self.assertEqual(response.status_int, 200)
         updated_range = IpRange.find(ip_range.id)
@@ -776,22 +776,24 @@ class UnusableIpRangesControllerBase():
         ip_range = IpRangeFactory.create(offset=10, length=11,
                                          policy_id=policy.id)
         new_policy_id = policy.id + 1
-        response = self.app.put("%s/%s/unusable_ip_ranges/%s"
+        response = self.app.put_json("%s/%s/unusable_ip_ranges/%s"
                                 % (self.policy_path, policy.id, ip_range.id),
-                                {'offset': 1111, 'length': 2222,
-                                'policy_id': new_policy_id})
+                                {'ip_range': {'offset': 1111, 'length': 2222,
+                                'policy_id': new_policy_id}})
 
         self.assertEqual(response.status_int, 200)
         updated_range = IpRange.find(ip_range.id)
+        self.assertEqual(updated_range.offset, 1111)
         self.assertEqual(updated_range.policy_id, policy.id)
         self.assertEqual(response.json['ip_range']['policy_id'], policy.id)
 
     def test_update_when_ip_range_does_not_exists(self):
         policy = self._policy_factory()
 
-        response = self.app.put("%s/%s/unusable_ip_ranges/%s"
-                                 % (self.policy_path, policy.id, "invalid_id"),
-                                 {'offset': 1111, 'length': 222}, status="*")
+        response = self.app.put_json("%s/%s/unusable_ip_ranges/%s"
+                                % (self.policy_path, policy.id, "invalid_id"),
+                                {'ip_range': {'offset': 1111, 'length': 222}},
+                                status="*")
 
         self.assertErrorResponse(response, HTTPNotFound,
                                   "IpRange Not Found")
@@ -882,7 +884,7 @@ class TestUnusableIpRangeControllerForTenantPolicies(
         self.policy_path = "/ipam/tenants/111/policies"
         response = self.app.put("%s/%s/unusable_ip_ranges/%s"
                                  % (self.policy_path, policy.id, ip_range.id),
-                                 {'offset': 1}, status='*')
+                                 {'ip_range': {'offset': 1}}, status='*')
 
         self.assertErrorResponse(response, HTTPNotFound,
                                  "Policy Not Found")
@@ -967,9 +969,9 @@ class UnusableIpOctetsControllerBase():
         policy = self._policy_factory()
         ip_octet = IpOctetFactory.create(octet=10, policy_id=policy.id)
 
-        response = self.app.put("%s/%s/unusable_ip_octets/%s"
+        response = self.app.put_json("%s/%s/unusable_ip_octets/%s"
                                 % (self.policy_path, policy.id, ip_octet.id),
-                                {'octet': 123})
+                                {'ip_octet': {'octet': 123}})
 
         self.assertEqual(response.status_int, 200)
         updated_octet = IpOctet.find(ip_octet.id)
@@ -980,21 +982,23 @@ class UnusableIpOctetsControllerBase():
         policy = self._policy_factory()
         ip_octet = IpOctetFactory.create(octet=254, policy_id=policy.id)
         new_policy_id = policy.id + 1
-        response = self.app.put("%s/%s/unusable_ip_octets/%s"
+        response = self.app.put_json("%s/%s/unusable_ip_octets/%s"
                                 % (self.policy_path, policy.id, ip_octet.id),
-                                {'octet': 253, 'policy_id': new_policy_id})
+                                {'ip_octet': {'octet': 253,
+                                              'policy_id': new_policy_id}})
 
         self.assertEqual(response.status_int, 200)
         updated_octet = IpOctet.find(ip_octet.id)
+        self.assertEqual(updated_octet.octet, 253)
         self.assertEqual(updated_octet.policy_id, policy.id)
         self.assertEqual(response.json['ip_octet']['policy_id'], policy.id)
 
     def test_update_when_ip_octet_does_not_exists(self):
         policy = self._policy_factory()
 
-        response = self.app.put("%s/%s/unusable_ip_octets/%s"
+        response = self.app.put_json("%s/%s/unusable_ip_octets/%s"
                                  % (self.policy_path, policy.id, "invalid_id"),
-                                 {'octet': 222}, status="*")
+                                 {'ip_octet': {'octet': 222}}, status="*")
 
         self.assertErrorResponse(response, HTTPNotFound,
                                   "IpOctet Not Found")
@@ -1070,9 +1074,9 @@ class TestUnusableIpOctetControllerForTenantPolicies(
         policy = PolicyFactory(tenant_id=123)
         ip_octet = IpOctetFactory(policy_id=policy.id)
         self.policy_path = "/ipam/tenants/111/policies"
-        response = self.app.put("%s/%s/unusable_ip_octets/%s"
+        response = self.app.put_json("%s/%s/unusable_ip_octets/%s"
                                  % (self.policy_path, policy.id, ip_octet.id),
-                                 {'octet': 1}, status='*')
+                                 {'ip_octet': {'octet': 1}}, status='*')
 
         self.assertErrorResponse(response, HTTPNotFound,
                                  "Policy Not Found")

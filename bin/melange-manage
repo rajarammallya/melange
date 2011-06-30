@@ -61,20 +61,61 @@ from gettext import gettext as _
 from melange.common.client import Client
 
 
-class PublicIpBlockCommands(object):
+class Resource(object):
+    client = Client()
+    headers = {'X_ROLE': "Admin", 'Content-Type': "application/json"}
 
-    def create(self, cidr=None, network_id=None, policy_id=None,
-               tenant_id=None, type=None):
-        request_body = json.dumps({'ip_block': {'cidr': cidr,
-                                                'network_id': network_id,
-                                                'policy_id': policy_id}})
-        path = "/v0.1/ipam/public_ip_blocks"
-        headers = {'X_ROLE': "Admin", 'Content-Type': "application/json"}
-        response = Client().post(path, request_body, headers)
-        print response.read()
+    def __init__(self, path, name):
+        self.path = path
+        self.name = name
+
+    def create(self, **kwargs):
+        return self.request("POST", self.path,
+                            body=json.dumps({self.name: kwargs}))
+
+    def all(self):
+        return self.request("GET", self.path)
+
+    def find(self, id):
+        return self.request("GET", self._member_path(id))
+
+    def delete(self, id):
+        return self.request("DELETE", self._member_path(id))
+
+    def _member_path(self, id):
+        return "{0}/{1}".format(self.path, id)
+
+    def request(self, method, path, **kwargs):
+        kwargs['headers'] = self.headers
+        response = self.client.do_request(method, path, **kwargs)
+        return json.loads(response.read() or "{}")
 
 
-CATEGORIES = [('public_ip_block', PublicIpBlockCommands)]
+class IpBlockCommands(object):
+
+    def __init__(self, block):
+        self.block = block
+
+    def create(self, cidr=None, network_id=None, policy_id=None):
+        print self.block.create(cidr=cidr, network_id=network_id,
+                                        policy_id=policy_id)
+
+    def list(self):
+        print self.block.all()
+
+    def show(self, id):
+        print self.block.find(id)
+
+    def delete(self, id):
+        print self.block.delete(id)
+
+
+GlobalPrivateIpBlock = Resource("/v0.1/ipam/private_ip_blocks", 'ip_block')
+PublicIpBlock = Resource("/v0.1/ipam/public_ip_blocks", 'ip_block')
+
+
+CATEGORIES = [('public_ip_block', IpBlockCommands(PublicIpBlock)),
+              ('private_ip_block', IpBlockCommands(GlobalPrivateIpBlock))]
 
 
 def lazy_match(name, key_value_tuples):
@@ -123,8 +164,7 @@ def main():
     category = argv.pop(0)
     matches = lazy_match(category, CATEGORIES)
     # instantiate the command group object
-    category, fn = matches[0]
-    command_object = fn()
+    category, command_object = matches[0]
     actions = methods_of(command_object)
     if len(argv) < 1:
         print script_name + " category action [<args>]"

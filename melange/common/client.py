@@ -22,18 +22,19 @@ import urllib
 
 class Client(object):
 
-    """A base client class - derived from Glance.BaseClient"""
-
     def __init__(self, host='localhost', port='9292', use_ssl=False):
         self.host = host
         self.port = port
         self.use_ssl = use_ssl
 
     def get(self, path, params={}, headers={}):
-        return self._do_request("GET", path, params=params, headers=headers)
+        return self.do_request("GET", path, params=params, headers=headers)
 
     def post(self, path, body=None, headers={}):
-        return self._do_request("POST", path, body=body, headers=headers)
+        return self.do_request("POST", path, body=body, headers=headers)
+
+    def delete(self, path, headers={}):
+        return self.do_request("DELETE", path, headers=headers)
 
     def _get_connection(self):
         if self.use_ssl:
@@ -41,7 +42,7 @@ class Client(object):
         else:
             return httplib.HTTPConnection(self.host, self.port)
 
-    def _do_request(self, method, path, body=None, headers={}, params={}):
+    def do_request(self, method, path, body=None, headers={}, params={}):
 
         url = path + '?' + urllib.urlencode(params)
 

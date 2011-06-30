@@ -110,12 +110,33 @@ class IpBlockCommands(object):
         print self.block.delete(id)
 
 
+class TenantIpBlockCommands(object):
+
+    def _block(self, tenant_id):
+        return Resource("/v0.1/ipam/tenants/{0}/private_ip_blocks"\
+                             .format(tenant_id), "ip_block")
+
+    def create(self, tenant_id, cidr=None, network_id=None, policy_id=None):
+        print self._block(tenant_id).create(cidr=cidr, network_id=network_id,
+                                        policy_id=policy_id)
+
+    def list(self, tenant_id):
+        print self._block(tenant_id).all()
+
+    def show(self, tenant_id, id):
+        print self._block(tenant_id).find(id)
+
+    def delete(self, tenant_id, id):
+        print self._block(tenant_id).delete(id)
+
+
 GlobalPrivateIpBlock = Resource("/v0.1/ipam/private_ip_blocks", 'ip_block')
 PublicIpBlock = Resource("/v0.1/ipam/public_ip_blocks", 'ip_block')
 
 
 CATEGORIES = [('public_ip_block', IpBlockCommands(PublicIpBlock)),
-              ('private_ip_block', IpBlockCommands(GlobalPrivateIpBlock))]
+              ('private_ip_block', IpBlockCommands(GlobalPrivateIpBlock)),
+              ('tenant_ip_block', TenantIpBlockCommands())]
 
 
 def lazy_match(name, key_value_tuples):

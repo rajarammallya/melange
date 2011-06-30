@@ -174,7 +174,7 @@ class TestPublicIpBlockController(IpBlockControllerBase, BaseTestController):
                        status="*")
 
         self.assertEqual(duplicate_block_response.status, "400 Bad Request")
-        self.assertTrue("cidr for public ip is not unique"
+        self.assertTrue("cidr for public ip block should be unique"
                         in duplicate_block_response.body)
 
 

@@ -16,7 +16,7 @@
 #    under the License.
 
 import unittest
-from tests.functional.client import Client
+from melange.common.client import Client
 from tests.functional import get_api_port
 
 

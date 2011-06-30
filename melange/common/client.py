@@ -32,6 +32,9 @@ class Client(object):
     def get(self, path, params={}, headers={}):
         return self._do_request("GET", path, params=params, headers=headers)
 
+    def post(self, path, body=None, headers={}):
+        return self._do_request("POST", path, body=body, headers=headers)
+
     def _get_connection(self):
         if self.use_ssl:
             return httplib.HTTPSConnection(self.host, self.port)

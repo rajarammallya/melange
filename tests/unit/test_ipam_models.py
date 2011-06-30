@@ -122,7 +122,8 @@ class TestIpBlock(BaseTest):
 
         self.assertFalse(dup_block.is_valid())
         self.assertEqual(dup_block.errors,
-                         {'cidr': ['cidr for public ip is not unique']})
+                         {'cidr':
+                              ['cidr for public ip block should be unique']})
 
     def test_find_ip_block(self):
         block1 = PrivateIpBlockFactory(cidr="10.0.0.1/8")

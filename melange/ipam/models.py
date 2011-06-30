@@ -273,7 +273,8 @@ class IpBlock(ModelBase):
     def validate_uniqueness_for_public_ip_block(self):
         if (self.type == 'public' and
                          IpBlock.get_by(type=self.type, cidr=self.cidr)):
-            self._add_error('cidr', 'cidr for public ip is not unique')
+            self._add_error('cidr',
+                            'cidr for public ip block should be unique')
 
     def _validate(self):
         self.validate_cidr()

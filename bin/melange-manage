@@ -1,0 +1,151 @@
+#!/usr/bin/env python
+# vim: tabstop=4 shiftwidth=4 softtabstop=4
+
+# Copyright 2010 United States Government as represented by the
+# Administrator of the National Aeronautics and Space Administration.
+# All Rights Reserved.
+#
+#    Licensed under the Apache License, Version 2.0 (the "License"); you may
+#    not use this file except in compliance with the License. You may obtain
+#    a copy of the License at
+#
+#         http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+#    License for the specific language governing permissions and limitations
+#    under the License.
+
+# Interactive shell based on Django:
+#
+# Copyright (c) 2005, the Lawrence Journal-World
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+#     1. Redistributions of source code must retain the above copyright notice,
+#        this list of conditions and the following disclaimer.
+#
+#     2. Redistributions in binary form must reproduce the above copyright
+#        notice, this list of conditions and the following disclaimer in the
+#        documentation and/or other materials provided with the distribution.
+#
+#     3. Neither the name of Django nor the names of its contributors may be
+#        used to endorse or promote products derived from this software without
+#        specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+# A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+# OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+# LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+# DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+# THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
+"""
+  CLI interface for IPAM.
+"""
+import logging
+import sys
+import json
+
+from melange import version
+from gettext import gettext as _
+from melange.common.client import Client
+
+
+class PublicIpBlockCommands(object):
+
+    def create(self, cidr=None, network_id=None, policy_id=None,
+               tenant_id=None, type=None):
+        request_body = json.dumps({'ip_block': {'cidr': cidr,
+                                                'network_id': network_id,
+                                                'policy_id': policy_id}})
+        path = "/v0.1/ipam/public_ip_blocks"
+        headers = {'X_ROLE': "Admin", 'Content-Type': "application/json"}
+        response = Client().post(path, request_body, headers)
+        print response.read()
+
+
+CATEGORIES = [('public_ip_block', PublicIpBlockCommands)]
+
+
+def lazy_match(name, key_value_tuples):
+    """Finds all objects that have a key that case insensitively contains
+    [name] key_value_tuples is a list of tuples of the form (key, value)
+    returns a list of tuples of the form (key, value)"""
+    result = []
+    for (k, v) in key_value_tuples:
+        if k.lower().find(name.lower()) == 0:
+            result.append((k, v))
+    if len(result) == 0:
+        print "%s does not match any options:" % name
+        for k, _v in key_value_tuples:
+            print "\t%s" % k
+        sys.exit(2)
+    if len(result) > 1:
+        print "%s matched multiple options:" % name
+        for k, _v in result:
+            print "\t%s" % k
+        sys.exit(2)
+    return result
+
+
+def methods_of(obj):
+    """Get all callable methods of an object that don't start with underscore
+    returns a list of tuples of the form (method_name, method)"""
+    result = []
+    for i in dir(obj):
+        if callable(getattr(obj, i)) and not i.startswith('_'):
+            result.append((i, getattr(obj, i)))
+    return result
+
+
+def main():
+    """Parse options and call the appropriate class/method."""
+    argv = sys.argv
+    script_name = argv.pop(0)
+    if len(argv) < 1:
+        print _("\nOpenStack Nova version: %s (%s)\n") %\
+                (version.version_string(), version.version_string_with_vcs())
+        print script_name + " category action [<args>]"
+        print _("Available categories:")
+        for k, _v in CATEGORIES:
+            print "\t%s" % k
+        sys.exit(2)
+    category = argv.pop(0)
+    matches = lazy_match(category, CATEGORIES)
+    # instantiate the command group object
+    category, fn = matches[0]
+    command_object = fn()
+    actions = methods_of(command_object)
+    if len(argv) < 1:
+        print script_name + " category action [<args>]"
+        print _("Available actions for %s category:") % category
+        for k, _v in actions:
+            print "\t%s" % k
+        sys.exit(2)
+    action = argv.pop(0)
+    matches = lazy_match(action, actions)
+    action, fn = matches[0]
+    # call the action with the remaining arguments
+    try:
+        fn(*argv)
+        sys.exit(0)
+    except TypeError:
+        print _("Possible wrong number of arguments supplied")
+        print "%s %s: %s" % (category, action, fn.__doc__)
+        raise
+    except Exception:
+        print _("Command failed, please check log for more info")
+        raise
+
+if __name__ == '__main__':
+    main()

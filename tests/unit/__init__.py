@@ -58,6 +58,9 @@ class BaseTest(unittest.TestCase):
         self.assertTrue(expected in actual,
             "{0} does not contain {1}".format(repr(actual), repr(expected)))
 
+    def assertItemsEqual(self, expected, actual):
+        self.assertEqual(sorted(expected), sorted(actual))
+
 
 def test_config_path():
     return os.path.abspath("../etc/melange.conf.test")

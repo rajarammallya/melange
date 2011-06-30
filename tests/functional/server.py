@@ -48,7 +48,7 @@ class Server(object):
             os.setsid()
             self.close_stdio()
             try:
-                os.system("(%s -p %s)" % (self.name, self.port))
+                os.system("(%s -p %s >func_test.log)" % (self.name, self.port))
             except OSError:
                 os._exit(1)
             os._exit(0)

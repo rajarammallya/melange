@@ -22,7 +22,7 @@ from webob.exc import (HTTPUnprocessableEntity, HTTPBadRequest,
                        HTTPNotFound, HTTPConflict)
 from tests.unit import BaseTest
 from tests.unit import test_config_path
-from melange.common import config, wsgi
+from melange.common import config, wsgi, utils
 from melange.common.config import Config
 from melange.ipam import models
 from melange.ipam.service import BaseController
@@ -126,13 +126,13 @@ class IpBlockControllerBase():
         self.assertEqual(response.status, "200 OK")
         response_blocks = response.json['ip_blocks']
         self.assertEqual(len(response_blocks), 3)
-        self.assertEqual(response_blocks, _data_of(*blocks))
+        self.assertItemsEqual(response_blocks, _data_of(*blocks))
 
     def test_index_with_pagination(self):
-        blocks = [self._ip_block_factory(cidr="10.1.1.0/32"),
-                  self._ip_block_factory(cidr='10.2.1.0/32'),
-                  self._ip_block_factory(cidr='10.3.1.0/32'),
-                  self._ip_block_factory(cidr='10.4.1.0/32')]
+        blocks = models.sort([self._ip_block_factory(cidr="10.1.1.0/32"),
+                              self._ip_block_factory(cidr='10.2.1.0/32'),
+                              self._ip_block_factory(cidr='10.3.1.0/32'),
+                              self._ip_block_factory(cidr='10.4.1.0/32')])
 
         response = self.app.get("%s?limit=2&marker=%s"
                                 % (self.ip_block_path, blocks[1].id))
@@ -140,7 +140,7 @@ class IpBlockControllerBase():
         response_blocks = response.json['ip_blocks']
         self.assertEqual(response.status, "200 OK")
         self.assertEqual(len(response_blocks), 2)
-        self.assertEqual(response_blocks, _data_of(blocks[2], blocks[3]))
+        self.assertItemsEqual(response_blocks, _data_of(blocks[2], blocks[3]))
 
 
 class TestPublicIpBlockController(IpBlockControllerBase, BaseTestController):
@@ -239,7 +239,7 @@ class TestTenantPrivateIpBlockController(IpBlockControllerBase,
         self.assertEqual(response.status, "200 OK")
         response_blocks = response.json['ip_blocks']
         self.assertEqual(len(response_blocks), 2)
-        self.assertEqual(response_blocks, _data_of(ip_block1, ip_block2))
+        self.assertItemsEqual(response_blocks, _data_of(ip_block1, ip_block2))
 
 
 class IpAddressControllerBase():
@@ -354,8 +354,8 @@ class IpAddressControllerBase():
 
     def test_index(self):
         block = self.ip_block_factory(tenant_id="111")
-        address_1 = block.allocate_ip()
-        address_2 = block.allocate_ip()
+        address_1, address_2 = models.sort([block.allocate_ip()
+                                            for i in range(2)])
 
         response = self.app.get("/ipam/tenants/111/private_ip_blocks/"
                                 "%s/ip_addresses" % block.id)
@@ -368,7 +368,7 @@ class IpAddressControllerBase():
 
     def test_index_with_pagination(self):
         block = self.ip_block_factory(tenant_id="111")
-        ips = [block.allocate_ip() for i in range(5)]
+        ips = models.sort([block.allocate_ip() for i in range(5)])
 
         response = self.app.get("/ipam/tenants/111/private_ip_blocks/"
                                 "%s/ip_addresses?"
@@ -391,7 +391,7 @@ class IpAddressControllerBase():
         ip_addresses = [ip.address for ip in
                         IpAddress.find_all(ip_block_id=block.id)]
         self.assertEqual(response.status, "200 OK")
-        self.assertEqual(ip_addresses, [ip.address for ip in ips])
+        self.assertItemsEqual(ip_addresses, [ip.address for ip in ips])
 
 
 class TestPrivateIpAddressController(IpAddressControllerBase,
@@ -482,7 +482,7 @@ class TestInsideGlobalsController(BaseTestController):
                                 "inside_globals"
                                  % (local_block.id, local_ip.address))
 
-        self.assertEqual(response.json,
+        self.assertItemsEqual(response.json,
                          {'ip_addresses': _data_of(global_ip_1,
                                                    global_ip_2)})
 
@@ -775,7 +775,7 @@ class UnusableIpRangesControllerBase():
         policy = self._policy_factory()
         ip_range = IpRangeFactory.create(offset=10, length=11,
                                          policy_id=policy.id)
-        new_policy_id = policy.id + 1
+        new_policy_id = utils.guid()
         response = self.app.put_json("%s/%s/unusable_ip_ranges/%s"
                                 % (self.policy_path, policy.id, ip_range.id),
                                 {'ip_range': {'offset': 1111, 'length': 2222,
@@ -808,7 +808,7 @@ class UnusableIpRangesControllerBase():
 
         response_ranges = response.json["ip_ranges"]
         self.assertEqual(len(response_ranges), 3)
-        self.assertEqual(response_ranges,
+        self.assertItemsEqual(response_ranges,
                          _data_of(*policy.unusable_ip_ranges))
 
     def test_delete(self):
@@ -913,7 +913,7 @@ class UnusableIpOctetsControllerBase():
 
         response_octets = response.json["ip_octets"]
         self.assertEqual(len(response_octets), 3)
-        self.assertEqual(response_octets,
+        self.assertItemsEqual(response_octets,
                          _data_of(*policy.unusable_ip_octets))
 
     def test_index_with_limits(self):
@@ -926,6 +926,8 @@ class UnusableIpOctetsControllerBase():
 
         response_octets = response.json["ip_octets"]
         self.assertEqual(len(response_octets), 2)
+        self.assertItemsEqual(response_octets,
+                       _data_of(*models.sort(policy.unusable_ip_octets)[0:2]))
 
     def test_create(self):
         policy = self._policy_factory()
@@ -981,7 +983,7 @@ class UnusableIpOctetsControllerBase():
     def test_update_ignores_change_in_policy_id(self):
         policy = self._policy_factory()
         ip_octet = IpOctetFactory.create(octet=254, policy_id=policy.id)
-        new_policy_id = policy.id + 1
+        new_policy_id = utils.guid()
         response = self.app.put_json("%s/%s/unusable_ip_octets/%s"
                                 % (self.policy_path, policy.id, ip_octet.id),
                                 {'ip_octet': {'octet': 253,
@@ -1113,7 +1115,7 @@ class TestPoliciesController(BaseTestController):
         response_policies = response.json['policies']
         policies = Policy.find_all().all()
         self.assertEqual(len(policies), 2)
-        self.assertEqual(response_policies, _data_of(*policies))
+        self.assertItemsEqual(response_policies, _data_of(*policies))
 
     def test_show_when_requested_policy_exists(self):
         policy = PolicyFactory(name="DRAC")
@@ -1166,7 +1168,8 @@ class TestTenantPoliciesController(BaseTestController):
         response = self.app.get("/ipam/tenants/1/policies")
 
         self.assertEqual(response.status_int, 200)
-        self.assertEqual(response.json["policies"], _data_of(policy1, policy3))
+        self.assertItemsEqual(response.json["policies"],
+                              _data_of(policy1, policy3))
 
     def test_create(self):
         response = self.app.post_json("/ipam/tenants/1111/policies",
@@ -1363,7 +1366,7 @@ class TestTenantNetworksController(NetworksControllerBase,
 
 
 def _allocate_ips(*args):
-    return [[ip_block.allocate_ip() for i in range(num_of_ips)]
+    return [models.sort([ip_block.allocate_ip() for i in range(num_of_ips)])
             for ip_block, num_of_ips in args]
 
 

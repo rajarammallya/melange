@@ -26,6 +26,7 @@ import os
 import random
 import subprocess
 import sys
+import uuid
 
 from melange.common import exception
 from melange.common.exception import ProcessExecutionError
@@ -222,6 +223,10 @@ def find(predicate, items):
     for item in items:
         if predicate(item) is True:
             return item
+
+
+def guid():
+    return str(uuid.uuid4())
 
 
 class cached_property(object):

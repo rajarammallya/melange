@@ -28,10 +28,10 @@ def define_ip_addresses_table(meta):
     ip_blocks = define_ip_blocks_table(meta)
 
     ip_addresses = Table('ip_addresses', meta,
-        Column('id', Integer(), primary_key=True, nullable=False),
+        Column('id', String(36), primary_key=True, nullable=False),
         Column('address', String(255), nullable=False),
         Column('port_id', String(255), nullable=True),
-        Column('ip_block_id', Integer(), ForeignKey('ip_blocks.id'),
+        Column('ip_block_id', String(36), ForeignKey('ip_blocks.id'),
                nullable=True),
         Column('created_at', DateTime(), nullable=True),
         Column('updated_at', DateTime()))

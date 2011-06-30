@@ -33,7 +33,7 @@ class ModelBase(object):
 
     @classmethod
     def create(cls, **values):
-        instance = cls(**values)
+        instance = cls(id=utils.guid(), **values)
         return instance.save()
 
     def save(self):
@@ -218,8 +218,8 @@ class IpBlock(ModelBase):
         if not candidate_ip:
             raise NoMoreAddressesError("IpBlock is full")
 
-        return IpAddress(address=candidate_ip, port_id=port_id,
-                          ip_block_id=self.id).save()
+        return IpAddress.create(address=candidate_ip, port_id=port_id,
+                          ip_block_id=self.id)
 
     def _check_address(self, address, allocated_addresses):
 
@@ -338,7 +338,7 @@ class Policy(ModelBase):
     def delete(self):
         db_api.delete_all(self.unusable_ip_ranges)
         db_api.delete_all(self.unusable_ip_octets)
-        ip_blocks = IpBlock.find_all(id=self.id)
+        ip_blocks = IpBlock.find_all(policy_id=self.id)
         ip_blocks.update({'policy_id': None})
         super(Policy, self).delete()
 
@@ -501,3 +501,7 @@ class InvalidModelError(MelangeError):
 
     def _error_message(self):
         return str(self)
+
+
+def sort(iterable):
+    return sorted(iterable, key=lambda model: model.id)

@@ -29,10 +29,10 @@ def define_ip_nat_table(meta):
     ip_addresses = define_ip_addresses_table(meta)
 
     ip_nats = Table('ip_nats', meta,
-        Column('id', Integer(), primary_key=True, nullable=False),
-        Column('inside_local_address_id', Integer(),
+        Column('id', String(36), primary_key=True, nullable=False),
+        Column('inside_local_address_id', String(36),
                ForeignKey('ip_addresses.id'), nullable=False),
-        Column('inside_global_address_id', Integer(),
+        Column('inside_global_address_id', String(36),
                ForeignKey('ip_addresses.id'), nullable=False),
         Column('created_at', DateTime(),
                default=datetime.datetime.utcnow, nullable=True),

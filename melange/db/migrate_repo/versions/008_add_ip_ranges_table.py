@@ -29,10 +29,10 @@ def define_ip_range_table(meta):
     policy_table = define_policy_table(meta)
 
     ip_ranges = Table('ip_ranges', meta,
-        Column('id', Integer(), primary_key=True, nullable=False),
+        Column('id', String(36), primary_key=True, nullable=False),
         Column('offset', Integer(), nullable=False),
         Column('length', Integer(), nullable=False),
-        Column('policy_id', Integer(), ForeignKey('policies.id')),
+        Column('policy_id', String(36), ForeignKey('policies.id')),
         Column('created_at', DateTime(),
                default=datetime.datetime.utcnow, nullable=True),
         Column('updated_at', DateTime(), default=datetime.datetime.utcnow),

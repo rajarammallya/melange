@@ -29,7 +29,7 @@ def upgrade(migrate_engine):
 
     policy_table = Table('policies', meta, autoload=True)
     ip_block_table = Table('ip_blocks', meta)
-    Column('policy_id', Integer(), nullable=True).create(ip_block_table)
+    Column('policy_id', String(36), nullable=True).create(ip_block_table)
     ForeignKeyConstraint([ip_block_table.c.policy_id], [policy_table.c.id])
 
 

@@ -29,9 +29,9 @@ def define_ip_octets_table(meta):
     policy_table = define_policy_table(meta)
 
     ip_octets = Table('ip_octets', meta,
-        Column('id', Integer(), primary_key=True, nullable=False),
+        Column('id', String(36), primary_key=True, nullable=False),
         Column('octet', Integer(), nullable=False),
-        Column('policy_id', Integer(), ForeignKey('policies.id')),
+        Column('policy_id', String(36), ForeignKey('policies.id')),
         Column('created_at', DateTime(),
                default=datetime.datetime.utcnow, nullable=True),
         Column('updated_at', DateTime(), default=datetime.datetime.utcnow),

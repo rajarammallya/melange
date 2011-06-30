@@ -254,17 +254,17 @@ class TestIpBlock(BaseTest):
                     [block.cidr for block in blocks])
 
     def test_find_all_ip_blocks_with_pagination(self):
-        PrivateIpBlockFactory(cidr="10.2.0.1/28")
-        marker_block = PrivateIpBlockFactory(cidr="10.3.0.1/28")
-        PrivateIpBlockFactory(cidr="10.1.0.1/28")
-        PrivateIpBlockFactory(cidr="10.4.0.1/28")
+        blocks = models.sort([PrivateIpBlockFactory(cidr="10.2.0.1/28"),
+                              PrivateIpBlockFactory(cidr="10.3.0.1/28"),
+                              PrivateIpBlockFactory(cidr="10.1.0.1/28"),
+                              PrivateIpBlockFactory(cidr="10.4.0.1/28")])
 
-        blocks = IpBlock.with_limits(IpBlock.find_all(),
+        marker_block = blocks[1]
+        paginated_blocks = IpBlock.with_limits(IpBlock.find_all(),
                                      limit=2, marker=marker_block.id).all()
 
-        self.assertEqual(len(blocks), 2)
-        self.assertEqual(["10.1.0.1/28", "10.4.0.1/28"],
-                    [block.cidr for block in blocks])
+        self.assertEqual(len(paginated_blocks), 2)
+        self.assertEqual(paginated_blocks, [blocks[2], blocks[3]])
 
     def test_delete(self):
         ip_block = PrivateIpBlockFactory(cidr="10.0.0.0/29")
@@ -289,11 +289,11 @@ class TestIpBlock(BaseTest):
         self.assertFalse(ip_block.contains("20.0.0.232"))
 
 
-class TestIpAddress(unittest.TestCase):
+class TestIpAddress(BaseTest):
 
     def test_limited_find_all(self):
         block = PrivateIpBlockFactory(cidr="10.0.0.1/8")
-        ips = [block.allocate_ip() for i in range(6)]
+        ips = models.sort([block.allocate_ip() for i in range(6)])
         marker = ips[1].id
         addrs_after_marker = [ips[i].address for i in range(2, 6)]
 
@@ -302,7 +302,7 @@ class TestIpAddress(unittest.TestCase):
                                  limit=3, marker=marker)
         limited_addrs = [ip.address for ip in ip_addresses]
         self.assertEqual(len(limited_addrs), 3)
-        self.assertEqual(addrs_after_marker[0: 3], limited_addrs)
+        self.assertItemsEqual(addrs_after_marker[0: 3], limited_addrs)
 
     def test_find_ip_address(self):
         block = PrivateIpBlockFactory(cidr="10.0.0.1/8")
@@ -354,7 +354,7 @@ class TestIpAddress(unittest.TestCase):
         local_block = PrivateIpBlockFactory(cidr="10.0.0.1/8")
 
         global_ip = global_block.allocate_ip()
-        local_ips = [local_block.allocate_ip() for i in range(5)]
+        local_ips = models.sort([local_block.allocate_ip() for i in range(5)])
         global_ip.add_inside_locals(local_ips)
 
         limited_local_addresses = [ip.address for ip in global_ip.\
@@ -369,7 +369,8 @@ class TestIpAddress(unittest.TestCase):
         global_block = PrivateIpBlockFactory(cidr="192.0.0.1/8")
         local_block = PrivateIpBlockFactory(cidr="10.0.0.1/8")
 
-        global_ips = [global_block.allocate_ip() for i in range(5)]
+        global_ips = models.sort([global_block.allocate_ip()
+                                  for i in range(5)])
         local_ip = local_block.allocate_ip()
         local_ip.add_inside_globals(global_ips)
 
@@ -404,7 +405,8 @@ class TestIpAddress(unittest.TestCase):
         local_ip.remove_inside_globals(global_ips[0].address)
 
         globals_left = [ip.address for ip in local_ip.inside_globals()]
-        self.assertEqual(globals_left, [ip.address for ip in global_ips[1:5]])
+        self.assertItemsEqual(globals_left,
+                              [ip.address for ip in global_ips[1:5]])
 
     def test_remove_inside_locals_for_specific_address(self):
         global_block = PrivateIpBlockFactory(cidr="192.0.0.1/8")
@@ -417,7 +419,8 @@ class TestIpAddress(unittest.TestCase):
         global_ip.remove_inside_locals(local_ips[0].address)
 
         locals_left = [ip.address for ip in global_ip.inside_locals()]
-        self.assertEqual(locals_left, [ip.address for ip in local_ips[1:5]])
+        self.assertItemsEqual(locals_left,
+                              [ip.address for ip in local_ips[1:5]])
 
     def test_remove_inside_locals(self):
         global_block = PrivateIpBlockFactory(cidr="192.0.0.1/8")

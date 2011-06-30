@@ -25,7 +25,7 @@ import datetime
 def define_policy_table(meta):
 
     policies = Table('policies', meta,
-        Column('id', Integer(), primary_key=True, nullable=False),
+        Column('id', String(36), primary_key=True, nullable=False),
         Column('name', String(255), nullable=False),
         Column('description', String(255), nullable=True),
         Column('created_at', DateTime(),

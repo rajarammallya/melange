@@ -15,6 +15,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 from sqlalchemy import or_
+
+from melange.common import utils
 from melange.db import session
 
 
@@ -84,9 +86,9 @@ def update(model, values):
 
 def save_nat_relationships(nat_relationships):
     ip_nat_table = _ip_nat()
-
     for relationship in nat_relationships:
         ip_nat = ip_nat_table()
+        relationship['id'] = utils.guid()
         update(ip_nat, relationship)
         save(ip_nat)
 

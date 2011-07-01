@@ -20,7 +20,7 @@ import unittest
 from tests.unit import TestApp
 from webob.exc import (HTTPUnprocessableEntity, HTTPBadRequest,
                        HTTPNotFound, HTTPConflict)
-from tests.unit import BaseTest
+from tests import BaseTest
 from tests.unit import test_config_path
 from melange.common import config, wsgi, utils
 from melange.common.config import Config

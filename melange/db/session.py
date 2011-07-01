@@ -85,5 +85,6 @@ def clean_db():
     with contextlib.closing(_ENGINE.connect()) as con:
         trans = con.begin()
         for table in reversed(meta.sorted_tables):
-            con.execute(table.delete())
+            if table.name != "migrate_version":
+                con.execute(table.delete())
         trans.commit()

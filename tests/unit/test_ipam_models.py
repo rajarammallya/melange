@@ -17,7 +17,7 @@
 
 import unittest
 from tests import unit
-from tests.unit import BaseTest
+from tests import BaseTest
 
 from melange.ipam.models import (ModelBase, IpBlock, IpAddress, Policy,
                                  IpRange, IpOctet, Network)

@@ -14,3 +14,29 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+import unittest
+from melange.db import session
+
+
+class BaseTest(unittest.TestCase):
+
+    def setUp(self):
+        session.clean_db()
+
+    #This is similar to assertRaisesRegexp in python 2.7
+    def assertRaisesExcMessage(self, exception, message,
+                               func, *args, **kwargs):
+        try:
+            func(*args, **kwargs)
+            self.fail("Expected {0} to raise {1}".\
+                      format(func, repr(exception)))
+        except exception as e:
+            self.assertIn(message, e.message)
+
+    #This is similar to assertIn in python 2.7
+    def assertIn(self, expected, actual):
+        self.assertTrue(expected in actual,
+            "{0} does not contain {1}".format(repr(actual), repr(expected)))
+
+    def assertItemsEqual(self, expected, actual):
+        self.assertEqual(sorted(expected), sorted(actual))

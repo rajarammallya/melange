@@ -19,15 +19,28 @@
 # If ../melange/__init__.py exists, add ../ to Python search path, so that
 # it will override what happens to be installed in /usr/(local/)lib/python...
 import unittest
+from melange.ipam.models import IpBlock
+
 from tests.functional import execute
 from tests.functional import get_api_port
+from tests import BaseTest
 
 
-class TestPublicIpBlock(unittest.TestCase):
+class TestPublicIpBlock(BaseTest):
 
     def test_create(self):
         exitcode, out, err = execute("../bin/melange-manage --port=%s "
-                                     "public_ip_block create 10.1.1.0/32"
+                                     "public_ip_block create 10.1.1.0/29"
                                      % get_api_port())
 
         self.assertEqual(exitcode, 0)
+        ip_block = IpBlock.get_by(cidr="10.1.1.0/29", type='public')
+        self.assertTrue(ip_block is not None)
+
+    def test_list(self):
+        exitcode, out, err = execute("../bin/melange-manage --port=%s "
+                                     "public_ip_block list"
+                                     % get_api_port())
+
+        self.assertEqual(exitcode, 0)
+        self.assertIn("ip_blocks", out)

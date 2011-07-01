@@ -19,6 +19,10 @@ import socket
 import subprocess
 
 from tests.functional.server import Server
+from melange.common import config
+from melange.ipam import models
+from melange.db import session
+
 
 _PORT = None
 
@@ -27,6 +31,13 @@ def setup():
     print "Restarting melange server..."
     Server('../bin/melange',
            port=setup_unused_port()).restart()
+    _setup_db()
+
+
+def _setup_db():
+    conf_file, conf = config.load_paste_config("melange", {}, None)
+    conf["models"] = models.models()
+    session.configure_db(conf)
 
 
 def teardown():

@@ -257,3 +257,32 @@ class cached_property(object):
         value = self.func(obj)
         setattr(obj, self.__name__, value)
         return value
+
+
+class Method(object):
+    def __init__(self, func):
+        self._func = func
+
+    @cached_property
+    def required_args(self):
+        return self.args[0:self.required_args_count]
+
+    @cached_property
+    def optional_args(self):
+        return self.args[self.required_args_count: len(self.args)]
+
+    @cached_property
+    def required_args_count(self):
+        default_args_count = len(self.argspec.defaults or ())
+        return len(self.args) - default_args_count
+
+    @cached_property
+    def args(self):
+        args = self.argspec.args
+        if inspect.ismethod(self._func):
+            args.pop(0)
+        return args
+
+    @cached_property
+    def argspec(self):
+        return inspect.getargspec(self._func)

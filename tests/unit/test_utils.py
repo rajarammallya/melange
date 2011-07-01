@@ -115,3 +115,53 @@ class TestFind(unittest.TestCase):
         item = utils.find((lambda item: item == 8), items)
 
         self.assertEqual(item, None)
+
+
+class TestMethod(unittest.TestCase):
+
+    def test_method_without_optional_args(self):
+        def foo(bar):
+            pass
+
+        method = utils.Method(foo)
+
+        self.assertEqual(method.required_args, ['bar'])
+        self.assertEqual(method.optional_args, [])
+
+    def test_method_with_optional_args(self):
+        def foo(bar, baz=1):
+            pass
+
+        method = utils.Method(foo)
+
+        self.assertEqual(method.required_args, ['bar'])
+        self.assertEqual(method.optional_args, ['baz'])
+
+    def test_instance_method_with_optional_args(self):
+        class Foo():
+            def bar(self, baz, qux=2):
+                pass
+
+        method = utils.Method(Foo().bar)
+
+        self.assertEqual(method.required_args, ['baz'])
+        self.assertEqual(method.optional_args, ['qux'])
+
+    def test_method_without_args(self):
+        def foo():
+            pass
+
+        method = utils.Method(foo)
+
+        self.assertEqual(method.required_args, [])
+        self.assertEqual(method.optional_args, [])
+
+    def test_instance_method_without_args(self):
+        class Foo():
+            def bar(self):
+                pass
+
+        method = utils.Method(Foo().bar)
+
+        self.assertEqual(method.required_args, [])
+        self.assertEqual(method.optional_args, [])

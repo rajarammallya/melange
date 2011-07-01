@@ -53,17 +53,20 @@
   CLI interface for IPAM.
 """
 import logging
+import os
 import sys
 import json
+import optparse
 
 from melange import version
 from gettext import gettext as _
 from melange.common.client import Client
+from melange.common.utils import Method
 
 
 class Resource(object):
-    client = Client()
-    headers = {'X_ROLE': "Admin", 'Content-Type': "application/json"}
+    port = 9292
+    host = "0.0.0.0"
 
     def __init__(self, path, name):
         self.path = path
@@ -86,8 +89,10 @@ class Resource(object):
         return "{0}/{1}".format(self.path, id)
 
     def request(self, method, path, **kwargs):
-        kwargs['headers'] = self.headers
-        response = self.client.do_request(method, path, **kwargs)
+        client = Client(host=self.host, port=self.port)
+        kwargs['headers'] = {'X_ROLE': "Admin",
+                             'Content-Type': "application/json"}
+        response = client.do_request(method, path, **kwargs)
         return json.loads(response.read() or "{}")
 
 
@@ -96,7 +101,7 @@ class IpBlockCommands(object):
     def __init__(self, block):
         self.block = block
 
-    def create(self, cidr=None, network_id=None, policy_id=None):
+    def create(self, cidr, network_id=None, policy_id=None):
         print self.block.create(cidr=cidr, network_id=network_id,
                                         policy_id=policy_id)
 
@@ -116,7 +121,7 @@ class TenantIpBlockCommands(object):
         return Resource("/v0.1/ipam/tenants/{0}/private_ip_blocks"\
                              .format(tenant_id), "ip_block")
 
-    def create(self, tenant_id, cidr=None, network_id=None, policy_id=None):
+    def create(self, tenant_id, cidr, network_id=None, policy_id=None):
         print self._block(tenant_id).create(cidr=cidr, network_id=network_id,
                                         policy_id=policy_id)
 
@@ -170,43 +175,89 @@ def methods_of(obj):
     return result
 
 
-def main():
-    """Parse options and call the appropriate class/method."""
-    argv = sys.argv
-    script_name = argv.pop(0)
-    if len(argv) < 1:
-        print _("\nOpenStack Nova version: %s (%s)\n") %\
-                (version.version_string(), version.version_string_with_vcs())
-        print script_name + " category action [<args>]"
-        print _("Available categories:")
-        for k, _v in CATEGORIES:
-            print "\t%s" % k
+def create_options(parser):
+    """
+    Sets up the CLI and config-file options that may be
+    parsed and program commands.
+
+    :param parser: The option parser
+    """
+    parser.add_option('-v', '--verbose', default=False, action="store_true",
+                      help="Print more verbose output")
+    parser.add_option('-H', '--host', metavar="ADDRESS", default="0.0.0.0",
+                      help="Address of Melange API host. "
+                           "Default: %default")
+    parser.add_option('-p', '--port', dest="port", metavar="PORT",
+                      type=int, default=9292,
+                      help="Port the Melange API host listens on. "
+                           "Default: %default")
+
+
+def parse_options(parser, cli_args):
+    """
+    Returns the parsed CLI options, command to run and its arguments, merged
+    with any same-named options found in a configuration file
+
+    :param parser: The option parser
+    """
+    (options, args) = parser.parse_args(cli_args)
+    if not args:
+        parser.print_usage()
         sys.exit(2)
-    category = argv.pop(0)
+    return (options, args)
+
+
+def usage():
+    usage = """
+%prog category action [args] [options]"
+
+Available categories:
+
+    """
+    for k, _v in CATEGORIES:
+        usage = usage + ("\t%s\n" % k)
+
+    return usage
+
+
+def main():
+    oparser = optparse.OptionParser(version='%%prog %s'
+                                    % version.version_string(),
+                                    usage=usage().strip())
+    create_options(oparser)
+    (options, args) = parse_options(oparser, sys.argv[1:])
+
+    Resource.host, Resource.port = options.host, options.port
+    script_name = os.path.basename(sys.argv[0])
+
+    category = args.pop(0)
     matches = lazy_match(category, CATEGORIES)
     # instantiate the command group object
     category, command_object = matches[0]
     actions = methods_of(command_object)
-    if len(argv) < 1:
-        print script_name + " category action [<args>]"
+    if len(args) < 1:
+        print "Usage: " + script_name + " category action [<args>]"
         print _("Available actions for %s category:") % category
         for k, _v in actions:
             print "\t%s" % k
         sys.exit(2)
-    action = argv.pop(0)
+    action = args.pop(0)
     matches = lazy_match(action, actions)
     action, fn = matches[0]
     # call the action with the remaining arguments
     try:
-        fn(*argv)
+        fn(*args)
         sys.exit(0)
     except TypeError:
         print _("Possible wrong number of arguments supplied")
-        print "%s %s: %s" % (category, action, fn.__doc__)
-        raise
+        print "Usage: %s %s %s" % (script_name, category, Method(fn))
+        if options.verbose:
+            raise
+        sys.exit(2)
     except Exception:
         print _("Command failed, please check log for more info")
         raise
+
 
 if __name__ == '__main__':
     main()

@@ -135,7 +135,7 @@ class TestMethod(unittest.TestCase):
         method = utils.Method(foo)
 
         self.assertEqual(method.required_args, ['bar'])
-        self.assertEqual(method.optional_args, ['baz'])
+        self.assertEqual(method.optional_args, [('baz', 1)])
 
     def test_instance_method_with_optional_args(self):
         class Foo():
@@ -145,7 +145,7 @@ class TestMethod(unittest.TestCase):
         method = utils.Method(Foo().bar)
 
         self.assertEqual(method.required_args, ['baz'])
-        self.assertEqual(method.optional_args, ['qux'])
+        self.assertEqual(method.optional_args, [('qux', 2)])
 
     def test_method_without_args(self):
         def foo():
@@ -165,3 +165,12 @@ class TestMethod(unittest.TestCase):
 
         self.assertEqual(method.required_args, [])
         self.assertEqual(method.optional_args, [])
+
+    def test_method_str(self):
+        class Foo():
+            def bar(self, baz, qux=2):
+                pass
+
+        method = utils.Method(Foo().bar)
+
+        self.assertEqual(str(method), "bar <baz> <qux=2>")

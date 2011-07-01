@@ -269,12 +269,16 @@ class Method(object):
 
     @cached_property
     def optional_args(self):
-        return self.args[self.required_args_count: len(self.args)]
+        keys = self.args[self.required_args_count: len(self.args)]
+        return zip(keys, self.defaults)
+
+    @cached_property
+    def defaults(self):
+        return self.argspec.defaults or ()
 
     @cached_property
     def required_args_count(self):
-        default_args_count = len(self.argspec.defaults or ())
-        return len(self.args) - default_args_count
+        return len(self.args) - len(self.defaults)
 
     @cached_property
     def args(self):
@@ -286,3 +290,9 @@ class Method(object):
     @cached_property
     def argspec(self):
         return inspect.getargspec(self._func)
+
+    def __str__(self):
+        optionals = ["%s=%s" % (k, v) for k, v in self.optional_args]
+        args_str = ' '.join(map(lambda arg: "<%s>" % arg,
+                                self.required_args + optionals))
+        return "%s %s" % (self._func.__name__, args_str)

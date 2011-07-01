@@ -26,7 +26,7 @@ from melange.ipam.models import (ModelNotFoundError, NoMoreAddressesError,
 from melange.ipam import models
 from melange.db import session
 from tests.unit import StubConfig
-from tests.unit.factories.models import (PublicIpBlockFactory,
+from tests.factories.models import (PublicIpBlockFactory,
                                          PrivateIpBlockFactory,
                                          IpAddressFactory,
                                          PolicyFactory,

@@ -28,7 +28,7 @@ from melange.ipam import models
 from melange.ipam.service import BaseController
 from melange.ipam.models import IpBlock, IpAddress, Policy, IpRange, IpOctet
 from tests.unit import StubConfig
-from tests.unit.factories.models import (PublicIpBlockFactory,
+from tests.factories.models import (PublicIpBlockFactory,
                                          PrivateIpBlockFactory,
                                          IpAddressFactory, PolicyFactory,
                                          IpRangeFactory, IpOctetFactory)

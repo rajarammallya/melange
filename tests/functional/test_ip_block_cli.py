@@ -23,24 +23,42 @@ from melange.ipam.models import IpBlock
 
 from tests.functional import execute
 from tests.functional import get_api_port
+from tests.factories.models import PublicIpBlockFactory
 from tests import BaseTest
 
 
-class TestPublicIpBlock(BaseTest):
+def run(command):
+    return execute("../bin/melange-manage --port=%s %s"
+                   % (get_api_port(), command))
+
+
+class TestPublicIpBlockCLI(BaseTest):
 
     def test_create(self):
-        exitcode, out, err = execute("../bin/melange-manage --port=%s "
-                                     "public_ip_block create 10.1.1.0/29"
-                                     % get_api_port())
+        exitcode, out, err = run("public_ip_block create 10.1.1.0/29")
 
         self.assertEqual(exitcode, 0)
         ip_block = IpBlock.get_by(cidr="10.1.1.0/29", type='public')
         self.assertTrue(ip_block is not None)
 
     def test_list(self):
-        exitcode, out, err = execute("../bin/melange-manage --port=%s "
-                                     "public_ip_block list"
-                                     % get_api_port())
+        exitcode, out, err = run("public_ip_block list")
 
         self.assertEqual(exitcode, 0)
         self.assertIn("ip_blocks", out)
+
+    def test_show(self):
+        ip_block = PublicIpBlockFactory()
+
+        exitcode, out, err = run("public_ip_block show %s" % ip_block.id)
+
+        self.assertEqual(exitcode, 0)
+        self.assertIn(ip_block.cidr, out)
+
+    def test_delete(self):
+        ip_block = PublicIpBlockFactory()
+
+        exitcode, out, err = run("public_ip_block delete %s" % ip_block.id)
+
+        self.assertEqual(exitcode, 0)
+        self.assertTrue(IpBlock.get(ip_block.id) is None)

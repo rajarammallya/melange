@@ -15,7 +15,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import unittest
 from tests import unit
 from tests import BaseTest
 
@@ -250,7 +249,7 @@ class TestIpBlock(BaseTest):
         blocks = IpBlock.find_all().all()
 
         self.assertEqual(len(blocks), 3)
-        self.assertEqual(["10.2.0.1/28", "10.3.0.1/28", "10.1.0.1/28"],
+        self.assertItemsEqual(["10.2.0.1/28", "10.3.0.1/28", "10.1.0.1/28"],
                     [block.cidr for block in blocks])
 
     def test_find_all_ip_blocks_with_pagination(self):
@@ -415,7 +414,6 @@ class TestIpAddress(BaseTest):
         global_ip = global_block.allocate_ip()
         local_ips = [local_block.allocate_ip() for i in range(5)]
         global_ip.add_inside_locals(local_ips)
-
         global_ip.remove_inside_locals(local_ips[0].address)
 
         locals_left = [ip.address for ip in global_ip.inside_locals()]
@@ -524,7 +522,7 @@ class TestPolicy(BaseTest):
         ip_range2 = IpRangeFactory(offset=3, length=2,
                                     policy_id=policy.id)
 
-        self.assertEqual(policy.unusable_ip_ranges.all(),
+        self.assertModelsEqual(policy.unusable_ip_ranges.all(),
                          [ip_range1, ip_range2])
 
     def test_unusable_ip_ranges_are_cached(self):
@@ -535,7 +533,7 @@ class TestPolicy(BaseTest):
         ip_octet1 = IpOctetFactory(octet=123, policy_id=policy.id)
         ip_octet2 = IpOctetFactory(octet=124, policy_id=policy.id)
 
-        self.assertEqual(policy.unusable_ip_octets.all(),
+        self.assertModelsEqual(policy.unusable_ip_octets.all(),
                          [ip_octet1, ip_octet2])
 
     def test_unusable_ip_octets_are_cached(self):
@@ -553,7 +551,7 @@ class TestPolicy(BaseTest):
 
         policies = Policy.find_all().all()
 
-        self.assertEqual(policies, [policy1, policy2])
+        self.assertModelsEqual(policies, [policy1, policy2])
 
     def test_find_ip_range(self):
         policy = PolicyFactory(name='infra')
@@ -595,7 +593,7 @@ class TestPolicy(BaseTest):
         ip_range2 = IpRangeFactory(offset=4, length=2, policy_id=policy.id)
         noise_ip_range = IpRangeFactory()
 
-        self.assertEqual(IpRange.find_all(policy_id=policy.id).all(),
+        self.assertModelsEqual(IpRange.find_all(policy_id=policy.id).all(),
                          [ip_range1, ip_range2])
         policy.delete()
         self.assertTrue(len(IpRange.find_all(policy_id=policy.id).all()) is 0)
@@ -607,7 +605,7 @@ class TestPolicy(BaseTest):
         ip_octet2 = IpOctetFactory(octet=255, policy_id=policy.id)
         noise_ip_octet = IpOctetFactory()
 
-        self.assertEqual(IpOctet.find_all(policy_id=policy.id).all(),
+        self.assertModelsEqual(IpOctet.find_all(policy_id=policy.id).all(),
                          [ip_octet1, ip_octet2])
         policy.delete()
         self.assertTrue(len(IpOctet.find_all(policy_id=policy.id).all()) is 0)
@@ -709,7 +707,7 @@ class TestIpOctet(BaseTest):
         ip_octet2 = IpOctetFactory(octet=123, policy_id=policy1.id)
         noise_ip_octet = IpOctetFactory(octet=123, policy_id=policy2.id)
 
-        self.assertEqual(IpOctet.find_all_by_policy(policy1.id).all(),
+        self.assertModelsEqual(IpOctet.find_all_by_policy(policy1.id).all(),
                          [ip_octet1, ip_octet2])
 
     def test_applies_to_is_true_if_address_last_octet_matches(self):
@@ -729,7 +727,8 @@ class TestNetwork(BaseTest):
         network = Network.find_by(id=1)
 
         self.assertEqual(network.id, 1)
-        self.assertEqual(network.ip_blocks, [ip_block1, ip_block2])
+        self.assertItemsEqual([block.cidr for block in network.ip_blocks],
+                              [ip_block1.cidr, ip_block2.cidr])
 
     def test_find_when_ip_blocks_for_given_tenant_network_exist(self):
         ip_block1 = PublicIpBlockFactory(network_id=1, tenant_id=123)

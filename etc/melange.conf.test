@@ -17,7 +17,9 @@ bind_port = 9292
 # SQLAlchemy connection string for the reference implementation          
 # registry server. Any valid SQLAlchemy connection string is fine. 
 # See: http://www.sqlalchemy.org/docs/05/reference/sqlalchemy/connections.html#sqlalchemy.create_engine
-sql_connection = sqlite:///melange_tests.sqlite
+sql_connection = mysql+mysqldb://root@localhost/melange
+#postgres://root@localhost/melange
+#sqlite:///melange_tests.sqlite
 
 # Period in seconds after which SQLAlchemy should reestablish its connection
 # to the database.
@@ -50,4 +52,3 @@ paste.app_factory = melange.versions:app_factory
 
 [app:melange]
 paste.app_factory = melange.ipam.service:app_factory
-

@@ -129,6 +129,9 @@ class ModelBase(object):
             return False
         return type(other) == type(self) and other.id == self.id
 
+    def __hash__(self):
+        return id.__hash__()
+
     def next(self):
         n = self._i.next().name
         return n, getattr(self, n)
@@ -161,6 +164,12 @@ class ModelBase(object):
     def _add_error(self, attribute_name, error_message):
         self.errors[attribute_name] = self.errors.get(attribute_name, [])
         self.errors[attribute_name].append(error_message)
+
+    def __str__(self):
+        return str(self.id)
+
+    def __repr__(self):
+        return str(self)
 
 
 class DefaultIpGenerator(IPNetwork):
@@ -294,7 +303,7 @@ class IpAddress(ModelBase):
         return IpBlock.get(self.ip_block_id)
 
     def add_inside_locals(self, ip_addresses):
-        return db_api.save_nat_relationships([
+        db_api.save_nat_relationships([
             {"inside_global_address_id": self.id,
              "inside_local_address_id": local_address.id}
             for local_address in ip_addresses])

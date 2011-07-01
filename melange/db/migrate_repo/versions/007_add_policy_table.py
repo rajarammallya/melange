@@ -14,11 +14,11 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-from sqlalchemy.schema import (Column, MetaData, Table, ForeignKey)
+from sqlalchemy.schema import (Column, MetaData, ForeignKey)
 from melange.ipam import models
 from melange.db.migrate_repo.schema import (
-    Boolean, DateTime, Integer, String, Text, create_tables, drop_tables,
-    from_migration_import)
+    Boolean, DateTime, Integer, String, Text, Table,
+    create_tables, drop_tables, from_migration_import)
 import datetime
 
 

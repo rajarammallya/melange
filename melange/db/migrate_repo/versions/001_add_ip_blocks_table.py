@@ -14,9 +14,10 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-from sqlalchemy.schema import (Column, MetaData, Table)
+from sqlalchemy.schema import (Column, MetaData)
 from melange.db.migrate_repo.schema import (
-    Boolean, DateTime, Integer, String, Text, create_tables, drop_tables)
+    Boolean, DateTime, Integer, String, Text, create_tables, drop_tables,
+    Table)
 import datetime
 
 
@@ -27,7 +28,7 @@ def define_ip_blocks_table(meta):
         Column('cidr', String(255), nullable=False),
         Column('created_at', DateTime(),
                default=datetime.datetime.utcnow, nullable=True),
-        Column('updated_at', DateTime(), default=datetime.datetime.utcnow))
+        Column('updated_at', DateTime(), onupdate=datetime.datetime.utcnow))
     return ip_blocks
 
 

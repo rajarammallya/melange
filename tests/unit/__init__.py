@@ -33,6 +33,34 @@ from melange.ipam import models
 import webtest
 
 
+class BaseTest(unittest.TestCase):
+
+    def setUp(self):
+        session.clean_db()
+
+    #This is similar to assertRaisesRegexp in python 2.7
+    def assertRaisesExcMessage(self, exception, message,
+                               func, *args, **kwargs):
+        try:
+            func(*args, **kwargs)
+            self.fail("Expected {0} to raise {1}".\
+                      format(func, repr(exception)))
+        except exception as e:
+            self.assertIn(message, e.message)
+
+    #This is similar to assertIn in python 2.7
+    def assertIn(self, expected, actual):
+        self.assertTrue(expected in actual,
+            "{0} does not contain {1}".format(repr(actual), repr(expected)))
+
+    def assertItemsEqual(self, expected, actual):
+        self.assertEqual(sorted(expected), sorted(actual))
+
+    def assertModelsEqual(self, expected, actual):
+        self.assertEqual(sorted(expected, key=lambda model: model.id),
+                         sorted(actual, key=lambda model: model.id))
+
+
 def test_config_path():
     return os.path.abspath("../etc/melange.conf.test")
 
@@ -72,6 +100,7 @@ def setup():
     if os.path.isfile(testdb):
         os.unlink(testdb)
 
+    session.drop_db(conf)
     migration.db_sync(conf)
     conf["models"] = models.models()
     session.configure_db(conf)

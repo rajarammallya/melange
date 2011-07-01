@@ -23,9 +23,6 @@ import logging
 import contextlib
 
 from sqlalchemy import create_engine, MetaData
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import exc
-from sqlalchemy.orm import joinedload
 from sqlalchemy.orm import sessionmaker
 
 from melange.common import config
@@ -34,27 +31,40 @@ from melange.db import mappers
 
 def configure_db(options):
     global _ENGINE, _MODELS
-    if not _ENGINE:
-        debug = config.get_option(options,
-                                  'debug', type='bool', default=False)
-        verbose = config.get_option(options,
-                                    'verbose', type='bool', default=False)
-        timeout = config.get_option(options,
-                                  'sql_idle_timeout', type='int', default=3600)
-        _ENGINE = create_engine(options['sql_connection'],
+    _ENGINE = _create_engine(options)
+
+    _MODELS = _models(_ENGINE, options)
+    _configure_sqlalchemy_log(_ENGINE, options)
+
+
+def _models(engine, options):
+
+    mappers.map(_ENGINE, options['models'])
+
+    models = options['models']
+    models['ip_nat_relation'] = mappers.IpNat
+
+    return models
+
+
+def _configure_sqlalchemy_log(engine, options):
+
+    debug = config.get_option(options,
+                              'debug', type='bool', default=False)
+    verbose = config.get_option(options,
+                                'verbose', type='bool', default=False)
+    logger = logging.getLogger('sqlalchemy.engine')
+    if debug:
+        logger.setLevel(logging.DEBUG)
+    elif verbose:
+        logger.setLevel(logging.INFO)
+
+
+def _create_engine(options):
+    timeout = config.get_option(options,
+                                'sql_idle_timeout', type='int', default=3600)
+    return create_engine(options['sql_connection'],
                                 pool_recycle=timeout)
-        logger = logging.getLogger('sqlalchemy.engine')
-
-        mappers.map(_ENGINE, options['models'])
-
-        models = options['models']
-        models['ip_nat_relation'] = mappers.IpNat
-
-        _MODELS = models
-        if debug:
-            logger.setLevel(logging.DEBUG)
-        elif verbose:
-            logger.setLevel(logging.INFO)
 
 
 def models():
@@ -88,3 +98,11 @@ def clean_db():
             if table.name != "migrate_version":
                 con.execute(table.delete())
         trans.commit()
+
+
+def drop_db(options):
+    meta = MetaData()
+    engine = _create_engine(options)
+    meta.bind = engine
+    meta.reflect()
+    meta.drop_all()

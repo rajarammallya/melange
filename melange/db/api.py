@@ -27,11 +27,11 @@ def find_all_by(cls, **kwargs):
     return query
 
 
-def limits(cls, query, limit=200, marker=0, marker_column=None):
+def limits(cls, query, limit=200, marker=None, marker_column=None):
     marker_column = marker_column or cls.id
-    return query.filter(marker_column > marker).\
-           order_by(marker_column).\
-           limit(limit)
+    if (marker is not None):
+        query = query.filter(marker_column > marker)
+    return query.order_by(marker_column).limit(limit)
 
 
 def find_by(cls, **kwargs):
@@ -53,24 +53,22 @@ def delete(model):
 def find_inside_globals_for(local_address_id, **kwargs):
     marker_column = _ip_nat().inside_global_address_id
     limit = kwargs.pop('limit', 200)
-    marker = kwargs.pop('marker', 0)
+    marker = kwargs.pop('marker', None)
 
     kwargs["inside_local_address_id"] = local_address_id
     query = limits(_ip_nat(), find_all_by(_ip_nat(), **kwargs),
                    limit, marker, marker_column)
-
     return [nat.inside_global_address for nat in query]
 
 
 def find_inside_locals_for(global_address_id, **kwargs):
     marker_column = _ip_nat().inside_local_address_id
     limit = kwargs.pop('limit', 200)
-    marker = kwargs.pop('marker', 0)
+    marker = kwargs.pop('marker', None)
 
     kwargs["inside_global_address_id"] = global_address_id
     query = limits(_ip_nat(), find_all_by(_ip_nat(), **kwargs),
                    limit, marker, marker_column)
-
     return [nat.inside_local_address for nat in query]
 
 
@@ -119,10 +117,8 @@ def remove_inside_locals(global_address_id, inside_local_address=None):
 
 def remove_natted_ips(_filter_by_natted_address, natted_address, **kwargs):
     natted_ips = find_natted_ips(**kwargs)
-
     if natted_address != None:
         natted_ips = _filter_by_natted_address(natted_ips, natted_address)
-
     for ip in natted_ips:
         delete(ip)
 

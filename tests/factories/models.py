@@ -29,9 +29,16 @@ class PublicIpBlockFactory(factory.Factory):
 
 class PrivateIpBlockFactory(factory.Factory):
     FACTORY_FOR = IpBlock
-    cidr = "10.0.0.0/29"
+    cidr = factory.Sequence(lambda n: "10.0.0.{0}/29".format(n))
     tenant_id = "xxx"
     type = "private"
+
+
+class IpV6IpBlockFactory(factory.Factory):
+    FACTORY_FOR = IpBlock
+    cidr = factory.Sequence(lambda n: "fe::000{0}/120".format(n))
+    tenant_id = None
+    type = "ipv6"
 
 
 class IpAddressFactory(factory.Factory):

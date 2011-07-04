@@ -172,14 +172,17 @@ class ModelBase(object):
         return str(self)
 
 
-class DefaultIpGenerator(IPNetwork):
+class DefaultIpV6Generator():
     def __init__(self, ip_block):
-        super(DefaultIpGenerator, self).__init__(ip_block.cidr)
+        self.ip_block = ip_block
+
+    def allocatable_ip(self, **kwargs):
+        pass
 
 
-def ip_generator_factory(ip_block):
-    ip_generator_class_name = Config.get("ip_generator",
-                           "melange.ipam.models.DefaultIpGenerator")
+def ipv6_address_generator_factory(ip_block):
+    ip_generator_class_name = Config.get("ipv6_generator",
+                           "melange.ipam.models.DefaultIpV6Generator")
     ip_generator = utils.import_class(ip_generator_class_name)
     return ip_generator(ip_block)
 
@@ -208,6 +211,9 @@ class IpBlock(ModelBase):
     def allowed_by_policy(cls, ip_block, policy, address):
         return policy == None or policy.allows(ip_block.cidr, address)
 
+    def is_ipv6(self):
+        return self.type == "ipv6"
+
     def delete(self):
         db_api.delete_all(IpAddress.find_all(ip_block_id=self.id))
         super(IpBlock, self).delete()
@@ -215,14 +221,18 @@ class IpBlock(ModelBase):
     def policy(self):
         return Policy.get(self.policy_id)
 
-    def allocate_ip(self, port_id=None, address=None):
-        candidate_ip = None
-        allocated_addresses = [ip_addr.address
-                               for ip_addr in
-                               IpAddress.find_all(ip_block_id=self.id)]
+    def allocate_ip(self, port_id=None, address=None, **kwargs):
+        if(self.is_ipv6()):
+            candidate_ip = ipv6_address_generator_factory(self).allocatable_ip(
+                                    port_id=port_id, address=address, **kwargs)
+        else:
+            candidate_ip = None
+            allocated_addresses = [ip_addr.address
+                                   for ip_addr in
+                                   IpAddress.find_all(ip_block_id=self.id)]
 
-        candidate_ip = self._check_address(address, allocated_addresses) or \
-                       self._generate_ip(allocated_addresses)
+            candidate_ip = self._check_address(address, allocated_addresses) \
+                        or self._generate_ip(allocated_addresses)
 
         if not candidate_ip:
             raise NoMoreAddressesError("IpBlock is full")
@@ -256,7 +266,7 @@ class IpBlock(ModelBase):
         #TODO: very inefficient way to generate ips,
         #will look at better algos for this
         policy = self.policy()
-        for ip in ip_generator_factory(self):
+        for ip in IPNetwork(self.cidr):
             if (IpBlock.allowed_by_policy(self, policy, str(ip))
                 and (str(ip) not in allocated_addresses)):
                 return str(ip)

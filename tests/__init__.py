@@ -40,3 +40,7 @@ class BaseTest(unittest.TestCase):
 
     def assertItemsEqual(self, expected, actual):
         self.assertEqual(sorted(expected), sorted(actual))
+
+    def assertModelsEqual(self, expected, actual):
+        self.assertEqual(sorted(expected, key=lambda model: model.id),
+                         sorted(actual, key=lambda model: model.id))

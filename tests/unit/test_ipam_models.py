@@ -27,10 +27,11 @@ from melange.ipam import models
 from melange.db import session
 from tests.unit import StubConfig
 from tests.factories.models import (PublicIpBlockFactory,
-                                         PrivateIpBlockFactory,
-                                         IpAddressFactory,
-                                         PolicyFactory,
-                                         IpRangeFactory, IpOctetFactory)
+                                    PrivateIpBlockFactory,
+                                    IpAddressFactory,
+                                    PolicyFactory,
+                                    IpRangeFactory, IpOctetFactory,
+                                    IpV6IpBlockFactory)
 from melange.common import data_types
 from melange.common.utils import cached_property
 
@@ -54,31 +55,28 @@ class TestModelBase(BaseTest):
         self.assertEqual(model.foo, True)
 
 
-class MockIpGenerator():
+class MockIpV6Generator():
 
-    ip_list = ["10.1.1.1", "10.2.2.2"]
+    ip_list = ["ff::0001", "ff::0002"]
 
     def __init__(self, ip_block):
         self.ip_block = ip_block
 
-    def __iter__(self):
-        return self.ip_list.__iter__()
-
-    def next(self):
-        return self.ip_list.next()
+    def allocatable_ip(self, **kwargs):
+        return self.ip_list[0]
 
 
-class TestIpGeneratorFactory(BaseTest):
+class TestIpv6AddressGeneratorFactory(BaseTest):
 
-    def test_loads_ip_generator_factory_from_config_file(self):
+    def test_loads_ipv6_generator_factory_from_config_file(self):
         expected_ip_block = PublicIpBlockFactory()
         with(StubConfig(
-            ip_generator="tests.unit.test_ipam_models.MockIpGenerator")):
-            actual_ip_generator = models.ip_generator_factory(
+            ipv6_generator="tests.unit.test_ipam_models.MockIpV6Generator")):
+            actual_ip_generator = models.ipv6_address_generator_factory(
                                                            expected_ip_block)
             self.assertEqual(actual_ip_generator.ip_block, expected_ip_block)
             self.assertTrue(isinstance(actual_ip_generator,
-                                       unit.test_ipam_models.MockIpGenerator))
+                                      unit.test_ipam_models.MockIpV6Generator))
 
 
 class TestIpBlock(BaseTest):
@@ -163,14 +161,6 @@ class TestIpBlock(BaseTest):
         self.assertEqual(ip.address, saved_ip.address)
         self.assertEqual(ip.port_id, "1234")
 
-    def test_allocate_ip_calls_factory(self):
-        block = PrivateIpBlockFactory(cidr="169.1.1.1/31")
-
-        with(StubConfig(
-            ip_generator="tests.unit.test_ipam_models.MockIpGenerator")):
-            self.assertEqual(block.allocate_ip().address,
-                             MockIpGenerator.ip_list[0])
-
     def test_allocate_ip_from_outside_cidr(self):
         block = PrivateIpBlockFactory(cidr="10.1.1.1/32")
 
@@ -214,6 +204,13 @@ class TestIpBlock(BaseTest):
             IpAddress.find_all(ip_block_id=block.id).first().address,
             "10.0.0.0")
         self.assertEqual(block.allocate_ip().address, "10.0.0.1")
+
+    def test_allocate_ip_for_ipv6_block_uses_pluggable_algo(self):
+        block = IpV6IpBlockFactory(cidr="ff::/120")
+        with(StubConfig(
+            ipv6_generator="tests.unit.test_ipam_models.MockIpV6Generator")):
+            self.assertEqual(block.allocate_ip().address,
+                             MockIpV6Generator.ip_list[0])
 
     def test_find_or_allocate_ip(self):
         block = PrivateIpBlockFactory(cidr="10.0.0.0/30")
@@ -286,6 +283,11 @@ class TestIpBlock(BaseTest):
 
         self.assertTrue(ip_block.contains("10.0.0.232"))
         self.assertFalse(ip_block.contains("20.0.0.232"))
+
+    def test_is_ipv6(self):
+        ip_block = IpBlock(cidr="ff::/120", type="ipv6")
+
+        self.assertTrue(ip_block.is_ipv6())
 
 
 class TestIpAddress(BaseTest):

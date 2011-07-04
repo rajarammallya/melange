@@ -31,10 +31,10 @@ from melange.db import mappers
 
 def configure_db(options):
     global _ENGINE, _MODELS
-    _ENGINE = _create_engine(options)
+    if not _ENGINE:
+        _ENGINE = _create_engine(options)
 
-    _MODELS = _models(_ENGINE, options)
-    _configure_sqlalchemy_log(_ENGINE, options)
+        _MODELS = _models(_ENGINE, options)
 
 
 def _models(engine, options):
@@ -47,7 +47,7 @@ def _models(engine, options):
     return models
 
 
-def _configure_sqlalchemy_log(engine, options):
+def configure_sqlalchemy_log(options):
 
     debug = config.get_option(options,
                               'debug', type='bool', default=False)

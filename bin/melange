@@ -62,7 +62,7 @@ if __name__ == '__main__':
         migration.db_sync(conf)
         conf["models"] = models()
         session.configure_db(conf)
-
+        session.configure_sqlalchemy_log(conf)
         server = wsgi.Server()
         server.start(app, options.get('port', conf['bind_port']),
                      conf['bind_host'])

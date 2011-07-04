@@ -101,6 +101,16 @@ class TestDefaultIpV6Generator(BaseTest):
         address = DefaultIpV6Generator(block).allocatable_ip(**args)
         self.assertTrue(IPAddress(address) in IPNetwork(block.cidr))
 
+    def test_allocatable_ip_retries_if_address_already_exists(self):
+        args = {'tenant_id': "12", 'mac_address': "12:32:45:67:89:90"}
+        block = IpV6IpBlockFactory(cidr="fe::/72")
+        ip_address = block.allocate_ip(tenant_id="12",
+                                       mac_address="12:32:45:67:89:90")
+
+        address = DefaultIpV6Generator(block).allocatable_ip(**args)
+        self.assertNotEqual(address, ip_address.address)
+        self.assertTrue(IPAddress(address) in IPNetwork(block.cidr))
+
 
 class TestIpBlock(BaseTest):
 

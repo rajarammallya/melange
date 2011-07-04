@@ -179,9 +179,19 @@ class DefaultIpV6Generator():
         self.ip_block = ip_block
 
     def allocatable_ip(self, **kwargs):
-        variable_segment = DefaultIpV6Generator.\
-                                     variable_segment(kwargs['tenant_id'],
-                                                      kwargs['mac_address'])
+        mac_address, tenant_id = kwargs['mac_address'], kwargs['tenant_id']
+        address = self.deduce_ip_address(tenant_id, mac_address)
+        while(IpAddress.get_by(ip_block_id=self.ip_block.id, address=address)):
+            mac_address = self.next_mac_address(mac_address)
+            address = self.deduce_ip_address(tenant_id, mac_address)
+        return address
+
+    def next_mac_address(self, mac_address):
+        return int(netaddr.EUI(mac_address)) + 1
+
+    def deduce_ip_address(self, tenant_id, mac_address):
+        variable_segment = self.variable_segment(tenant_id, mac_address)
+
         network = IPNetwork(self.ip_block.cidr)
         return str(variable_segment & network.hostmask | network.cidr.ip)
 

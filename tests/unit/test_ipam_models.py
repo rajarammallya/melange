@@ -15,25 +15,29 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import hashlib
+import netaddr
+
 from tests import unit
 from tests import BaseTest
-
-from melange.ipam.models import (ModelBase, IpBlock, IpAddress, Policy,
-                                 IpRange, IpOctet, Network)
-from melange.ipam.models import (ModelNotFoundError, NoMoreAddressesError,
-                                 AddressDoesNotBelongError,
-                                 DuplicateAddressError)
 from melange.ipam import models
 from melange.db import session
 from tests.unit import StubConfig
+from melange.common import data_types
+from netaddr import IPNetwork, IPAddress
+from melange.common.utils import cached_property
+from melange.ipam.models import (ModelBase, IpBlock, IpAddress, Policy,
+                                 IpRange, IpOctet, Network)
+from melange.ipam.models import DefaultIpV6Generator
+from melange.ipam.models import (ModelNotFoundError, NoMoreAddressesError,
+                                 AddressDoesNotBelongError,
+                                 DuplicateAddressError)
 from tests.factories.models import (PublicIpBlockFactory,
                                     PrivateIpBlockFactory,
                                     IpAddressFactory,
                                     PolicyFactory,
                                     IpRangeFactory, IpOctetFactory,
                                     IpV6IpBlockFactory)
-from melange.common import data_types
-from melange.common.utils import cached_property
 
 
 class TestModelBase(BaseTest):
@@ -77,6 +81,25 @@ class TestIpv6AddressGeneratorFactory(BaseTest):
             self.assertEqual(actual_ip_generator.ip_block, expected_ip_block)
             self.assertTrue(isinstance(actual_ip_generator,
                                       unit.test_ipam_models.MockIpV6Generator))
+
+
+class TestDefaultIpV6Generator(BaseTest):
+
+    def test_variable_segment_deduced_from_tenant_id_and_mac_address(self):
+        tenant_sha1 = hashlib.sha1("1234").hexdigest()
+        mac_address = "00:ff:12:89:67:34"
+
+        variable_int = int(tenant_sha1[:8] + "ff896734", 16)
+        self.assertEqual(DefaultIpV6Generator.\
+                             variable_segment("1234", mac_address),
+                         IPAddress(variable_int))
+
+    def test_allocatable_ip_to_return_the_address_from_ip_block(self):
+        args = {'tenant_id': "12", 'mac_address': "12:32:45:67:89:90"}
+        block = IpV6IpBlockFactory(cidr="fe::/72")
+
+        address = DefaultIpV6Generator(block).allocatable_ip(**args)
+        self.assertTrue(IPAddress(address) in IPNetwork(block.cidr))
 
 
 class TestIpBlock(BaseTest):
@@ -285,7 +308,7 @@ class TestIpBlock(BaseTest):
         self.assertFalse(ip_block.contains("20.0.0.232"))
 
     def test_is_ipv6(self):
-        ip_block = IpBlock(cidr="ff::/120", type="ipv6")
+        ip_block = IpBlock(cidr="ff::/120")
 
         self.assertTrue(ip_block.is_ipv6())
 

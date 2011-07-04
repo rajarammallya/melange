@@ -19,6 +19,8 @@
 SQLAlchemy models for Melange data
 """
 import netaddr
+import hashlib
+
 from netaddr import IPNetwork, IPAddress
 from melange.common.exception import MelangeError
 from melange.db import api as db_api
@@ -177,7 +179,20 @@ class DefaultIpV6Generator():
         self.ip_block = ip_block
 
     def allocatable_ip(self, **kwargs):
-        pass
+        variable_segment = DefaultIpV6Generator.\
+                                     variable_segment(kwargs['tenant_id'],
+                                                      kwargs['mac_address'])
+        network = IPNetwork(self.ip_block.cidr)
+        return str(variable_segment & network.hostmask | network.cidr.ip)
+
+    @classmethod
+    def variable_segment(cls, tenant_id, mac_address):
+        tenant_hash = hashlib.sha1(tenant_id).hexdigest()
+        first_2_segments = int(tenant_hash[:8], 16) << 32
+        constant = 0xff << 24
+        ei_mac_address = int(netaddr.EUI(mac_address)) & int("ffffff", 16)
+        last_2_segments = constant | ei_mac_address
+        return netaddr.IPAddress(first_2_segments | last_2_segments)
 
 
 def ipv6_address_generator_factory(ip_block):
@@ -212,7 +227,7 @@ class IpBlock(ModelBase):
         return policy == None or policy.allows(ip_block.cidr, address)
 
     def is_ipv6(self):
-        return self.type == "ipv6"
+        return IPNetwork(self.cidr).version == 6
 
     def delete(self):
         db_api.delete_all(IpAddress.find_all(ip_block_id=self.id))
@@ -223,8 +238,8 @@ class IpBlock(ModelBase):
 
     def allocate_ip(self, port_id=None, address=None, **kwargs):
         if(self.is_ipv6()):
-            candidate_ip = ipv6_address_generator_factory(self).allocatable_ip(
-                                    port_id=port_id, address=address, **kwargs)
+            candidate_ip = ipv6_address_generator_factory(self).\
+                                                   allocatable_ip(**kwargs)
         else:
             candidate_ip = None
             allocated_addresses = [ip_addr.address

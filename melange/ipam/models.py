@@ -174,40 +174,9 @@ class ModelBase(object):
         return str(self)
 
 
-class DefaultIpV6Generator():
-    def __init__(self, ip_block):
-        self.ip_block = ip_block
-
-    def allocatable_ip(self, **kwargs):
-        mac_address, tenant_id = kwargs['mac_address'], kwargs['tenant_id']
-        address = self.deduce_ip_address(tenant_id, mac_address)
-        while(IpAddress.get_by(ip_block_id=self.ip_block.id, address=address)):
-            mac_address = self.next_mac_address(mac_address)
-            address = self.deduce_ip_address(tenant_id, mac_address)
-        return address
-
-    def next_mac_address(self, mac_address):
-        return int(netaddr.EUI(mac_address)) + 1
-
-    def deduce_ip_address(self, tenant_id, mac_address):
-        variable_segment = self.variable_segment(tenant_id, mac_address)
-
-        network = IPNetwork(self.ip_block.cidr)
-        return str(variable_segment & network.hostmask | network.cidr.ip)
-
-    @classmethod
-    def variable_segment(cls, tenant_id, mac_address):
-        tenant_hash = hashlib.sha1(tenant_id).hexdigest()
-        first_2_segments = int(tenant_hash[:8], 16) << 32
-        constant = 0xff << 24
-        ei_mac_address = int(netaddr.EUI(mac_address)) & int("ffffff", 16)
-        last_2_segments = constant | ei_mac_address
-        return netaddr.IPAddress(first_2_segments | last_2_segments)
-
-
 def ipv6_address_generator_factory(ip_block):
     ip_generator_class_name = Config.get("ipv6_generator",
-                           "melange.ipam.models.DefaultIpV6Generator")
+                     "melange.ipv6.default_generator.DefaultIpV6Generator")
     ip_generator = utils.import_class(ip_generator_class_name)
     return ip_generator(ip_block)
 

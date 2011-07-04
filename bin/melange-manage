@@ -130,7 +130,7 @@ class IpBlockCommands(object):
 class PolicyCommands(object):
 
     def create(self, name, description=None):
-        print Policy.create(name=name, description=description, tenant_id=1)
+        print Policy.create(name=name, description=description)
 
     def update(self, id, name, description=None):
         print Policy.update(id, name=name, description=description)

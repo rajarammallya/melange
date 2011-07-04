@@ -44,6 +44,7 @@ class TestPublicIpBlockCLI(BaseTest):
         self.assertTrue(ip_block is not None)
         self.assertEqual(ip_block.network_id, "net1")
         self.assertEqual(ip_block.policy_id, policy.id)
+        self.assertEqual(ip_block.tenant_id, None)
 
     def test_list(self):
         exitcode, out, err = run("public_ip_block list")
@@ -80,6 +81,7 @@ class TestPrivateIpBlockCLI(BaseTest):
         self.assertTrue(ip_block is not None)
         self.assertEqual(ip_block.network_id, "net1")
         self.assertEqual(ip_block.policy_id, policy.id)
+        self.assertEqual(ip_block.tenant_id, None)
 
     def test_list(self):
         exitcode, out, err = run("private_ip_block list")
@@ -149,6 +151,7 @@ class TestPolicyCLI(BaseTest):
         self.assertEqual(exitcode, 0)
         policy = Policy.get_by(name="policy_name", description="policy_desc")
         self.assertTrue(policy is not None)
+        self.assertEqual(policy.tenant_id, None)
 
     def test_update(self):
         policy = PolicyFactory(name='name', description='desc')

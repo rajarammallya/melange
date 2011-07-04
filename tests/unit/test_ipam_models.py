@@ -565,10 +565,12 @@ class TestPolicy(BaseTest):
         self.assertTrue(isinstance(Policy.unusable_ip_octets, cached_property))
 
     def test_data(self):
-        policy = PolicyFactory(name='Infrastructure', tenant_id="123")
+        policy = PolicyFactory(name='Infrastructure', tenant_id="123",
+                               description="desc")
 
         self.assertEqual(policy.data(), dict(name='Infrastructure',
-                                         id=policy.id, tenant_id="123"))
+                                             id=policy.id, tenant_id="123",
+                                             description="desc"))
 
     def test_find_all_to_return_all_policies(self):
         policy1 = PolicyFactory(name="physically unstable")

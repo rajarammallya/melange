@@ -406,7 +406,7 @@ class Policy(ModelBase):
         return IpOctet.find_by(id=ip_octet_id, policy_id=self.id)
 
     def data_fields(self):
-        return ['id', 'name', 'tenant_id']
+        return ['id', 'name', 'description', 'tenant_id']
 
 
 class IpRange(ModelBase):

@@ -58,10 +58,18 @@ import sys
 import json
 import optparse
 
+# If ../melange/__init__.py exists, add ../ to Python search path, so that
+# it will override what happens to be installed in /usr/(local/)lib/python...
+possible_topdir = os.path.normpath(os.path.join(os.path.abspath(sys.argv[0]),
+                                   os.pardir,
+                                   os.pardir))
+if os.path.exists(os.path.join(possible_topdir, 'melange', '__init__.py')):
+    sys.path.insert(0, possible_topdir)
+
 from melange import version
 from gettext import gettext as _
 from melange.common.client import Client
-from melange.common.utils import Method
+from melange.common.utils import Method, remove_nones
 
 
 class Resource(object):
@@ -76,6 +84,10 @@ class Resource(object):
         return self.request("POST", self.path,
                             body=json.dumps({self.name: kwargs}))
 
+    def update(self, id, **kwargs):
+        return self.request("PUT", self._member_path(id),
+                            body=json.dumps({self.name: remove_nones(kwargs)}))
+
     def all(self):
         return self.request("GET", self.path)
 
@@ -88,7 +100,7 @@ class Resource(object):
     def _member_path(self, id):
         return "{0}/{1}".format(self.path, id)
 
-    def request(self, method, path, **kwargs):
+    def request(self, method, path, body_params=None, **kwargs):
         client = Client(host=self.host, port=self.port)
         kwargs['headers'] = {'X_ROLE': "Admin",
                              'Content-Type': "application/json"}
@@ -115,6 +127,24 @@ class IpBlockCommands(object):
         print self.block.delete(id)
 
 
+class PolicyCommands(object):
+
+    def create(self, name, description=None):
+        print Policy.create(name=name, description=description, tenant_id=1)
+
+    def update(self, id, name, description=None):
+        print Policy.update(id, name=name, description=description)
+
+    def list(self):
+        print Policy.all()
+
+    def show(self, id):
+        print Policy.find(id)
+
+    def delete(self, id):
+        print Policy.delete(id)
+
+
 class TenantIpBlockCommands(object):
 
     def _block(self, tenant_id):
@@ -137,11 +167,13 @@ class TenantIpBlockCommands(object):
 
 GlobalPrivateIpBlock = Resource("/v0.1/ipam/private_ip_blocks", 'ip_block')
 PublicIpBlock = Resource("/v0.1/ipam/public_ip_blocks", 'ip_block')
+Policy = Resource("/v0.1/ipam/policies", 'policy')
 
 
 CATEGORIES = [('public_ip_block', IpBlockCommands(PublicIpBlock)),
               ('private_ip_block', IpBlockCommands(GlobalPrivateIpBlock)),
-              ('tenant_ip_block', TenantIpBlockCommands())]
+              ('tenant_ip_block', TenantIpBlockCommands()),
+              ('policy', PolicyCommands())]
 
 
 def lazy_match(name, key_value_tuples):

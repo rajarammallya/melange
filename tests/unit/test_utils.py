@@ -19,6 +19,13 @@ import unittest
 from melange.common import utils
 
 
+class TestUtils(unittest.TestCase):
+
+    def test_remove_nones(self):
+        hash = utils.remove_nones(dict(a=1, b=None, c=3))
+        self.assertEqual(hash, dict(a=1, c=3))
+
+
 class ParseIntTest(unittest.TestCase):
 
     def test_converts_invalid_int_to_none(self):

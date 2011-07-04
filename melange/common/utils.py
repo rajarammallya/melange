@@ -229,6 +229,11 @@ def guid():
     return str(uuid.uuid4())
 
 
+def remove_nones(hash):
+    return dict((key, value)
+               for key, value in hash.iteritems() if value is not None)
+
+
 class cached_property(object):
     """
     Taken from : https://github.com/nshah/python-memoize

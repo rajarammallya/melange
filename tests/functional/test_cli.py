@@ -18,12 +18,13 @@
 
 # If ../melange/__init__.py exists, add ../ to Python search path, so that
 # it will override what happens to be installed in /usr/(local/)lib/python...
-from melange.ipam.models import IpBlock, Policy
+from melange.ipam.models import IpBlock, Policy, IpRange
 
 from tests.functional import execute
 from tests.functional import get_api_port
 from tests.factories.models import (PublicIpBlockFactory,
-                                    PrivateIpBlockFactory, PolicyFactory)
+                                    PrivateIpBlockFactory, PolicyFactory,
+                                    IpRangeFactory)
 from tests import BaseTest
 
 
@@ -183,3 +184,67 @@ class TestPolicyCLI(BaseTest):
 
         self.assertEqual(exitcode, 0)
         self.assertTrue(Policy.get(policy.id) is None)
+
+
+class TestUnusableIpRangesCLI(BaseTest):
+
+    def test_create(self):
+        policy = PolicyFactory()
+        exitcode, out, err = run("unusable_ip_range"
+                                 " create {0} 1 2".format(policy.id))
+
+        self.assertEqual(exitcode, 0)
+        ip_range = IpRange.get_by(policy_id=policy.id, offset=1, length=2)
+        self.assertTrue(ip_range is not None)
+
+    def test_update(self):
+        policy = PolicyFactory()
+        ip_range = IpRangeFactory(policy_id=policy.id, offset=0, length=1)
+        exitcode, out, err = run("unusable_ip_range"
+                                 " update {0} {1} 10 122".format(policy.id,
+                                                               ip_range.id))
+
+        updated_ip_range = IpRange.find(ip_range.id)
+
+        self.assertEqual(exitcode, 0)
+        self.assertEqual(updated_ip_range.offset, 10)
+        self.assertEqual(updated_ip_range.length, 122)
+
+    def test_update_with_optional_params(self):
+        policy = PolicyFactory()
+        ip_range = IpRangeFactory(policy_id=policy.id, offset=0, length=1)
+        exitcode, out, err = run("unusable_ip_range"
+                                 " update {0} {1} 10".format(policy.id,
+                                                               ip_range.id))
+
+        updated_ip_range = IpRange.find(ip_range.id)
+
+        self.assertEqual(exitcode, 0)
+        self.assertEqual(updated_ip_range.offset, 10)
+        self.assertEqual(updated_ip_range.length, 1)
+
+    def test_list(self):
+        policy = PolicyFactory()
+        exitcode, out, err = run("unusable_ip_range"
+                                 " list {0}".format(policy.id))
+
+        self.assertEqual(exitcode, 0)
+        self.assertIn("ip_ranges", out)
+
+    def test_show(self):
+        policy = PolicyFactory()
+        ip_range = IpRangeFactory(policy_id=policy.id)
+        exitcode, out, err = run("unusable_ip_range show"
+                                 " {0} {1}".format(policy.id, ip_range.id))
+
+        self.assertEqual(exitcode, 0)
+        self.assertIn(ip_range.policy_id, out)
+
+    def test_delete(self):
+        policy = PolicyFactory()
+        ip_range = IpRangeFactory(policy_id=policy.id)
+        exitcode, out, err = run("unusable_ip_range delete"
+                                 " {0} {1}".format(policy.id, ip_range.id))
+
+        self.assertEqual(exitcode, 0)
+        self.assertTrue(IpRange.get(ip_range.id) is None)

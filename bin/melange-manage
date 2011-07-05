@@ -146,6 +146,29 @@ class PolicyCommands(object):
         print Policy.delete(id)
 
 
+class UnusableIpRangesCommands(object):
+
+    def _ip_ranges(self, policy_id):
+        return Resource("/v0.1/ipam/policies/{0}/"
+                        "unusable_ip_ranges".format(policy_id), "ip_range")
+
+    def create(self, policy_id, offset, length):
+        print self._ip_ranges(policy_id).create(offset=offset, length=length)
+
+    def update(self, policy_id, id, offset=None, length=None):
+        print self._ip_ranges(policy_id).update(id, offset=offset,
+                                                length=length)
+
+    def list(self, policy_id):
+        print self._ip_ranges(policy_id).all()
+
+    def show(self, policy_id, id):
+        print self. _ip_ranges(policy_id).find(id)
+
+    def delete(self, policy_id, id):
+        print self._ip_ranges(policy_id).delete(id)
+
+
 class TenantIpBlockCommands(object):
 
     def _block(self, tenant_id):
@@ -174,7 +197,8 @@ Policy = Resource("/v0.1/ipam/policies", 'policy')
 CATEGORIES = [('public_ip_block', IpBlockCommands(PublicIpBlock)),
               ('private_ip_block', IpBlockCommands(GlobalPrivateIpBlock)),
               ('tenant_ip_block', TenantIpBlockCommands()),
-              ('policy', PolicyCommands())]
+              ('policy', PolicyCommands()),
+              ('unusable_ip_range', UnusableIpRangesCommands())]
 
 
 def lazy_match(name, key_value_tuples):

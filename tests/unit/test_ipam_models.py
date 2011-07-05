@@ -224,7 +224,7 @@ class TestIpBlock(BaseTest):
         with(StubConfig(ipv6_generator=mock_generatore_name)):
             ip = block.allocate_ip()
 
-        self.assertEqual(ip.address, "ff::0001")
+        self.assertEqual(ip.address, "00ff:0000:0000:0000:0000:0000:0000:0001")
 
     def test_allocate_ip_for_ipv6_block_iterates_till_free_ip_is_found(self):
         mock_generatore_name = "tests.unit.test_ipam_models.MockIpV6Generator"
@@ -235,7 +235,7 @@ class TestIpBlock(BaseTest):
         with(StubConfig(ipv6_generator=mock_generatore_name)):
             ip = block.allocate_ip()
 
-        self.assertEqual(ip.address, "ff::0002")
+        self.assertEqual(ip.address, "00ff:0000:0000:0000:0000:0000:0000:0002")
 
     def test_find_or_allocate_ip(self):
         block = PrivateIpBlockFactory(cidr="10.0.0.0/30")
@@ -336,6 +336,17 @@ class TestIpAddress(BaseTest):
                                        address="10.0.0.1")
 
         self.assertNotEqual(IpAddress.find(ip_address.id), None)
+
+    def test_ipv6_address_is_expanded_before_save(self):
+        ip_address = IpAddressFactory(address="fe:0:1::2")
+
+        self.assertEqual(ip_address.address,
+                         "00fe:0000:0001:0000:0000:0000:0000:0002")
+
+    def test_ipv4_address_is_formatted_before_save(self):
+        ip_address = IpAddressFactory(address="10.11.003.255")
+
+        self.assertEqual(ip_address.address, "10.11.3.255")
 
     def test_find_ip_address_for_nonexistent_address(self):
         self.assertRaises(models.ModelNotFoundError, IpAddress.find, 123)
@@ -503,6 +514,22 @@ class TestIpAddress(BaseTest):
         ip_address = IpAddressFactory(ip_block_id=ip_block.id)
 
         self.assertEqual(ip_address.ip_block(), ip_block)
+
+    def test_find_by_takes_care_of_expanding_ipv6_addresses(self):
+        actual_ip = IpAddressFactory(address="00fe:0:0001::2")
+        noise_ip = IpAddressFactory(address="fe00:0:0001::2")
+
+        found_ip = IpAddress.find_by(address="fe:0:1::2")
+
+        self.assertEqual(actual_ip, found_ip)
+
+    def test_find_all_takes_care_of_expanding_ipv6_addresses(self):
+        actual_ip = IpAddressFactory(address="00fe:0:0001::2")
+        noise_ip = IpAddressFactory(address="fe00:0:0001::2")
+
+        found_ips = IpAddress.find_all(address="fe:0:1::2").all()
+
+        self.assertEqual([actual_ip], found_ips)
 
 
 class TestPolicy(BaseTest):

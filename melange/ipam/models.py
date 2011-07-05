@@ -21,11 +21,12 @@ SQLAlchemy models for Melange data
 import netaddr
 import hashlib
 
+from netaddr.strategy.ipv6 import ipv6_verbose
 from netaddr import IPNetwork, IPAddress
 from melange.common.exception import MelangeError
 from melange.db import api as db_api
 from melange.common import utils
-from melange.common.utils import cached_property
+from melange.common.utils import cached_property, find
 from melange.common.config import Config
 from melange.common import data_types
 
@@ -41,6 +42,7 @@ class ModelBase(object):
     def save(self):
         if not self.is_valid():
             raise InvalidModelError(self.errors)
+        self._convert_columns_to_proper_type()
         self._before_save()
         return db_api.save(self)
 
@@ -63,7 +65,7 @@ class ModelBase(object):
         pass
 
     def _before_save(self):
-        self._convert_columns_to_proper_type()
+        pass
 
     def _convert_columns_to_proper_type(self):
         for column_name, column_type in self._columns.iteritems():
@@ -96,12 +98,16 @@ class ModelBase(object):
         return model
 
     @classmethod
-    def get_by(cls, **conditions):
-        return db_api.find_by(cls, **conditions)
+    def get_by(cls, **kwargs):
+        return db_api.find_by(cls, **cls._get_conditions(kwargs))
 
     @classmethod
-    def find_all(cls, **conditions):
-        return db_api.find_all_by(cls, **conditions)
+    def _get_conditions(cls, raw_conditions):
+        return raw_conditions
+
+    @classmethod
+    def find_all(cls, **kwargs):
+        return db_api.find_all_by(cls, **cls._get_conditions(kwargs))
 
     @classmethod
     def with_limits(cls, query, **kwargs):
@@ -181,6 +187,18 @@ def ipv6_address_generator_factory(**kwargs):
     return ip_generator(**kwargs)
 
 
+class IpAddressIterator(object):
+
+    def __init__(self, generator):
+        self.generator = generator
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        return self.generator.next_ip()
+
+
 class IpBlock(ModelBase):
 
     def __init__(self, **kwargs):
@@ -219,10 +237,11 @@ class IpBlock(ModelBase):
         if(self.is_ipv6()):
             address_generator = ipv6_address_generator_factory(cidr=self.cidr,
                                                                **kwargs)
-            candidate_ip = address_generator.next_ip()
-            while IpAddress.get_by(address=candidate_ip,
-                                   ip_block_id=self.id):
-                candidate_ip = address_generator.next_ip()
+
+            candidate_ip = find(lambda address:
+                                IpAddress.get_by(address=address,
+                                                 ip_block_id=self.id) is None,
+                                IpAddressIterator(address_generator))
         else:
             candidate_ip = None
             allocated_addresses = [ip_addr.address
@@ -306,6 +325,20 @@ class IpAddress(ModelBase):
     @classmethod
     def delete_deallocated_addresses(self):
         return db_api.delete_deallocated_addresses()
+
+    @classmethod
+    def _get_conditions(cls, raw_conditions):
+        conditions = raw_conditions.copy()
+        if 'address' in conditions:
+            conditions['address'] = cls._formatted(conditions['address'])
+        return conditions
+
+    @classmethod
+    def _formatted(cls, address):
+        return IPAddress(address).format(dialect=ipv6_verbose)
+
+    def _before_save(self):
+        self.address = self._formatted(self.address)
 
     def ip_block(self):
         return IpBlock.get(self.ip_block_id)

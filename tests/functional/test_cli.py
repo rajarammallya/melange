@@ -18,13 +18,13 @@
 
 # If ../melange/__init__.py exists, add ../ to Python search path, so that
 # it will override what happens to be installed in /usr/(local/)lib/python...
-from melange.ipam.models import IpBlock, Policy, IpRange
+from melange.ipam.models import IpBlock, Policy, IpRange, IpOctet
 
 from tests.functional import execute
 from tests.functional import get_api_port
 from tests.factories.models import (PublicIpBlockFactory,
                                     PrivateIpBlockFactory, PolicyFactory,
-                                    IpRangeFactory)
+                                    IpRangeFactory, IpOctetFactory)
 from tests import BaseTest
 
 
@@ -248,3 +248,65 @@ class TestUnusableIpRangesCLI(BaseTest):
 
         self.assertEqual(exitcode, 0)
         self.assertTrue(IpRange.get(ip_range.id) is None)
+
+
+class TestUnusableIpOctetsCLI(BaseTest):
+
+    def test_create(self):
+        policy = PolicyFactory()
+        exitcode, out, err = run("unusable_ip_octet"
+                                 " create {0} 255".format(policy.id))
+
+        self.assertEqual(exitcode, 0)
+        ip_octet = IpOctet.get_by(policy_id=policy.id, octet=255)
+        self.assertTrue(ip_octet is not None)
+
+    def test_update(self):
+        policy = PolicyFactory()
+        ip_octet = IpOctetFactory(policy_id=policy.id, octet=222)
+        exitcode, out, err = run("unusable_ip_octet"
+                                 " update {0} {1} 255".format(policy.id,
+                                                               ip_octet.id))
+
+        updated_ip_octet = IpOctet.find(ip_octet.id)
+
+        self.assertEqual(exitcode, 0)
+        self.assertEqual(updated_ip_octet.octet, 255)
+
+    def test_update_with_optional_params(self):
+        policy = PolicyFactory()
+        ip_octet = IpOctetFactory(policy_id=policy.id, octet=222)
+        exitcode, out, err = run("unusable_ip_octet"
+                                 " update {0} {1}".format(policy.id,
+                                                               ip_octet.id))
+
+        updated_ip_octet = IpOctet.find(ip_octet.id)
+
+        self.assertEqual(exitcode, 0)
+        self.assertEqual(updated_ip_octet.octet, 222)
+
+    def test_list(self):
+        policy = PolicyFactory()
+        exitcode, out, err = run("unusable_ip_octet"
+                                 " list {0}".format(policy.id))
+
+        self.assertEqual(exitcode, 0)
+        self.assertIn("ip_octets", out)
+
+    def test_show(self):
+        policy = PolicyFactory()
+        ip_octet = IpOctetFactory(policy_id=policy.id)
+        exitcode, out, err = run("unusable_ip_octet show"
+                                 " {0} {1}".format(policy.id, ip_octet.id))
+
+        self.assertEqual(exitcode, 0)
+        self.assertIn(ip_octet.policy_id, out)
+
+    def test_delete(self):
+        policy = PolicyFactory()
+        ip_octet = IpOctetFactory(policy_id=policy.id)
+        exitcode, out, err = run("unusable_ip_octet delete"
+                                 " {0} {1}".format(policy.id, ip_octet.id))
+
+        self.assertEqual(exitcode, 0)
+        self.assertTrue(IpOctet.get(ip_octet.id) is None)

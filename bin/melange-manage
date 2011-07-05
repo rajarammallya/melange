@@ -169,6 +169,28 @@ class UnusableIpRangesCommands(object):
         print self._ip_ranges(policy_id).delete(id)
 
 
+class UnusableIpOctetsCommands(object):
+
+    def _ip_octets(self, policy_id):
+        return Resource("/v0.1/ipam/policies/{0}/"
+                        "unusable_ip_octets".format(policy_id), "ip_octet")
+
+    def create(self, policy_id, octet):
+        print self._ip_octets(policy_id).create(octet=octet)
+
+    def update(self, policy_id, id, octet=None):
+        print self._ip_octets(policy_id).update(id, octet=octet)
+
+    def list(self, policy_id):
+        print self._ip_octets(policy_id).all()
+
+    def show(self, policy_id, id):
+        print self. _ip_octets(policy_id).find(id)
+
+    def delete(self, policy_id, id):
+        print self._ip_octets(policy_id).delete(id)
+
+
 class TenantIpBlockCommands(object):
 
     def _block(self, tenant_id):
@@ -198,7 +220,8 @@ CATEGORIES = [('public_ip_block', IpBlockCommands(PublicIpBlock)),
               ('private_ip_block', IpBlockCommands(GlobalPrivateIpBlock)),
               ('tenant_ip_block', TenantIpBlockCommands()),
               ('policy', PolicyCommands()),
-              ('unusable_ip_range', UnusableIpRangesCommands())]
+              ('unusable_ip_range', UnusableIpRangesCommands()),
+              ('unusable_ip_octet', UnusableIpOctetsCommands())]
 
 
 def lazy_match(name, key_value_tuples):

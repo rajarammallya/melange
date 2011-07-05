@@ -20,24 +20,24 @@ from netaddr import IPNetwork, IPAddress, EUI
 
 class DefaultIpV6Generator(object):
     def __init__(self, cidr, tenant_id, mac_address):
-        self.cidr = cidr
-        self.tenant_id = tenant_id
-        self.mac_address = mac_address
+        self._cidr = cidr
+        self._tenant_id = tenant_id
+        self._mac_address = mac_address
 
     def next_ip(self):
         address = self._deduce_ip_address()
-        self.mac_address = int(EUI(self.mac_address)) + 1
+        self._mac_address = str(EUI(int(EUI(self._mac_address)) + 1))
         return address
 
     def _deduce_ip_address(self):
         variable_segment = self._variable_segment()
-        network = IPNetwork(self.cidr)
+        network = IPNetwork(self._cidr)
         return str(variable_segment & network.hostmask | network.cidr.ip)
 
     def _variable_segment(self):
-        tenant_hash = hashlib.sha1(self.tenant_id).hexdigest()
+        tenant_hash = hashlib.sha1(self._tenant_id).hexdigest()
         first_2_segments = int(tenant_hash[:8], 16) << 32
         constant = 0xff << 24
-        ei_mac_address = int(EUI(self.mac_address)) & int("ffffff", 16)
+        ei_mac_address = int(EUI(self._mac_address)) & int("ffffff", 16)
         last_2_segments = constant | ei_mac_address
         return IPAddress(first_2_segments | last_2_segments)

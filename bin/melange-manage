@@ -102,6 +102,7 @@ class Resource(object):
 
     def request(self, method, path, body_params=None, **kwargs):
         client = Client(host=self.host, port=self.port)
+        #TODO: plug in keystone here
         kwargs['headers'] = {'X_ROLE': "Admin",
                              'Content-Type': "application/json"}
         response = client.do_request(method, path, **kwargs)
@@ -177,34 +178,36 @@ CATEGORIES = [('public_ip_block', IpBlockCommands(PublicIpBlock)),
 
 
 def lazy_match(name, key_value_tuples):
-    """Finds all objects that have a key that case insensitively contains
-    [name] key_value_tuples is a list of tuples of the form (key, value)
-    returns a list of tuples of the form (key, value)"""
-    result = []
-    for (k, v) in key_value_tuples:
-        if k.lower().find(name.lower()) == 0:
-            result.append((k, v))
+    result = [(k, v) for k, v in key_value_tuples
+               if k.lower() == name.lower()]
+
     if len(result) == 0:
         print "%s does not match any options:" % name
-        for k, _v in key_value_tuples:
-            print "\t%s" % k
+        print_keys(key_value_tuples)
         sys.exit(2)
+
     if len(result) > 1:
         print "%s matched multiple options:" % name
-        for k, _v in result:
-            print "\t%s" % k
+        print_keys(result)
         sys.exit(2)
-    return result
+
+    return result[0]
+
+
+def print_keys(tuples):
+    for k, _v in tuples:
+        print "\t%s" % k
 
 
 def methods_of(obj):
     """Get all callable methods of an object that don't start with underscore
     returns a list of tuples of the form (method_name, method)"""
-    result = []
-    for i in dir(obj):
-        if callable(getattr(obj, i)) and not i.startswith('_'):
-            result.append((i, getattr(obj, i)))
-    return result
+
+    def is_public_method(attr):
+        return callable(getattr(obj, attr)) and not attr.startswith('_')
+
+    return [(attr, getattr(obj, attr)) for attr in dir(obj)
+              if is_public_method(attr)]
 
 
 def create_options(parser):
@@ -263,9 +266,8 @@ def main():
     script_name = os.path.basename(sys.argv[0])
 
     category = args.pop(0)
-    matches = lazy_match(category, CATEGORIES)
-    # instantiate the command group object
-    category, command_object = matches[0]
+    category, command_object = lazy_match(category, CATEGORIES)
+
     actions = methods_of(command_object)
     if len(args) < 1:
         print "Usage: " + script_name + " category action [<args>]"
@@ -274,8 +276,8 @@ def main():
             print "\t%s" % k
         sys.exit(2)
     action = args.pop(0)
-    matches = lazy_match(action, actions)
-    action, fn = matches[0]
+    action, fn = lazy_match(action, actions)
+
     # call the action with the remaining arguments
     try:
         fn(*args)

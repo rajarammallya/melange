@@ -77,7 +77,7 @@ class Resource(object):
     host = "0.0.0.0"
 
     def __init__(self, path, name):
-        self.path = path
+        self.path = "/v0.1/ipam/" + path
         self.name = name
 
     def create(self, **kwargs):
@@ -109,6 +109,13 @@ class Resource(object):
         return json.loads(response.read() or "{}")
 
 
+class TenantResource(Resource):
+
+    def __init__(self, tenant_id, path, *args):
+        super(TenantResource,
+              self).__init__("tenants/{0}/{1}".format(tenant_id, path), *args)
+
+
 class IpBlockCommands(object):
 
     def __init__(self, block):
@@ -130,26 +137,32 @@ class IpBlockCommands(object):
 
 class PolicyCommands(object):
 
+    def __init__(self, policy):
+        self.policy = policy
+
     def create(self, name, description=None):
-        print Policy.create(name=name, description=description)
+        print self.policy.create(name=name, description=description)
 
     def update(self, id, name, description=None):
-        print Policy.update(id, name=name, description=description)
+        print self.policy.update(id, name=name, description=description)
 
     def list(self):
-        print Policy.all()
+        print self.policy.all()
 
     def show(self, id):
-        print Policy.find(id)
+        print self.policy.find(id)
 
     def delete(self, id):
-        print Policy.delete(id)
+        print self.policy.delete(id)
 
 
 class UnusableIpRangesCommands(object):
 
+    def __init__(self, resource):
+        self.resource = resource
+
     def _ip_ranges(self, policy_id):
-        return Resource("/v0.1/ipam/policies/{0}/"
+        return self.resource("policies/{0}/"
                         "unusable_ip_ranges".format(policy_id), "ip_range")
 
     def create(self, policy_id, offset, length):
@@ -171,8 +184,11 @@ class UnusableIpRangesCommands(object):
 
 class UnusableIpOctetsCommands(object):
 
+    def __init__(self, resource):
+        self.resource = resource
+
     def _ip_octets(self, policy_id):
-        return Resource("/v0.1/ipam/policies/{0}/"
+        return self.resource("policies/{0}/"
                         "unusable_ip_octets".format(policy_id), "ip_octet")
 
     def create(self, policy_id, octet):
@@ -185,43 +201,10 @@ class UnusableIpOctetsCommands(object):
         print self._ip_octets(policy_id).all()
 
     def show(self, policy_id, id):
-        print self. _ip_octets(policy_id).find(id)
+        print self._ip_octets(policy_id).find(id)
 
     def delete(self, policy_id, id):
         print self._ip_octets(policy_id).delete(id)
-
-
-class TenantIpBlockCommands(object):
-
-    def _block(self, tenant_id):
-        return Resource("/v0.1/ipam/tenants/{0}/private_ip_blocks"\
-                             .format(tenant_id), "ip_block")
-
-    def create(self, tenant_id, cidr, network_id=None, policy_id=None):
-        print self._block(tenant_id).create(cidr=cidr, network_id=network_id,
-                                        policy_id=policy_id)
-
-    def list(self, tenant_id):
-        print self._block(tenant_id).all()
-
-    def show(self, tenant_id, id):
-        print self._block(tenant_id).find(id)
-
-    def delete(self, tenant_id, id):
-        print self._block(tenant_id).delete(id)
-
-
-GlobalPrivateIpBlock = Resource("/v0.1/ipam/private_ip_blocks", 'ip_block')
-PublicIpBlock = Resource("/v0.1/ipam/public_ip_blocks", 'ip_block')
-Policy = Resource("/v0.1/ipam/policies", 'policy')
-
-
-CATEGORIES = [('public_ip_block', IpBlockCommands(PublicIpBlock)),
-              ('private_ip_block', IpBlockCommands(GlobalPrivateIpBlock)),
-              ('tenant_ip_block', TenantIpBlockCommands()),
-              ('policy', PolicyCommands()),
-              ('unusable_ip_range', UnusableIpRangesCommands()),
-              ('unusable_ip_octet', UnusableIpOctetsCommands())]
 
 
 def lazy_match(name, key_value_tuples):
@@ -273,6 +256,8 @@ def create_options(parser):
                       type=int, default=9292,
                       help="Port the Melange API host listens on. "
                            "Default: %default")
+    parser.add_option('-t', '--tenant', dest="tenant", metavar="TENANT",
+                      type=str, help="tenant id in case of tenant resources")
 
 
 def parse_options(parser, cli_args):
@@ -296,10 +281,21 @@ def usage():
 Available categories:
 
     """
-    for k, _v in CATEGORIES:
+    for k, _v in categories():
         usage = usage + ("\t%s\n" % k)
 
     return usage
+
+
+def categories(resource_factory=Resource):
+    return \
+    [('public_ip_block', IpBlockCommands(Resource("public_ip_blocks",
+                                                  "ip_block"))),
+     ('private_ip_block', IpBlockCommands(resource_factory("private_ip_blocks",
+                                                           'ip_block'))),
+     ('policy', PolicyCommands(resource_factory("policies", 'policy'))),
+     ('unusable_ip_range', UnusableIpRangesCommands(resource_factory)),
+     ('unusable_ip_octet', UnusableIpOctetsCommands(resource_factory))]
 
 
 def main():
@@ -311,9 +307,15 @@ def main():
 
     Resource.host, Resource.port = options.host, options.port
     script_name = os.path.basename(sys.argv[0])
-
     category = args.pop(0)
-    category, command_object = lazy_match(category, CATEGORIES)
+
+    def resource_factory(*args):
+        if options.tenant:
+            return  TenantResource(options.tenant, *args)
+        return Resource(*args)
+
+    category, command_object = lazy_match(category,
+                                          categories(resource_factory))
 
     actions = methods_of(command_object)
     if len(args) < 1:

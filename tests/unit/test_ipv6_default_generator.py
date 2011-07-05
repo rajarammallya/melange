@@ -24,28 +24,29 @@ from tests.factories.models import IpV6IpBlockFactory
 
 class TestDefaultIpV6Generator(BaseTest):
 
-    def test_variable_segment_deduced_from_tenant_id_and_mac_address(self):
-        tenant_sha1 = hashlib.sha1("1234").hexdigest()
-        mac_address = "00:ff:12:89:67:34"
+    def test_next_ip_generates_last_4_segments_for_slash_64_block(self):
+        generator = DefaultIpV6Generator(cidr="fe::/64", tenant_id="1234",
+                                         mac_address="00:ff:12:89:67:34")
 
-        variable_int = int(tenant_sha1[:8] + "ff896734", 16)
-        self.assertEqual(DefaultIpV6Generator.\
-                             variable_segment("1234", mac_address),
-                         IPAddress(variable_int))
+        ip = generator.next_ip()
 
-    def test_allocatable_ip_to_return_the_address_from_ip_block(self):
-        args = {'tenant_id': "12", 'mac_address': "12:32:45:67:89:90"}
-        block = IpV6IpBlockFactory(cidr="fe::/72")
+        self.assertEqual(ip, "fe::7110:eda4:ff89:6734")
+        self.assertIn(IPAddress(ip), IPNetwork("fe::/64"))
 
-        address = DefaultIpV6Generator(block).allocatable_ip(**args)
-        self.assertTrue(IPAddress(address) in IPNetwork(block.cidr))
+    def test_next_ip_generates_ip_for_block_smaller_than_slash_64(self):
+        generator = DefaultIpV6Generator(cidr="fe::/72", tenant_id="1234",
+                                         mac_address="00:ff:12:89:67:34")
 
-    def test_allocatable_ip_retries_if_address_already_exists(self):
-        args = {'tenant_id': "12", 'mac_address': "12:32:45:67:89:90"}
-        block = IpV6IpBlockFactory(cidr="fe::/72")
-        ip_address = block.allocate_ip(tenant_id="12",
-                                       mac_address="12:32:45:67:89:90")
+        ip = generator.next_ip()
 
-        address = DefaultIpV6Generator(block).allocatable_ip(**args)
-        self.assertNotEqual(address, ip_address.address)
-        self.assertTrue(IPAddress(address) in IPNetwork(block.cidr))
+        self.assertEqual(ip, "fe::10:eda4:ff89:6734")
+        self.assertIn(IPAddress(ip), IPNetwork("fe::/72"))
+
+    def test_next_ip_generates_different_ips_on_consecutive_calls(self):
+        generator = DefaultIpV6Generator(cidr="fe::/64", tenant_id="1234",
+                                         mac_address="00:ff:12:89:67:34")
+
+        ip_1 = generator.next_ip()
+        ip_2 = generator.next_ip()
+
+        self.assertNotEqual(ip_1, ip_2)

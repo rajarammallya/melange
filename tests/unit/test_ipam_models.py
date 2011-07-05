@@ -32,6 +32,7 @@ from tests.factories.models import (PublicIpBlockFactory,
                                     PolicyFactory,
                                     IpRangeFactory, IpOctetFactory,
                                     IpV6IpBlockFactory)
+from melange.ipv6.default_generator import DefaultIpV6Generator
 
 
 class TestModelBase(BaseTest):
@@ -53,28 +54,40 @@ class TestModelBase(BaseTest):
         self.assertEqual(model.foo, True)
 
 
-class MockIpV6Generator():
+class MockIpV6Generator(object):
 
     ip_list = ["ff::0001", "ff::0002"]
 
-    def __init__(self, ip_block):
-        self.ip_block = ip_block
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+        self.ips = iter(self.ip_list)
 
-    def allocatable_ip(self, **kwargs):
-        return self.ip_list[0]
+    def next_ip(self):
+        return self.ips.next()
 
 
 class TestIpv6AddressGeneratorFactory(BaseTest):
 
     def test_loads_ipv6_generator_factory_from_config_file(self):
         expected_ip_block = PublicIpBlockFactory()
-        with(StubConfig(
-            ipv6_generator="tests.unit.test_ipam_models.MockIpV6Generator")):
-            actual_ip_generator = models.ipv6_address_generator_factory(
-                                                           expected_ip_block)
-            self.assertEqual(actual_ip_generator.ip_block, expected_ip_block)
-            self.assertTrue(isinstance(actual_ip_generator,
-                                      unit.test_ipam_models.MockIpV6Generator))
+        args = dict(cidr="fe::/64", tenant_id="1",
+                    mac_address="00:11:22:33:44:55")
+        mock_generatore_name = "tests.unit.test_ipam_models.MockIpV6Generator"
+        with(StubConfig(ipv6_generator=mock_generatore_name)):
+            ip_generator = models.ipv6_address_generator_factory(**args)
+
+        self.assertEqual(ip_generator.kwargs, args)
+        self.assertTrue(isinstance(ip_generator,
+                                   unit.test_ipam_models.MockIpV6Generator))
+
+    def test_loads_default_ipv6_generator_when_not_configured(self):
+        expected_ip_block = PublicIpBlockFactory()
+        args = dict(cidr="fe::/64", tenant_id="1",
+                    mac_address="00:11:22:33:44:55")
+
+        ip_generator = models.ipv6_address_generator_factory(**args)
+
+        self.assertTrue(isinstance(ip_generator, DefaultIpV6Generator))
 
 
 class TestIpBlock(BaseTest):
@@ -204,11 +217,25 @@ class TestIpBlock(BaseTest):
         self.assertEqual(block.allocate_ip().address, "10.0.0.1")
 
     def test_allocate_ip_for_ipv6_block_uses_pluggable_algo(self):
+        mock_generatore_name = "tests.unit.test_ipam_models.MockIpV6Generator"
         block = IpV6IpBlockFactory(cidr="ff::/120")
-        with(StubConfig(
-            ipv6_generator="tests.unit.test_ipam_models.MockIpV6Generator")):
-            self.assertEqual(block.allocate_ip().address,
-                             MockIpV6Generator.ip_list[0])
+        MockIpV6Generator.ip_list = ["ff::0001", "ff::0002"]
+
+        with(StubConfig(ipv6_generator=mock_generatore_name)):
+            ip = block.allocate_ip()
+
+        self.assertEqual(ip.address, "ff::0001")
+
+    def test_allocate_ip_for_ipv6_block_iterates_till_free_ip_is_found(self):
+        mock_generatore_name = "tests.unit.test_ipam_models.MockIpV6Generator"
+        block = IpV6IpBlockFactory(cidr="ff::/120")
+        MockIpV6Generator.ip_list = ["ff::0001", "ff::0002"]
+        IpAddressFactory(address="ff::0001", ip_block_id=block.id)
+
+        with(StubConfig(ipv6_generator=mock_generatore_name)):
+            ip = block.allocate_ip()
+
+        self.assertEqual(ip.address, "ff::0002")
 
     def test_find_or_allocate_ip(self):
         block = PrivateIpBlockFactory(cidr="10.0.0.0/30")

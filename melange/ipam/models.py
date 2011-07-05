@@ -174,11 +174,11 @@ class ModelBase(object):
         return str(self)
 
 
-def ipv6_address_generator_factory(ip_block):
-    ip_generator_class_name = Config.get("ipv6_generator",
-                     "melange.ipv6.default_generator.DefaultIpV6Generator")
+def ipv6_address_generator_factory(**kwargs):
+    default_generator = "melange.ipv6.default_generator.DefaultIpV6Generator"
+    ip_generator_class_name = Config.get("ipv6_generator", default_generator)
     ip_generator = utils.import_class(ip_generator_class_name)
-    return ip_generator(ip_block)
+    return ip_generator(**kwargs)
 
 
 class IpBlock(ModelBase):
@@ -217,8 +217,12 @@ class IpBlock(ModelBase):
 
     def allocate_ip(self, port_id=None, address=None, **kwargs):
         if(self.is_ipv6()):
-            candidate_ip = ipv6_address_generator_factory(self).\
-                                                   allocatable_ip(**kwargs)
+            address_generator = ipv6_address_generator_factory(cidr=self.cidr,
+                                                               **kwargs)
+            candidate_ip = address_generator.next_ip()
+            while IpAddress.get_by(address=candidate_ip,
+                                   ip_block_id=self.id):
+                candidate_ip = address_generator.next_ip()
         else:
             candidate_ip = None
             allocated_addresses = [ip_addr.address

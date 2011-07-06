@@ -38,6 +38,14 @@ class BaseTest(unittest.TestCase):
         self.assertTrue(expected in actual,
             "{0} does not contain {1}".format(repr(actual), repr(expected)))
 
+    #This is similar to assertIsNone in python 2.7
+    def assertIsNone(self, actual):
+        self.assertEqual(actual, None)
+
+    #This is similar to assertIsNotNone in python 2.7
+    def assertIsNotNone(self, actual):
+        self.assertNotEqual(actual, None)
+
     def assertItemsEqual(self, expected, actual):
         self.assertEqual(sorted(expected), sorted(actual))
 

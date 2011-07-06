@@ -180,11 +180,17 @@ class ModelBase(object):
         return str(self)
 
 
-def ipv6_address_generator_factory(**kwargs):
+def ipv6_address_generator_factory(cidr, **kwargs):
     default_generator = "melange.ipv6.default_generator.DefaultIpV6Generator"
     ip_generator_class_name = Config.get("ipv6_generator", default_generator)
     ip_generator = utils.import_class(ip_generator_class_name)
-    return ip_generator(**kwargs)
+    required_params = ip_generator.required_params\
+        if hasattr(ip_generator, "required_params") else []
+    missing_params = set(required_params) - set(kwargs.keys())
+    if missing_params:
+        raise DataMissingError("Required params are missing: {0}".\
+                                   format(', '.join(missing_params)))
+    return ip_generator(cidr, **kwargs)
 
 
 class IpAddressIterator(object):
@@ -235,7 +241,7 @@ class IpBlock(ModelBase):
 
     def allocate_ip(self, port_id=None, address=None, **kwargs):
         if(self.is_ipv6()):
-            address_generator = ipv6_address_generator_factory(cidr=self.cidr,
+            address_generator = ipv6_address_generator_factory(self.cidr,
                                                                **kwargs)
 
             candidate_ip = find(lambda address:
@@ -243,7 +249,6 @@ class IpBlock(ModelBase):
                                                  ip_block_id=self.id) is None,
                                 IpAddressIterator(address_generator))
         else:
-            candidate_ip = None
             allocated_addresses = [ip_addr.address
                                    for ip_addr in
                                    IpAddress.find_all(ip_block_id=self.id)]
@@ -532,6 +537,12 @@ class ModelNotFoundError(MelangeError):
 
     def _error_message(self):
         return "Not Found"
+
+
+class DataMissingError(MelangeError):
+
+    def _error_message(self):
+        return "Data Missing"
 
 
 class AddressDisallowedByPolicyError(MelangeError):

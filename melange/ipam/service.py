@@ -33,7 +33,8 @@ class BaseController(wsgi.Controller):
                      [models.NoMoreAddressesError,
                       models.AddressDoesNotBelongError,
                       models.AddressLockedError],
-                     HTTPBadRequest: [models.InvalidModelError],
+                     HTTPBadRequest: [models.InvalidModelError,
+                                      models.DataMissingError],
                      HTTPNotFound: [models.ModelNotFoundError],
                      HTTPConflict: [models.DuplicateAddressError]}
 

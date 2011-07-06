@@ -19,10 +19,12 @@ from netaddr import IPNetwork, IPAddress, EUI
 
 
 class DefaultIpV6Generator(object):
-    def __init__(self, cidr, tenant_id, mac_address):
+    required_params = ["tenant_id", "mac_address"]
+
+    def __init__(self, cidr, **kwargs):
         self._cidr = cidr
-        self._tenant_id = tenant_id
-        self._mac_address = mac_address
+        self._tenant_id = kwargs['tenant_id']
+        self._mac_address = kwargs['mac_address']
 
     def next_ip(self):
         address = self._deduce_ip_address()

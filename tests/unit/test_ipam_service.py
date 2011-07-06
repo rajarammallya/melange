@@ -71,6 +71,7 @@ class TestBaseController(unittest.TestCase):
 
     def test_exception_to_http_code_mapping(self):
         self._assert_mapping(models.InvalidModelError(None), 400)
+        self._assert_mapping(models.DataMissingError, 400)
         self._assert_mapping(models.ModelNotFoundError, 404)
         self._assert_mapping(models.NoMoreAddressesError, 422)
         self._assert_mapping(models.AddressDoesNotBelongError, 422)
@@ -306,6 +307,16 @@ class IpAddressControllerBase():
 
         allocated_address = IpAddress.find_all(ip_block_id=block.id).first()
         self.assertEqual(allocated_address.port_id, "1111")
+
+    def test_ipv6_allocation_fails_when_mac_address_not_given(self):
+        block = self.ip_block_factory(tenant_id="111", cidr="ff::/64")
+
+        response = self.app.post_json("/ipam/tenants/111/private_ip_blocks/"
+                                      "%s/ip_addresses" % block.id,
+                                      {'ip_address': {"port_id": "1111"}},
+                                      status="*")
+
+        self.assertEqual(response.status_int, 400)
 
     def test_show(self):
         block_1 = self.ip_block_factory(cidr='10.1.1.1/30', tenant_id="111")

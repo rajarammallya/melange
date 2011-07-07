@@ -128,6 +128,21 @@ class IpBlockControllerBase():
 
         self.assertEqual(response.json, dict(ip_block=updated_block.data()))
 
+    def test_update_to_exclude_type_tenenat_id_and_cidr(self):
+        block = self._ip_block_factory(cidr="10.0.0.0/29")
+        response = self.app.put_json("%s/%s" % (self.ip_block_path, block.id),
+                                     {'ip_block': {'type': "new_type",
+                                                  'cidr': "50.0.0.0/29",
+                                                   'tenant_id': "new_tenant"}})
+        updated_block = IpBlock.find(block.id)
+
+        self.assertEqual(response.status_int, 200)
+        self.assertEqual(updated_block.cidr, "10.0.0.0/29")
+        self.assertNotEqual(updated_block.tenant_id, "new_tenant")
+        self.assertNotEqual(updated_block.type, "new_type")
+
+        self.assertEqual(response.json, dict(ip_block=block.data()))
+
     def test_delete(self):
         block = self._ip_block_factory()
         response = self.app.delete("%s/%s" % (self.ip_block_path, block.id))

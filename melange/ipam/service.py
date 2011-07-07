@@ -81,7 +81,7 @@ class IpBlockController(BaseController):
     def update(self, request, id, tenant_id=None):
         ip_block = IpBlock.find(id)
         params = self._extract_required_params(request, 'ip_block')
-        ip_block.update(**params)
+        ip_block.update(**exclude(params, 'tenant_id', 'type', 'cidr'))
         return dict(ip_block=ip_block.data()), 200
 
     def show(self, request, id, tenant_id=None):

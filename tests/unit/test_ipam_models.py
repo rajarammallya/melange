@@ -305,7 +305,9 @@ class TestIpBlock(BaseTest):
                           address=ip.address)
 
     def test_ip_block_data(self):
-        ip_block_data = {'cidr': "10.0.0.1/8", 'network_id': '1122'}
+        policy = PolicyFactory()
+        ip_block_data = {'cidr': "10.0.0.1/8", 'network_id': '1122',
+                         'policy_id': policy.id}
         ip_block = PrivateIpBlockFactory(**ip_block_data)
         ip_block_data["id"] = ip_block.id
         self.assertEqual(ip_block.data(), ip_block_data)

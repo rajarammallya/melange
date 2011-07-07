@@ -274,6 +274,15 @@ class TestTenantPrivateIpBlockController(IpBlockControllerBase,
         self.assertEqual(len(response_blocks), 2)
         self.assertItemsEqual(response_blocks, _data_of(ip_block1, ip_block2))
 
+    def test_update_fails_for_non_existent_block_for_given_tenant(self):
+        ip_block = PrivateIpBlockFactory(tenant_id="123")
+        response = self.app.put_json("/ipam/tenants/321/private_ip_blocks/%s"
+                                     % ip_block.id, {'ip_block':
+                                                      {'network_id': "foo"}},
+                                                  status='*')
+
+        self.assertErrorResponse(response, HTTPNotFound, "IpBlock Not Found")
+
 
 class IpAddressControllerBase(object):
 

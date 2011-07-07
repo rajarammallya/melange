@@ -324,7 +324,7 @@ class IpBlock(ModelBase):
         self.validate_uniqueness_for_public_ip_block()
 
     def data_fields(self):
-        return ['id', 'cidr', 'network_id']
+        return ['id', 'cidr', 'network_id', 'policy_id']
 
 
 class IpAddress(ModelBase):

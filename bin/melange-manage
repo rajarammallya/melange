@@ -131,6 +131,9 @@ class IpBlockCommands(object):
     def show(self, id):
         print self.block.find(id)
 
+    def update(self, id, network_id=None, policy_id=None):
+        print self.block.update(id, network_id=network_id, policy_id=policy_id)
+
     def delete(self, id):
         print self.block.delete(id)
 

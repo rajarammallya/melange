@@ -60,6 +60,18 @@ class TestPublicIpBlockCLI(BaseTest):
         self.assertEqual(exitcode, 0)
         self.assertIn(ip_block.cidr, out)
 
+    def test_update(self):
+        ip_block = PublicIpBlockFactory()
+        policy = PolicyFactory()
+
+        exitcode, out, err = run("public_ip_block update %s new_net %s"
+                                 % (ip_block.id, policy.id))
+
+        self.assertEqual(exitcode, 0)
+        updated_block = IpBlock.find(ip_block.id)
+        self.assertEqual(updated_block.network_id, "new_net")
+        self.assertEqual(updated_block.policy_id, policy.id)
+
     def test_delete(self):
         ip_block = PublicIpBlockFactory()
 
@@ -96,6 +108,18 @@ class TestPrivateIpBlockCLI(BaseTest):
 
         self.assertEqual(exitcode, 0)
         self.assertIn(ip_block.cidr, out)
+
+    def test_update(self):
+        ip_block = PrivateIpBlockFactory(tenant_id=None)
+        policy = PolicyFactory()
+
+        exitcode, out, err = run("private_ip_block update %s new_net %s"
+                                 % (ip_block.id, policy.id))
+
+        self.assertEqual(exitcode, 0)
+        updated_block = IpBlock.find(ip_block.id)
+        self.assertEqual(updated_block.network_id, "new_net")
+        self.assertEqual(updated_block.policy_id, policy.id)
 
     def test_delete(self):
         ip_block = PrivateIpBlockFactory(tenant_id=None)
@@ -134,6 +158,18 @@ class TestTenantPrivateIpBlockCLI(BaseTest):
 
         self.assertEqual(exitcode, 0)
         self.assertIn(ip_block.cidr, out)
+
+    def test_update(self):
+        ip_block = PrivateIpBlockFactory(tenant_id="123")
+        policy = PolicyFactory()
+
+        exitcode, out, err = run("private_ip_block update %s new_net %s -t 123"
+                                 % (ip_block.id, policy.id))
+
+        self.assertEqual(exitcode, 0)
+        updated_block = IpBlock.find_by(id=ip_block.id, tenant_id="123")
+        self.assertEqual(updated_block.network_id, "new_net")
+        self.assertEqual(updated_block.policy_id, policy.id)
 
     def test_delete(self):
         ip_block = PrivateIpBlockFactory(tenant_id=123)

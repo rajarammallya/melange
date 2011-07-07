@@ -62,6 +62,9 @@ class IpBlockController(BaseController):
 
     exclude_attr = ['type', 'tenant_id']
 
+    def _find_block(self, **kwargs):
+        return IpBlock.find_by(type=self.type, **kwargs)
+
     def __init__(self, block_type, admin_actions=[]):
         self.type = block_type
         super(IpBlockController, self).__init__(admin_actions=admin_actions)
@@ -79,17 +82,17 @@ class IpBlockController(BaseController):
         return dict(ip_block=block.data()), 201
 
     def update(self, request, id, tenant_id=None):
-        ip_block = IpBlock.find(id)
+        ip_block = self._find_block(id=id, tenant_id=tenant_id)
         params = self._extract_required_params(request, 'ip_block')
         ip_block.update(**exclude(params, 'tenant_id', 'type', 'cidr'))
         return dict(ip_block=ip_block.data()), 200
 
     def show(self, request, id, tenant_id=None):
-        return dict(ip_block=IpBlock.find_by(id=id, type=self.type,
-                                          tenant_id=tenant_id).data())
+        ip_block = self._find_block(id=id, tenant_id=tenant_id)
+        return dict(ip_block=ip_block.data())
 
     def delete(self, request, id, tenant_id=None):
-        IpBlock.find_by(id=id, type=self.type, tenant_id=tenant_id).delete()
+        self._find_block(id=id, tenant_id=tenant_id).delete()
 
 
 class IpAddressController(BaseController):

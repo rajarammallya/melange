@@ -16,9 +16,10 @@
 #    under the License.
 from tests import unit
 from tests import BaseTest
+from datetime import datetime
 from melange.ipam import models
 from melange.db import session
-from tests.unit import StubConfig
+from tests.unit import StubConfig, StubTime
 from melange.common import data_types
 from melange.common.utils import cached_property
 from melange.ipam.models import (ModelBase, IpBlock, IpAddress, Policy,
@@ -37,6 +38,42 @@ from melange.ipv6.default_generator import DefaultIpV6Generator
 
 
 class TestModelBase(BaseTest):
+
+    def test_create_ignores_inputs_for_auto_generated_attrs(self):
+        model = PublicIpBlockFactory(id="input_id", created_at="input_time",
+                                     updated_at="input_time")
+
+        self.assertNotEqual(model.id, "input_id")
+        self.assertNotEqual(model.created_at, "input_time")
+        self.assertNotEqual(model.updated_at, "input_time")
+
+    def test_create_sets_timestamps(self):
+        current_time = datetime(2050, 1, 1)
+        with StubTime(time=current_time):
+            model = PublicIpBlockFactory()
+
+        self.assertEqual(model.created_at, current_time)
+        self.assertEqual(model.updated_at, current_time)
+
+    def test_update_ignores_inputs_for_auto_generated_attrs(self):
+        model = PublicIpBlockFactory()
+
+        model.update(id="input_id", created_at="input_time",
+                     updated_at="input_time")
+
+        self.assertNotEqual(model.id, "input_id")
+        self.assertNotEqual(model.created_at, "input_time")
+        self.assertNotEqual(model.updated_at, "input_time")
+
+    def test_update_sets_updated_at_time(self):
+        model = PublicIpBlockFactory()
+        current_time = datetime(2050, 1, 1)
+
+        with StubTime(time=current_time):
+            model.update(network_id="321")
+
+        updated_model = IpBlock.find(model.id)
+        self.assertEqual(updated_model.updated_at, current_time)
 
     def test_converts_column_to_integer(self):
         model = ModelBase(foo=1)

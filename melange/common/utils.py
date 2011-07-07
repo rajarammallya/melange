@@ -165,6 +165,10 @@ def isotime(at=None):
     return at.strftime(TIME_FORMAT)
 
 
+def utcnow():
+    return datetime.datetime.utcnow()
+
+
 def parse_isotime(timestr):
     return datetime.datetime.strptime(timestr, TIME_FORMAT)
 

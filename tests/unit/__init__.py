@@ -26,7 +26,7 @@ import urlparse
 import json
 
 from melange.db import session
-from melange.common import config
+from melange.common import config, utils
 from melange.common.config import Config
 from melange.db import migration
 from melange.ipam import models
@@ -78,6 +78,19 @@ class StubConfig():
 
     def __exit__(self, exc_type, exc_value, traceback):
         Config.instance = self.actual_config
+
+
+class StubTime(object):
+
+    def __init__(self, time):
+        self.time = time
+
+    def __enter__(self):
+        self.actual_provider = utils.utcnow
+        utils.utcnow = lambda: self.time
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        utils.utcnow = self.actual_provider
 
 
 class TestApp(webtest.TestApp):

@@ -20,23 +20,27 @@ SQLAlchemy models for Melange data
 """
 import netaddr
 import hashlib
+from datetime import datetime
 
 from netaddr.strategy.ipv6 import ipv6_verbose
 from netaddr import IPNetwork, IPAddress
 from melange.common.exception import MelangeError
 from melange.db import api as db_api
 from melange.common import utils
-from melange.common.utils import cached_property, find
+from melange.common.utils import cached_property, find, exclude
 from melange.common.config import Config
 from melange.common import data_types
 
 
 class ModelBase(object):
     _columns = {}
+    _auto_generated_attrs = ["id", "created_at", "updated_at"]
 
     @classmethod
     def create(cls, **values):
-        instance = cls(id=utils.guid(), **values)
+        values['id'] = utils.guid()
+        values['created_at'] = utils.utcnow()
+        instance = cls(**values)
         return instance.save()
 
     def save(self):
@@ -44,6 +48,7 @@ class ModelBase(object):
             raise InvalidModelError(self.errors)
         self._convert_columns_to_proper_type()
         self._before_save()
+        self['updated_at'] = utils.utcnow()
         return db_api.save(self)
 
     def delete(self):
@@ -119,7 +124,8 @@ class ModelBase(object):
             self[k] = v
 
     def update(self, **values):
-        self.merge_attributes(values)
+        attrs = exclude(values, *self._auto_generated_attrs)
+        self.merge_attributes(attrs)
         return self.save()
 
     def __setitem__(self, key, value):

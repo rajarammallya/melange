@@ -239,35 +239,45 @@ class IpBlock(ModelBase):
     def policy(self):
         return Policy.get(self.policy_id)
 
+    def get_address(self, address):
+        return IpAddress.get_by(ip_block_id=self.id, address=address)
+
+    def addresses(self):
+        return IpAddress.find_all(ip_block_id=self.id)
+
     def allocate_ip(self, port_id=None, address=None, **kwargs):
+        if address is None:
+            address = self._generate_ip_address(**kwargs)
+        else:
+            self._validate_address(address)
+
+        if not address:
+            raise NoMoreAddressesError("IpBlock is full")
+
+        return IpAddress.create(address=address, port_id=port_id,
+                                ip_block_id=self.id)
+
+    def _generate_ip_address(self, **kwargs):
         if(self.is_ipv6()):
             address_generator = ipv6_address_generator_factory(self.cidr,
                                                                **kwargs)
 
-            candidate_ip = find(lambda address:
-                                IpAddress.get_by(address=address,
-                                                 ip_block_id=self.id) is None,
+            return find(lambda address: self.get_address(address) is None,
                                 IpAddressIterator(address_generator))
         else:
-            allocated_addresses = [ip_addr.address
-                                   for ip_addr in
-                                   IpAddress.find_all(ip_block_id=self.id)]
+            #TODO: very inefficient way to generate ips,
+            #will look at better algos for this
+            allocated_addresses = [ip.address for ip in self.addresses()]
+            policy = self.policy()
+            for ip in IPNetwork(self.cidr):
+                if (IpBlock.allowed_by_policy(self, policy, str(ip))
+                    and (str(ip) not in allocated_addresses)):
+                    return str(ip)
+            return None
 
-            candidate_ip = self._check_address(address, allocated_addresses) \
-                        or self._generate_ip(allocated_addresses)
+    def _validate_address(self, address):
 
-        if not candidate_ip:
-            raise NoMoreAddressesError("IpBlock is full")
-
-        return IpAddress.create(address=candidate_ip, port_id=port_id,
-                          ip_block_id=self.id)
-
-    def _check_address(self, address, allocated_addresses):
-
-        if not address:
-            return
-
-        if address in allocated_addresses:
+        if self.get_address(address) is not None:
             raise DuplicateAddressError()
 
         if not self.contains(address):
@@ -279,20 +289,8 @@ class IpBlock(ModelBase):
             raise AddressDisallowedByPolicyError(
                 "Block policy does not allow this address")
 
-        return address
-
     def contains(self, address):
         return netaddr.IPAddress(address) in IPNetwork(self.cidr)
-
-    def _generate_ip(self, allocated_addresses):
-        #TODO: very inefficient way to generate ips,
-        #will look at better algos for this
-        policy = self.policy()
-        for ip in IPNetwork(self.cidr):
-            if (IpBlock.allowed_by_policy(self, policy, str(ip))
-                and (str(ip) not in allocated_addresses)):
-                return str(ip)
-        return None
 
     def find_allocated_ip(self, address):
         ip_address = IpAddress.find_by(ip_block_id=self.id, address=address)

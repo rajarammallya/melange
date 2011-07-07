@@ -17,6 +17,7 @@
 import json
 import routes
 import unittest
+import mox
 from tests.unit import TestApp
 from webob.exc import (HTTPUnprocessableEntity, HTTPBadRequest,
                        HTTPNotFound, HTTPConflict)
@@ -243,7 +244,16 @@ class TestTenantPrivateIpBlockController(IpBlockControllerBase,
         self.assertItemsEqual(response_blocks, _data_of(ip_block1, ip_block2))
 
 
-class IpAddressControllerBase():
+class IpAddressControllerBase(object):
+
+    def setUp(self):
+        self.mocker = mox.Mox()
+        super(IpAddressControllerBase, self).setUp()
+
+    def tearDown(self):
+        self.mocker.UnsetStubs()
+        self.mocker.VerifyAll()
+        super(IpAddressControllerBase, self).tearDown()
 
     def test_create(self):
         block = self.ip_block_factory(cidr="10.1.1.0/28", tenant_id=111)
@@ -308,7 +318,7 @@ class IpAddressControllerBase():
         allocated_address = IpAddress.find_all(ip_block_id=block.id).first()
         self.assertEqual(allocated_address.port_id, "1111")
 
-    def test_ipv6_allocation_fails_when_mac_address_not_given(self):
+    def test_create_ipv6_address_fails_when_mac_address_not_given(self):
         block = self.ip_block_factory(tenant_id="111", cidr="ff::/64")
 
         response = self.app.post_json("/ipam/tenants/111/private_ip_blocks/"
@@ -316,7 +326,23 @@ class IpAddressControllerBase():
                                       {'ip_address': {"port_id": "1111"}},
                                       status="*")
 
-        self.assertEqual(response.status_int, 400)
+        self.assertErrorResponse(response, HTTPBadRequest,
+                                 "Required params are missing: mac_address")
+
+    def test_create_passes_request_params_to_ipv6_allocation_algorithm(self):
+        block = self.ip_block_factory(tenant_id="111", cidr="ff::/64")
+        params = {'ip_address': {"port_id": "123",
+                                 'mac_address': "10:23:56:78:90:01"}}
+
+        self.mocker.StubOutWithMock(IpBlock, "allocate_ip")
+        IpBlock.allocate_ip(port_id="123", mac_address="10:23:56:78:90:01",
+                            tenant_id="111").AndReturn(IpAddress())
+
+        self.mocker.ReplayAll()
+        response = self.app.post_json("/ipam/tenants/111/private_ip_blocks/"
+                                      "%s/ip_addresses" % block.id, params)
+
+        self.assertEqual(response.status_int, 201)
 
     def test_show(self):
         block_1 = self.ip_block_factory(cidr='10.1.1.1/30', tenant_id="111")

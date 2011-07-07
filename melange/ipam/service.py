@@ -109,9 +109,8 @@ class IpAddressController(BaseController):
     def create(self, request, ip_block_id, tenant_id=None):
         ip_block = IpBlock.find_by(id=ip_block_id, tenant_id=tenant_id)
         params = self._extract_required_params(request, 'ip_address')
-        address, port_id = self._get_optionals(params, *['address', 'port_id'])
-        ip_address = ip_block.allocate_ip(address=address,
-                                          port_id=port_id)
+        ip_address = ip_block.allocate_ip(tenant_id=tenant_id,
+                                          **stringify_keys(params))
         return dict(ip_address=ip_address.data()), 201
 
     def restore(self, request, ip_block_id, address, tenant_id=None):

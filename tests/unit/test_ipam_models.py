@@ -247,6 +247,26 @@ class TestIpBlock(BaseTest):
 
         self.assertEqual(ip.address, "00ff:0000:0000:0000:0000:0000:0000:0002")
 
+    def test_allocate_ip_for_for_given_ipv6_address(self):
+        block = IpV6IpBlockFactory(cidr="ff::/120")
+
+        ip = block.allocate_ip(address="ff::2")
+
+        self.assertEqual(ip.address, "00ff:0000:0000:0000:0000:0000:0000:0002")
+
+    def test_allocate_ip_fails_if_given_ipv6_address_already_exists(self):
+        block = IpV6IpBlockFactory(cidr="ff::/120")
+        IpAddressFactory(address="ff::2", ip_block_id=block.id)
+
+        self.assertRaises(DuplicateAddressError,
+                          block.allocate_ip, address="ff::2")
+
+    def test_allocate_ip_fails_if_given_ipv6_address_outside_block_cidr(self):
+        block = IpV6IpBlockFactory(cidr="ff::/120")
+
+        self.assertRaises(AddressDoesNotBelongError,
+                          block.allocate_ip, address="fe::2")
+
     def test_find_or_allocate_ip(self):
         block = PrivateIpBlockFactory(cidr="10.0.0.0/30")
 

@@ -118,7 +118,7 @@ class ModelBase(object):
         for k, v in values.iteritems():
             self[k] = v
 
-    def update(self, values):
+    def update(self, **values):
         self.merge_attributes(values)
         return self.save()
 
@@ -136,6 +136,9 @@ class ModelBase(object):
         if not hasattr(other, 'id'):
             return False
         return type(other) == type(self) and other.id == self.id
+
+    def __ne__(self, other):
+        return not self == other
 
     def __hash__(self):
         return id.__hash__()
@@ -310,10 +313,11 @@ class IpBlock(ModelBase):
             self._add_error('cidr', 'cidr is invalid')
 
     def validate_uniqueness_for_public_ip_block(self):
-        if (self.type == 'public' and
-                         IpBlock.get_by(type=self.type, cidr=self.cidr)):
-            self._add_error('cidr',
-                            'cidr for public ip block should be unique')
+        if (self.type == 'public'):
+            block = IpBlock.get_by(type=self.type, cidr=self.cidr)
+            if (block and block != self):
+                self._add_error('cidr',
+                                'cidr for public ip block should be unique')
 
     def _validate(self):
         self.validate_cidr()
@@ -353,10 +357,10 @@ class IpAddress(ModelBase):
             for local_address in ip_addresses])
 
     def deallocate(self):
-        return self.update({"marked_for_deallocation": True})
+        return self.update(marked_for_deallocation=True)
 
     def restore(self):
-        self.update({"marked_for_deallocation": False})
+        self.update(marked_for_deallocation=False)
 
     def inside_globals(self, **kwargs):
         return db_api.find_inside_globals_for(self.id, **kwargs)
@@ -392,7 +396,7 @@ class Policy(ModelBase):
         db_api.delete_all(self.unusable_ip_ranges)
         db_api.delete_all(self.unusable_ip_octets)
         ip_blocks = IpBlock.find_all(policy_id=self.id)
-        ip_blocks.update({'policy_id': None})
+        ip_blocks.update(dict(policy_id=None))
         super(Policy, self).delete()
 
     def create_unusable_range(self, **attributes):

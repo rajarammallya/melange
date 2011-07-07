@@ -54,6 +54,16 @@ class TestModelBase(BaseTest):
 
         self.assertEqual(model.foo, True)
 
+    def test_equals(self):
+        self.assertEqual(ModelBase(id=1), ModelBase(id=1))
+        self.assertEqual(ModelBase(id=1, name="foo"),
+                         ModelBase(id=1, name="bar"))
+
+    def test_not_equals(self):
+        self.assertNotEqual(ModelBase(), ModelBase())
+        self.assertNotEqual(ModelBase(id=1), ModelBase(id=2))
+        self.assertNotEqual(IpBlock(id=1), IpAddress(id=1))
+
 
 class MockIpV6Generator(object):
 
@@ -142,6 +152,13 @@ class TestIpBlock(BaseTest):
         self.assertEqual(dup_block.errors,
                          {'cidr':
                               ['cidr for public ip block should be unique']})
+
+    def test_update(self):
+        block = PublicIpBlockFactory(cidr="10.0.0.0/29", network_id="321")
+
+        block.update(network_id="123")
+
+        self.assertEqual(block.network_id, "123")
 
     def test_find_ip_block(self):
         block1 = PrivateIpBlockFactory(cidr="10.0.0.1/8")

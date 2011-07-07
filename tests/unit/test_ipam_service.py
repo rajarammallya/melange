@@ -112,6 +112,22 @@ class IpBlockControllerBase():
         self.assertEqual(response.status, "200 OK")
         self.assertEqual(response.json, dict(ip_block=block.data()))
 
+    def test_update(self):
+        old_policy = PolicyFactory()
+        new_policy = PolicyFactory()
+        block = self._ip_block_factory(network_id="net1",
+                                       policy_id=old_policy.id)
+        response = self.app.put_json("%s/%s" % (self.ip_block_path, block.id),
+                                     {'ip_block': {'network_id': "new_net",
+                                                  'policy_id': new_policy.id}})
+        updated_block = IpBlock.find(block.id)
+
+        self.assertEqual(response.status_int, 200)
+        self.assertEqual(updated_block.network_id, "new_net")
+        self.assertEqual(updated_block.policy_id, new_policy.id)
+
+        self.assertEqual(response.json, dict(ip_block=updated_block.data()))
+
     def test_delete(self):
         block = self._ip_block_factory()
         response = self.app.delete("%s/%s" % (self.ip_block_path, block.id))

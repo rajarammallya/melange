@@ -39,8 +39,8 @@ class BaseController(wsgi.Controller):
                      HTTPConflict: [models.DuplicateAddressError]}
 
     def _extract_required_params(self, request, model_name):
-        return exclude(request.deserialized_params.get(model_name, {}),
-                         *self.exclude_attr)
+        model_params = request.deserialized_params.get(model_name, {})
+        return stringify_keys(exclude(model_params, *self.exclude_attr))
 
     def _extract_limits(self, params):
         return dict([(key, params[key]) for key in params.keys()
@@ -75,9 +75,14 @@ class IpBlockController(BaseController):
 
     def create(self, request, tenant_id=None):
         params = self._extract_required_params(request, 'ip_block')
-        block = IpBlock.create(tenant_id=tenant_id,
-                               type=self.type, **stringify_keys(params))
+        block = IpBlock.create(tenant_id=tenant_id, type=self.type, **params)
         return dict(ip_block=block.data()), 201
+
+    def update(self, request, id, tenant_id=None):
+        ip_block = IpBlock.find(id)
+        params = self._extract_required_params(request, 'ip_block')
+        ip_block.update(**params)
+        return dict(ip_block=ip_block.data()), 200
 
     def show(self, request, id, tenant_id=None):
         return dict(ip_block=IpBlock.find_by(id=id, type=self.type,
@@ -117,7 +122,7 @@ class IpAddressController(BaseController):
         ip_block = self._find_block(id=ip_block_id, tenant_id=tenant_id)
         params = self._extract_required_params(request, 'ip_address')
         params['tenant_id'] = tenant_id or params.get('tenant_id', None)
-        ip_address = ip_block.allocate_ip(**stringify_keys(params))
+        ip_address = ip_block.allocate_ip(**params)
         return dict(ip_address=ip_address.data()), 201
 
     def restore(self, request, ip_block_id, address, tenant_id=None):
@@ -167,7 +172,7 @@ class UnusableIpRangesController(BaseController):
     def create(self, request, policy_id, tenant_id=None):
         policy = Policy.find_by(id=policy_id, tenant_id=tenant_id)
         params = self._extract_required_params(request, 'ip_range')
-        ip_range = policy.create_unusable_range(**stringify_keys(params))
+        ip_range = policy.create_unusable_range(**params)
         return dict(ip_range=ip_range.data()), 201
 
     def show(self, request, policy_id, id, tenant_id=None):
@@ -186,7 +191,7 @@ class UnusableIpRangesController(BaseController):
         ip_range = Policy.find_by(id=policy_id,
                                   tenant_id=tenant_id).find_ip_range(id)
         params = self._extract_required_params(request, 'ip_range')
-        ip_range.update(exclude(params, 'policy_id'))
+        ip_range.update(**exclude(params, 'policy_id'))
         return dict(ip_range=ip_range.data())
 
     def delete(self, request, policy_id, id, tenant_id=None):
@@ -206,7 +211,7 @@ class UnusableIpOctetsController(BaseController):
     def create(self, request, policy_id, tenant_id=None):
         policy = Policy.find_by(id=policy_id, tenant_id=tenant_id)
         params = self._extract_required_params(request, 'ip_octet')
-        ip_octet = policy.create_unusable_ip_octet(**stringify_keys(params))
+        ip_octet = policy.create_unusable_ip_octet(**params)
         return dict(ip_octet=ip_octet.data()), 201
 
     def show(self, request, policy_id, id, tenant_id=None):
@@ -218,7 +223,7 @@ class UnusableIpOctetsController(BaseController):
         ip_octet = Policy.find_by(id=policy_id,
                                   tenant_id=tenant_id).find_ip_octet(id)
         params = self._extract_required_params(request, 'ip_octet')
-        ip_octet.update(exclude(params, 'policy_id'))
+        ip_octet.update(**exclude(params, 'policy_id'))
         return dict(ip_octet=ip_octet.data())
 
     def delete(self, request, policy_id, id, tenant_id=None):
@@ -241,13 +246,12 @@ class PoliciesController(BaseController):
 
     def create(self, request, tenant_id=None):
         params = self._extract_required_params(request, 'policy')
-        policy = Policy.create(tenant_id=tenant_id,
-                               **stringify_keys(params))
+        policy = Policy.create(tenant_id=tenant_id, **params)
         return dict(policy=policy.data()), 201
 
     def update(self, request, id, tenant_id=None):
         policy = Policy.find_by(id=id, tenant_id=tenant_id)
-        policy.update(self._extract_required_params(request, 'policy'))
+        policy.update(**self._extract_required_params(request, 'policy'))
         return dict(policy=policy.data())
 
     def delete(self, request, id, tenant_id=None):

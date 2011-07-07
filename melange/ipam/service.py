@@ -89,8 +89,15 @@ class IpBlockController(BaseController):
 
 class IpAddressController(BaseController):
 
+    def __init__(self, type):
+        self.type = type
+        super(IpAddressController, self).__init__()
+
+    def _find_block(self, id, tenant_id):
+        return IpBlock.find_by(id=id, tenant_id=tenant_id, type=self.type)
+
     def index(self, request, ip_block_id, tenant_id=None):
-        ip_block = IpBlock.find_by(id=ip_block_id, tenant_id=tenant_id)
+        ip_block = self._find_block(id=ip_block_id, tenant_id=tenant_id)
         find_all_query = IpAddress.find_all(ip_block_id=ip_block.id)
         addresses = IpAddress.with_limits(find_all_query,
                                        **self._extract_limits(request.params))
@@ -99,22 +106,22 @@ class IpAddressController(BaseController):
                                    for ip_address in addresses])
 
     def show(self, request, address, ip_block_id, tenant_id=None):
-        ip_block = IpBlock.find_by(id=ip_block_id, tenant_id=tenant_id)
+        ip_block = self._find_block(id=ip_block_id, tenant_id=tenant_id)
         return dict(ip_address=ip_block.find_allocated_ip(address).data())
 
     def delete(self, request, address, ip_block_id, tenant_id=None):
-        IpBlock.find_by(id=ip_block_id,
+        self._find_block(id=ip_block_id,
                         tenant_id=tenant_id).deallocate_ip(address)
 
     def create(self, request, ip_block_id, tenant_id=None):
-        ip_block = IpBlock.find_by(id=ip_block_id, tenant_id=tenant_id)
+        ip_block = self._find_block(id=ip_block_id, tenant_id=tenant_id)
         params = self._extract_required_params(request, 'ip_address')
         params['tenant_id'] = tenant_id or params.get('tenant_id', None)
         ip_address = ip_block.allocate_ip(**stringify_keys(params))
         return dict(ip_address=ip_address.data()), 201
 
     def restore(self, request, ip_block_id, address, tenant_id=None):
-        ip_address = IpBlock.find_by(id=ip_block_id, tenant_id=tenant_id).\
+        ip_address = self._find_block(id=ip_block_id, tenant_id=tenant_id).\
                              find_allocated_ip(address)
         ip_address.restore()
 
@@ -307,7 +314,8 @@ class API(wsgi.Router):
                         controller=block_controller)
         block_as_parent = dict(member_name="ip_block",
                             collection_name=block_resource_path)
-        self._ip_address_mapper(mapper, IpAddressController(),
+        self._ip_address_mapper(mapper,
+                                IpAddressController(block_controller.type),
                                 block_as_parent)
 
     def _ip_address_mapper(self, mapper, ip_address_controller,

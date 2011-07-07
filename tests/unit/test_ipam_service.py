@@ -445,6 +445,14 @@ class TestPrivateIpAddressController(IpAddressControllerBase,
 
         self.assertEqual(response.status_int, 404)
 
+    def test_index_fails_for_wrong_block_type(self):
+        public_block = PublicIpBlockFactory(tenant_id=111)
+
+        response = self.app.get(self.address_path(public_block),
+                                 status='*')
+
+        self.assertErrorResponse(response, HTTPNotFound, "IpBlock Not Found")
+
     def test_restore_fails_for_non_existent_block_for_given_tenant(self):
         block = PrivateIpBlockFactory(tenant_id=123)
         ip_address = IpAddressFactory(ip_block_id=block.id)
@@ -487,6 +495,14 @@ class TestPublicIpAddressController(IpAddressControllerBase,
 
     def address_path(self, block):
         return "/ipam/public_ip_blocks/{0}/ip_addresses".format(block.id)
+
+    def test_index_fails_for_wrong_block_type(self):
+        private_block = PrivateIpBlockFactory(tenant_id=111)
+
+        response = self.app.get(self.address_path(private_block),
+                                 status='*')
+
+        self.assertErrorResponse(response, HTTPNotFound, "IpBlock Not Found")
 
 
 class TestInsideGlobalsController(BaseTestController):

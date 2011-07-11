@@ -39,7 +39,7 @@ class TestPublicIpBlockCLI(BaseTest):
 
     def test_create(self):
         policy = PolicyFactory()
-        parent = PublicIpBlockFactory(cidr="10.1.1.0/24")
+        parent = PublicIpBlockFactory(cidr="10.1.1.0/24", network_id="net1")
         exitcode, out, err = run("public_ip_block create 10.1.1.0/29 net1 "
                                  "%s %s" % (policy.id, parent.id))
         self.assertEqual(exitcode, 0)
@@ -88,7 +88,7 @@ class TestPrivateIpBlockCLI(BaseTest):
 
     def test_create(self):
         policy = PolicyFactory()
-        parent = PrivateIpBlockFactory(cidr="10.1.1.0/24")
+        parent = PrivateIpBlockFactory(cidr="10.1.1.0/24", network_id="net1")
         exitcode, out, err = run("private_ip_block create 10.1.1.0/29 net1"
                                  " %s %s" % (policy.id, parent.id))
 
@@ -138,7 +138,8 @@ class TestTenantPrivateIpBlockCLI(BaseTest):
 
     def test_create(self):
         policy = PolicyFactory(tenant_id=123)
-        parent = PrivateIpBlockFactory(cidr="10.1.1.0/24", tenant_id=123)
+        parent = PrivateIpBlockFactory(cidr="10.1.1.0/24", tenant_id=123,
+                                       network_id="net1")
         exitcode, out, err = run("private_ip_block create 10.1.1.0/29 net1"
                                  " %s %s -t 123" % (policy.id, parent.id))
 

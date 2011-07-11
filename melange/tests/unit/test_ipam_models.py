@@ -229,6 +229,15 @@ class TestIpBlock(BaseTest):
         self.assertEqual(ip_block.errors['cidr'],
                          ["cidr is invalid"])
 
+    def test_subnet_has_same_network_as_parent(self):
+        parent = PrivateIpBlockFactory(cidr="10.0.0.0/28", network_id="1")
+        subnet = PrivateIpBlockFactory.build(cidr="10.0.0.0/29",
+                                        network_id="2", parent_id=parent.id)
+
+        self.assertFalse(subnet.is_valid())
+        self.assertEqual(subnet.errors['network_id'],
+                         ["network_id should be same as that of parent"])
+
     def test_save_validates_existence_parent_block_of_same_type(self):
         noise_block = IpBlockFactory(type='public')
         block = IpBlockFactory.build(parent_id=noise_block.id, type='private')
@@ -290,9 +299,9 @@ class TestIpBlock(BaseTest):
     def test_parent(self):
         parent = IpBlockFactory()
 
-        self.assertEqual(IpBlock(parent_id=parent.id).parent(), parent)
-        self.assertEqual(IpBlock(parent_id=None).parent(), None)
-        self.assertEqual(IpBlock(parent_id='non-existent').parent(), None)
+        self.assertEqual(IpBlock(parent_id=parent.id).parent, parent)
+        self.assertEqual(IpBlock(parent_id=None).parent, None)
+        self.assertEqual(IpBlock(parent_id='non-existent').parent, None)
 
     def test_allocate_ip(self):
         block = PrivateIpBlockFactory(cidr="10.0.0.0/31")

@@ -268,6 +268,7 @@ class IpBlock(ModelBase):
     def addresses(self):
         return IpAddress.find_all(ip_block_id=self.id)
 
+    @cached_property
     def parent(self):
         return IpBlock.get(self.parent_id)
 
@@ -336,7 +337,7 @@ class IpBlock(ModelBase):
             self._add_error('cidr', "cidr is invalid")
 
     def _validate_cidr_is_within_parent_block_cidr(self):
-        parent = self.parent()
+        parent = self.parent
         if parent and IPNetwork(self.cidr) not in IPNetwork(parent.cidr):
             self._add_error('cidr',
                             "cidr should be within parent block's cidr")
@@ -354,6 +355,11 @@ class IpBlock(ModelBase):
                 self._add_error('cidr',
                                 "cidr for public ip block should be unique")
 
+    def _validate_belongs_to_supernet_network(self):
+        if self.parent and self.parent.network_id != self.network_id:
+            self._add_error('network_id',
+                            "network_id should be same as that of parent")
+
     def _validate_type_is_same_within_network(self):
         block = IpBlock.get_by(network_id=self.network_id)
         if(block and block.type != self.type):
@@ -362,6 +368,7 @@ class IpBlock(ModelBase):
     def _validate(self):
         self._validate_cidr()
         self._validate_existence_of('parent_id', IpBlock, type=self.type)
+        self._validate_belongs_to_supernet_network()
         self._validate_uniqueness_for_public_ip_block()
         self._validate_existence_of('policy_id', Policy)
         self._validate_type_is_same_within_network()

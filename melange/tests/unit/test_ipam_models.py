@@ -14,12 +14,12 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-from melange.tests import unit
-from melange.tests import BaseTest
+from tests import unit
+from tests import BaseTest
 from datetime import datetime
 from melange.ipam import models
 from melange.db import session
-from melange.tests.unit import StubConfig, StubTime
+from tests.unit import StubConfig, StubTime
 from melange.common import data_types
 from melange.common.utils import cached_property
 from melange.ipam.models import (ModelBase, IpBlock, IpAddress, Policy,
@@ -28,7 +28,7 @@ from melange.ipam.models import (ModelNotFoundError, NoMoreAddressesError,
                                  AddressDoesNotBelongError,
                                  DuplicateAddressError,
                                  DataMissingError)
-from melange.tests.factories.models import (PublicIpBlockFactory,
+from tests.factories.models import (IpBlockFactory, PublicIpBlockFactory,
                                     PrivateIpBlockFactory,
                                     IpAddressFactory,
                                     PolicyFactory,
@@ -116,14 +116,10 @@ class MockIpV6Generator(object):
 
 class TestIpv6AddressGeneratorFactory(BaseTest):
 
-    def setUp(self):
-        self.mock_generatore_name = \
-            "melange.tests.unit.test_ipam_models.MockIpV6Generator"
-        super(TestIpv6AddressGeneratorFactory, self).setUp()
-
     def test_loads_ipv6_generator_factory_from_config_file(self):
         args = dict(tenant_id="1", mac_address="00:11:22:33:44:55")
-        with(StubConfig(ipv6_generator=self.mock_generatore_name)):
+        mock_generatore_name = "tests.unit.test_ipam_models.MockIpV6Generator"
+        with(StubConfig(ipv6_generator=mock_generatore_name)):
             ip_generator = models.ipv6_address_generator_factory("fe::/64",
                                                                  **args)
 
@@ -144,7 +140,8 @@ class TestIpv6AddressGeneratorFactory(BaseTest):
                           models.ipv6_address_generator_factory, "fe::/64")
 
     def test_does_not_raise_error_if_generator_does_not_require_params(self):
-        with(StubConfig(ipv6_generator=self.mock_generatore_name)):
+        mock_generatore_name = "tests.unit.test_ipam_models.MockIpV6Generator"
+        with(StubConfig(ipv6_generator=mock_generatore_name)):
             ip_generator = models.ipv6_address_generator_factory("fe::/64")
 
         self.assertIsNotNone(ip_generator)
@@ -152,24 +149,19 @@ class TestIpv6AddressGeneratorFactory(BaseTest):
 
 class TestIpBlock(BaseTest):
 
-    def setUp(self):
-        self.mock_generator_name = \
-            "melange.tests.unit.test_ipam_models.MockIpV6Generator"
-        super(TestIpBlock, self).setUp()
-
     def test_create_type_defaults_to_private(self):
-        IpBlock.create(cidr="10.0.0.1/8", network_id='18888',
-                       tenant_id='aaa')
+        block1 = IpBlockFactory()
+        block2 = IpBlockFactory(type=None)
 
-        saved_block = IpBlock.find_by(network_id=18888)
-        self.assertEqual(saved_block.type, "private")
+        self.assertEqual(IpBlock.find(block1.id).type, "private")
+        self.assertEqual(IpBlock.find(block2.id).type, "private")
 
     def test_create_ip_block(self):
-        PrivateIpBlockFactory(cidr="10.0.0.1/8",
+        PrivateIpBlockFactory(cidr="10.0.0.0/8",
                         network_id="18888", tenant_id='xxxx')
 
         saved_block = IpBlock.find_by(network_id=18888)
-        self.assertEqual(saved_block.cidr, "10.0.0.1/8")
+        self.assertEqual(saved_block.cidr, "10.0.0.0/8")
         self.assertEqual(saved_block.network_id, '18888')
         self.assertEqual(saved_block.type, "private")
         self.assertEqual(saved_block.tenant_id, "xxxx")
@@ -188,7 +180,18 @@ class TestIpBlock(BaseTest):
         self.assertTrue(block.is_valid())
 
     def test_uniqueness_of_cidr_for_public_ip_blocks(self):
-        PublicIpBlockFactory(cidr="10.0.0.1/8",
+        PublicIpBlockFactory(cidr="10.0.0.0/8",
+                        network_id=145)
+        dup_block = PublicIpBlockFactory.build(cidr="10.0.0.0/8",
+                                               network_id=11)
+
+        self.assertFalse(dup_block.is_valid())
+        self.assertEqual(dup_block.errors,
+                         {'cidr':
+                              ['cidr for public ip block should be unique']})
+
+    def test_uniqueness_of_cidr_when_cidr_not_in_lowest_address_format(self):
+        PublicIpBlockFactory(cidr="10.0.0.0/8",
                         network_id=145)
         dup_block = PublicIpBlockFactory.build(cidr="10.0.0.1/8",
                                                network_id=11)
@@ -197,6 +200,55 @@ class TestIpBlock(BaseTest):
         self.assertEqual(dup_block.errors,
                          {'cidr':
                               ['cidr for public ip block should be unique']})
+
+    def test_different_types_of_blocks_cannot_be_created_within_network(self):
+        IpBlockFactory(network_id=1, type='private')
+
+        block_of_different_type = IpBlockFactory.build(network_id=1,
+                                                       type='public')
+
+        self.assertFalse(block_of_different_type.is_valid())
+        self.assertEqual(block_of_different_type.errors,
+                         {'type': ['type should be same within a network']})
+
+    def test_save_validates_cidr_belongs_to_parent_block_cidr(self):
+        parent_block = PrivateIpBlockFactory(cidr="10.0.0.0/28")
+        ip_block = PrivateIpBlockFactory.build(cidr="10.0.0.20/29",
+                                         parent_id=parent_block.id)
+
+        self.assertFalse(ip_block.is_valid())
+        self.assertEqual(ip_block.errors['cidr'],
+                         ["cidr should be within parent block's cidr"])
+
+    def test_doesnot_perform_subnetting_validations_for_invalid__cidr(self):
+        parent_block = PrivateIpBlockFactory(cidr="10.0.0.0/28")
+        ip_block = PrivateIpBlockFactory.build(cidr="10.0.0.20////29",
+                                         parent_id=parent_block.id)
+
+        self.assertFalse(ip_block.is_valid())
+        self.assertEqual(ip_block.errors['cidr'],
+                         ["cidr is invalid"])
+
+    def test_save_validates_existence_parent_block_of_same_type(self):
+        noise_block = IpBlockFactory(type='public')
+        block = IpBlockFactory.build(parent_id=noise_block.id, type='private')
+
+        self.assertFalse(block.is_valid())
+        self.assertEqual(block.errors['parent_id'],
+                         ["IpBlock with type = 'private', id = '{0}' doesn't "
+                          "exist".format(block.parent_id)])
+
+    def test_save_validates_existence_policy(self):
+        block = PublicIpBlockFactory.build(policy_id="non-existent-id")
+
+        self.assertFalse(block.is_valid())
+        self.assertEqual(block.errors['policy_id'],
+                         ["Policy with id = 'non-existent-id' doesn't exist"])
+
+    def test_save_converts_cidr_to_lowest_address_based_on_prefix_length(self):
+        block = IpBlockFactory(cidr="10.0.0.1/31")
+
+        self.assertEqual(block.cidr, "10.0.0.0/31")
 
     def test_update(self):
         block = PublicIpBlockFactory(cidr="10.0.0.0/29", network_id="321")
@@ -234,6 +286,13 @@ class TestIpBlock(BaseTest):
                                    policy_id=policy.id)
 
         self.assertEqual(ip_block.policy(), policy)
+
+    def test_parent(self):
+        parent = IpBlockFactory()
+
+        self.assertEqual(IpBlock(parent_id=parent.id).parent(), parent)
+        self.assertEqual(IpBlock(parent_id=None).parent(), None)
+        self.assertEqual(IpBlock(parent_id='non-existent').parent(), None)
 
     def test_allocate_ip(self):
         block = PrivateIpBlockFactory(cidr="10.0.0.0/31")
@@ -289,20 +348,22 @@ class TestIpBlock(BaseTest):
         self.assertEqual(block.allocate_ip().address, "10.0.0.1")
 
     def test_allocate_ip_for_ipv6_block_uses_pluggable_algo(self):
+        mock_generator_name = "tests.unit.test_ipam_models.MockIpV6Generator"
         block = IpV6IpBlockFactory(cidr="ff::/120")
         MockIpV6Generator.ip_list = ["ff::0001", "ff::0002"]
 
-        with(StubConfig(ipv6_generator=self.mock_generator_name)):
+        with(StubConfig(ipv6_generator=mock_generator_name)):
             ip = block.allocate_ip()
 
         self.assertEqual(ip.address, "00ff:0000:0000:0000:0000:0000:0000:0001")
 
     def test_allocate_ip_for_ipv6_block_iterates_till_free_ip_is_found(self):
+        mock_generator_name = "tests.unit.test_ipam_models.MockIpV6Generator"
         block = IpV6IpBlockFactory(cidr="ff::/120")
         MockIpV6Generator.ip_list = ["ff::0001", "ff::0002"]
         IpAddressFactory(address="ff::0001", ip_block_id=block.id)
 
-        with(StubConfig(ipv6_generator=self.mock_generator_name)):
+        with(StubConfig(ipv6_generator=mock_generator_name)):
             ip = block.allocate_ip()
 
         self.assertEqual(ip.address, "00ff:0000:0000:0000:0000:0000:0000:0002")
@@ -349,21 +410,31 @@ class TestIpBlock(BaseTest):
 
     def test_ip_block_data(self):
         policy = PolicyFactory()
-        ip_block_data = {'cidr': "10.0.0.1/8", 'network_id': '1122',
-                         'policy_id': policy.id}
-        ip_block = PrivateIpBlockFactory(**ip_block_data)
-        ip_block_data["id"] = ip_block.id
-        self.assertEqual(ip_block.data(), ip_block_data)
+        parent_block = PrivateIpBlockFactory(cidr="10.0.0.0/24")
+        ip_block = PrivateIpBlockFactory(cidr="10.0.0.0/29",
+                                         policy_id=policy.id,
+                                         parent_id=parent_block.id)
+
+        data = ip_block.data()
+
+        self.assertEqual(data['id'], ip_block.id)
+        self.assertEqual(data['cidr'], ip_block.cidr)
+        self.assertEqual(data['network_id'], ip_block.network_id)
+        self.assertEqual(data['tenant_id'], ip_block.tenant_id)
+        self.assertEqual(data['policy_id'], ip_block.policy_id)
+        self.assertEqual(data['parent_id'], ip_block.parent_id)
+        self.assertEqual(data['created_at'], ip_block.created_at)
+        self.assertEqual(data['updated_at'], ip_block.updated_at)
 
     def test_find_all_ip_blocks(self):
-        PrivateIpBlockFactory(cidr="10.2.0.1/28")
-        PrivateIpBlockFactory(cidr="10.3.0.1/28")
-        PrivateIpBlockFactory(cidr="10.1.0.1/28")
+        PrivateIpBlockFactory(cidr="10.2.0.0/28")
+        PrivateIpBlockFactory(cidr="10.3.0.0/28")
+        PrivateIpBlockFactory(cidr="10.1.0.0/28")
 
         blocks = IpBlock.find_all().all()
 
         self.assertEqual(len(blocks), 3)
-        self.assertItemsEqual(["10.2.0.1/28", "10.3.0.1/28", "10.1.0.1/28"],
+        self.assertItemsEqual(["10.2.0.0/28", "10.3.0.0/28", "10.1.0.0/28"],
                     [block.cidr for block in blocks])
 
     def test_find_all_ip_blocks_with_pagination(self):
@@ -564,13 +635,16 @@ class TestIpAddress(BaseTest):
 
     def test_ip_address_data(self):
         ip_block = PrivateIpBlockFactory(cidr="10.0.0.1/8")
-        ip_data = {'ip_block_id': ip_block.id,
-                   'address': "10.0.0.1", 'port_id': "2222"}
+        ip = IpAddressFactory(ip_block_id=ip_block.id)
 
-        ip = IpAddressFactory(**ip_data)
+        data = ip.data()
 
-        ip_data["id"] = ip.id
-        self.assertEqual(ip.data(), ip_data)
+        self.assertEqual(data['id'], ip.id)
+        self.assertEqual(data['port_id'], ip.port_id)
+        self.assertEqual(data['ip_block_id'], ip.ip_block_id)
+        self.assertEqual(data['address'], ip.address)
+        self.assertEqual(data['created_at'], ip.created_at)
+        self.assertEqual(data['updated_at'], ip.updated_at)
 
     def test_deallocate(self):
         ip_block = PrivateIpBlockFactory(cidr="10.0.0.1/8")
@@ -686,12 +760,16 @@ class TestPolicy(BaseTest):
         self.assertTrue(isinstance(Policy.unusable_ip_octets, cached_property))
 
     def test_data(self):
-        policy = PolicyFactory(name='Infrastructure', tenant_id="123",
-                               description="desc")
+        policy = PolicyFactory()
 
-        self.assertEqual(policy.data(), dict(name='Infrastructure',
-                                             id=policy.id, tenant_id="123",
-                                             description="desc"))
+        data = policy.data()
+
+        self.assertEqual(data['id'], policy.id)
+        self.assertEqual(data['name'], policy.name)
+        self.assertEqual(data['description'], policy.description)
+        self.assertEqual(data['tenant_id'], policy.tenant_id)
+        self.assertEqual(data['created_at'], policy.created_at)
+        self.assertEqual(data['updated_at'], policy.updated_at)
 
     def test_find_all_to_return_all_policies(self):
         policy1 = PolicyFactory(name="physically unstable")
@@ -796,6 +874,8 @@ class TestIpRange(BaseTest):
         self.assertEqual(data['offset'], 10)
         self.assertEqual(data['length'], 3)
         self.assertEqual(data['policy_id'], policy.id)
+        self.assertEqual(data['created_at'], ip_range.created_at)
+        self.assertEqual(data['updated_at'], ip_range.updated_at)
 
     def test_ip_range_offset_is_an_integer(self):
         ip_range = IpRange(offset='spdoe', length=10)
@@ -844,9 +924,12 @@ class TestIpOctet(BaseTest):
         ip_octet = IpOctetFactory(policy_id=policy.id, octet=123)
 
         data = ip_octet.data()
+
         self.assertEqual(data['id'], ip_octet.id)
         self.assertEqual(data['octet'], 123)
         self.assertEqual(data['policy_id'], policy.id)
+        self.assertEqual(data['created_at'], ip_octet.created_at)
+        self.assertEqual(data['updated_at'], ip_octet.updated_at)
 
     def test_find_all_by_policy(self):
         policy1 = PolicyFactory(name='blah')
@@ -896,12 +979,12 @@ class TestNetwork(BaseTest):
     def test_find_or_create_when_no_ip_blocks_for_given_network_exist(self):
         noise_ip_block = PublicIpBlockFactory(network_id=9999)
 
-        with(StubConfig(default_cidr="10.10.10.10/24")):
+        with(StubConfig(default_cidr="10.10.10.0/24")):
             network = Network.find_or_create_by(id='1', tenant_id='123')
 
         self.assertEqual(network.id, '1')
         self.assertEqual(len(network.ip_blocks), 1)
-        self.assertEqual(network.ip_blocks[0].cidr, "10.10.10.10/24")
+        self.assertEqual(network.ip_blocks[0].cidr, "10.10.10.0/24")
         self.assertEqual(network.ip_blocks[0].tenant_id, '123')
         self.assertEqual(network.ip_blocks[0].network_id, '1')
         self.assertEqual(network.ip_blocks[0].type, 'private')

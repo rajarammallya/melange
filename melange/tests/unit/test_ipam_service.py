@@ -189,11 +189,11 @@ class TestPublicIpBlockController(IpBlockControllerBase, BaseTestController):
     def test_create(self):
         response = self.app.post_json("/ipam/public_ip_blocks.json",
                                  {'ip_block': {'network_id': "300",
-                                               'cidr': "10.1.1.0/2"}})
+                                               'cidr': "10.1.1.0/24"}})
 
         self.assertEqual(response.status, "201 Created")
         saved_block = IpBlock.find_by(network_id="300")
-        self.assertEqual(saved_block.cidr, "10.1.1.0/2")
+        self.assertEqual(saved_block.cidr, "10.1.1.0/24")
         self.assertEqual(saved_block.type, "public")
         self.assertEqual(saved_block.tenant_id, None)
         self.assertEqual(response.json, dict(ip_block=saved_block.data()))
@@ -237,11 +237,11 @@ class TestTenantPrivateIpBlockController(IpBlockControllerBase,
     def test_create(self):
         response = self.app.post_json(
                      "/ipam/tenants/111/private_ip_blocks.json",
-                     {'ip_block': {'network_id': "300", 'cidr': "10.1.1.0/2"}})
+                     {'ip_block': {'network_id': "3", 'cidr': "10.1.1.0/24"}})
 
         self.assertEqual(response.status, "201 Created")
-        saved_block = IpBlock.find_by(network_id="300")
-        self.assertEqual(saved_block.cidr, "10.1.1.0/2")
+        saved_block = IpBlock.find_by(network_id="3")
+        self.assertEqual(saved_block.cidr, "10.1.1.0/24")
         self.assertEqual(saved_block.type, "private")
         self.assertEqual(saved_block.tenant_id, "111")
         self.assertEqual(response.json, dict(ip_block=saved_block.data()))
@@ -672,8 +672,8 @@ class TestInsideGlobalsController(BaseTestController):
 class TestInsideLocalsController(BaseTestController):
 
     def test_index(self):
-        global_block, local_block = _create_blocks("192.1.1.1/8",
-                                                   "10.1.1.1/8")
+        global_block, local_block = _create_blocks("192.1.1.0/24",
+                                                   "10.1.1.0/24")
         [global_ip], local_ips = _allocate_ips((global_block, 1),
                                                (local_block, 5))
         global_ip.add_inside_locals(local_ips)
@@ -686,8 +686,8 @@ class TestInsideLocalsController(BaseTestController):
                          {'ip_addresses': _data_of(*local_ips)})
 
     def test_index_with_pagination(self):
-        global_block, local_block = _create_blocks("192.1.1.1/8",
-                                                        "10.1.1.1/8")
+        global_block, local_block = _create_blocks("192.1.1.0/24",
+                                                        "10.1.1.0/24")
         [global_ip], local_ips = _allocate_ips((global_block, 1),
                                                     (local_block, 5))
         global_ip.add_inside_locals(local_ips)

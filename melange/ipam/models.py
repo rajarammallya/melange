@@ -88,11 +88,14 @@ class ModelBase(object):
             self._add_error(attribute_name,
                             "{0} should be present".format(attribute_name))
 
-    def _validate_existence_of(self, attribute_name, model_class):
-        model_id = self[attribute_name]
-        if model_id is not None and model_class.get(model_id) is None:
-            self._add_error(attribute_name, "{0} with id = {1} doesn't "
-                            "exist".format(model_class.__name__, model_id))
+    def _validate_existence_of(self, attribute, model_class, **conditions):
+        model_id = self[attribute]
+        conditions['id'] = model_id
+        if model_id is not None and model_class.get_by(**conditions) is None:
+            conditions_str = ", ".join(["{0} = {1}".format(key, repr(value))
+                                     for key, value in conditions.iteritems()])
+            self._add_error(attribute, "{0} with {1} doesn't "
+                          "exist".format(model_class.__name__, conditions_str))
 
     @classmethod
     def find(cls, id):
@@ -186,6 +189,9 @@ class ModelBase(object):
     def _add_error(self, attribute_name, error_message):
         self.errors[attribute_name] = self.errors.get(attribute_name, [])
         self.errors[attribute_name].append(error_message)
+
+    def _has_error_on(self, attribute):
+        return self.errors.get(attribute, None) is not None
 
     def __str__(self):
         return str(self.id)
@@ -335,8 +341,14 @@ class IpBlock(ModelBase):
             self._add_error('cidr',
                             "cidr should be within parent block's cidr")
 
+    def _validate_cidr(self):
+        self._validate_cidr_format()
+        if not self._has_error_on('cidr'):
+            self._validate_cidr_is_within_parent_block_cidr()
+
     def _validate_uniqueness_for_public_ip_block(self):
-        if (self.type == 'public'):
+        if (self.type == 'public' and not self._has_error_on('cidr')):
+            self._convert_cidr_to_lowest_address()
             block = IpBlock.get_by(type=self.type, cidr=self.cidr)
             if (block and block != self):
                 self._add_error('cidr',
@@ -348,12 +360,17 @@ class IpBlock(ModelBase):
             self._add_error('type', "type should be same within a network")
 
     def _validate(self):
-        self._validate_cidr_format()
-        self._validate_existence_of('parent_id', IpBlock)
-        self._validate_cidr_is_within_parent_block_cidr()
+        self._validate_cidr()
+        self._validate_existence_of('parent_id', IpBlock, type=self.type)
         self._validate_uniqueness_for_public_ip_block()
         self._validate_existence_of('policy_id', Policy)
         self._validate_type_is_same_within_network()
+
+    def _convert_cidr_to_lowest_address(self):
+        self.cidr = str(IPNetwork(self.cidr).cidr)
+
+    def _before_save(self):
+        self._convert_cidr_to_lowest_address()
 
 
 class IpAddress(ModelBase):

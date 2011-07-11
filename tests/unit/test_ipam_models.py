@@ -190,6 +190,16 @@ class TestIpBlock(BaseTest):
                          {'cidr':
                               ['cidr for public ip block should be unique']})
 
+    def test_different_types_of_blocks_cannot_be_created_within_network(self):
+        IpBlockFactory(network_id=1, type='private')
+
+        block_of_different_type = IpBlockFactory.build(network_id=1,
+                                                       type='public')
+
+        self.assertFalse(block_of_different_type.is_valid())
+        self.assertEqual(block_of_different_type.errors,
+                         {'type': ['type should be same within a network']})
+
     def test_save_validates_existence_policy(self):
         block = PublicIpBlockFactory.build(policy_id="non-existent-id")
 

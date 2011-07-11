@@ -332,10 +332,16 @@ class IpBlock(ModelBase):
                 self._add_error('cidr',
                                 'cidr for public ip block should be unique')
 
+    def _validate_type_is_same_within_network(self):
+        block = IpBlock.get_by(network_id=self.network_id)
+        if(block and block.type != self.type):
+            self._add_error('type', "type should be same within a network")
+
     def _validate(self):
         self._validate_cidr()
         self._validate_uniqueness_for_public_ip_block()
         self._validate_existence_of('policy_id', Policy)
+        self._validate_type_is_same_within_network()
 
 
 class IpAddress(ModelBase):

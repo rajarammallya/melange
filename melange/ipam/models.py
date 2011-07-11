@@ -221,7 +221,8 @@ class IpAddressIterator(object):
 
 class IpBlock(ModelBase):
 
-    _data_fields = ['cidr', 'network_id', 'policy_id', 'tenant_id']
+    _data_fields = ['cidr', 'network_id', 'policy_id', 'tenant_id',
+                    'parent_id']
 
     def __init__(self, **kwargs):
         super(IpBlock, self).__init__(**kwargs)
@@ -260,6 +261,9 @@ class IpBlock(ModelBase):
 
     def addresses(self):
         return IpAddress.find_all(ip_block_id=self.id)
+
+    def parent(self):
+        return IpBlock.get(self.parent_id)
 
     def allocate_ip(self, port_id=None, address=None, **kwargs):
         if address is None:
@@ -319,18 +323,24 @@ class IpBlock(ModelBase):
         if ip_address != None:
             ip_address.deallocate()
 
-    def _validate_cidr(self):
+    def _validate_cidr_format(self):
         try:
             IPNetwork(self.cidr)
         except Exception:
-            self._add_error('cidr', 'cidr is invalid')
+            self._add_error('cidr', "cidr is invalid")
+
+    def _validate_cidr_is_within_parent_block_cidr(self):
+        parent = self.parent()
+        if parent and IPNetwork(self.cidr) not in IPNetwork(parent.cidr):
+            self._add_error('cidr',
+                            "cidr should be within parent block's cidr")
 
     def _validate_uniqueness_for_public_ip_block(self):
         if (self.type == 'public'):
             block = IpBlock.get_by(type=self.type, cidr=self.cidr)
             if (block and block != self):
                 self._add_error('cidr',
-                                'cidr for public ip block should be unique')
+                                "cidr for public ip block should be unique")
 
     def _validate_type_is_same_within_network(self):
         block = IpBlock.get_by(network_id=self.network_id)
@@ -338,7 +348,9 @@ class IpBlock(ModelBase):
             self._add_error('type', "type should be same within a network")
 
     def _validate(self):
-        self._validate_cidr()
+        self._validate_cidr_format()
+        self._validate_existence_of('parent_id', IpBlock)
+        self._validate_cidr_is_within_parent_block_cidr()
         self._validate_uniqueness_for_public_ip_block()
         self._validate_existence_of('policy_id', Policy)
         self._validate_type_is_same_within_network()

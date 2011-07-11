@@ -200,6 +200,22 @@ class TestIpBlock(BaseTest):
         self.assertEqual(block_of_different_type.errors,
                          {'type': ['type should be same within a network']})
 
+    def test_save_validates_cidr_belongs_to_parent_block_cidr(self):
+        parent_block = PrivateIpBlockFactory(cidr="10.0.0.0/28")
+        ip_block = PrivateIpBlockFactory.build(cidr="10.0.0.20/29",
+                                         parent_id=parent_block.id)
+
+        self.assertFalse(ip_block.is_valid())
+        self.assertEqual(ip_block.errors['cidr'],
+                         ["cidr should be within parent block's cidr"])
+
+    def test_save_validates_existence_parent_block(self):
+        block = IpBlockFactory.build(parent_id="non-existent-id")
+
+        self.assertFalse(block.is_valid())
+        self.assertEqual(block.errors['parent_id'],
+                         ["IpBlock with id = non-existent-id doesn't exist"])
+
     def test_save_validates_existence_policy(self):
         block = PublicIpBlockFactory.build(policy_id="non-existent-id")
 
@@ -243,6 +259,13 @@ class TestIpBlock(BaseTest):
                                    policy_id=policy.id)
 
         self.assertEqual(ip_block.policy(), policy)
+
+    def test_parent(self):
+        parent = IpBlockFactory()
+
+        self.assertEqual(IpBlock(parent_id=parent.id).parent(), parent)
+        self.assertEqual(IpBlock(parent_id=None).parent(), None)
+        self.assertEqual(IpBlock(parent_id='non-existent').parent(), None)
 
     def test_allocate_ip(self):
         block = PrivateIpBlockFactory(cidr="10.0.0.0/31")
@@ -360,7 +383,10 @@ class TestIpBlock(BaseTest):
 
     def test_ip_block_data(self):
         policy = PolicyFactory()
-        ip_block = PrivateIpBlockFactory(policy_id=policy.id)
+        parent_block = PrivateIpBlockFactory(cidr="10.0.0.0/24")
+        ip_block = PrivateIpBlockFactory(cidr="10.0.0.0/29",
+                                         policy_id=policy.id,
+                                         parent_id=parent_block.id)
 
         data = ip_block.data()
 
@@ -369,6 +395,7 @@ class TestIpBlock(BaseTest):
         self.assertEqual(data['network_id'], ip_block.network_id)
         self.assertEqual(data['tenant_id'], ip_block.tenant_id)
         self.assertEqual(data['policy_id'], ip_block.policy_id)
+        self.assertEqual(data['parent_id'], ip_block.parent_id)
         self.assertEqual(data['created_at'], ip_block.created_at)
         self.assertEqual(data['updated_at'], ip_block.updated_at)
 

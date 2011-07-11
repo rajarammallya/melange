@@ -26,7 +26,7 @@ import urlparse
 import json
 
 from melange.db import session
-from melange.common import config, utils
+from melange.common import config, utils, wsgi
 from melange.common.config import Config
 from melange.db import migration
 from melange.ipam import models
@@ -63,6 +63,11 @@ class BaseTest(unittest.TestCase):
 
 def test_config_path():
     return os.path.abspath("../etc/melange.conf.test")
+
+
+def sanitize(data):
+    serializer = wsgi.Serializer()
+    return json.loads(serializer._to_json(data))
 
 
 class StubConfig():

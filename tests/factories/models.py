@@ -20,25 +20,23 @@ import factory
 from melange.ipam.models import *
 
 
-class PublicIpBlockFactory(factory.Factory):
+class IpBlockFactory(factory.Factory):
     FACTORY_FOR = IpBlock
     cidr = factory.Sequence(lambda n: "192.168.0.{0}/29".format(n))
-    tenant_id = None
+
+
+class PublicIpBlockFactory(IpBlockFactory):
     type = "public"
-
-
-class PrivateIpBlockFactory(factory.Factory):
-    FACTORY_FOR = IpBlock
-    cidr = factory.Sequence(lambda n: "10.0.0.{0}/29".format(n))
-    tenant_id = "xxx"
-    type = "private"
-
-
-class IpV6IpBlockFactory(factory.Factory):
-    FACTORY_FOR = IpBlock
-    cidr = factory.Sequence(lambda n: "fe::000{0}/120".format(n))
     tenant_id = None
-    type = "ipv6"
+
+
+class PrivateIpBlockFactory(IpBlockFactory):
+    type = "private"
+    tenant_id = "xxx"
+
+
+class IpV6IpBlockFactory(IpBlockFactory):
+    cidr = factory.Sequence(lambda n: "fe::000{0}/120".format(n))
 
 
 class IpAddressFactory(factory.Factory):

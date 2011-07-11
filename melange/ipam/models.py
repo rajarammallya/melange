@@ -35,6 +35,7 @@ from melange.common import data_types
 class ModelBase(object):
     _columns = {}
     _auto_generated_attrs = ["id", "created_at", "updated_at"]
+    _data_fields = []
 
     @classmethod
     def create(cls, **values):
@@ -86,6 +87,12 @@ class ModelBase(object):
         if (self[attribute_name] in [None, ""]):
             self._add_error(attribute_name,
                             "{0} should be present".format(attribute_name))
+
+    def _validate_existence_of(self, attribute_name, model_class):
+        model_id = self[attribute_name]
+        if model_id is not None and model_class.get(model_id) is None:
+            self._add_error(attribute_name, "{0} with id = {1} doesn't "
+                            "exist".format(model_class.__name__, model_id))
 
     @classmethod
     def find(cls, id):
@@ -166,11 +173,9 @@ class ModelBase(object):
         return self.__dict__()
 
     def data(self):
+        data_fields = self._data_fields + self._auto_generated_attrs
         return dict([(field, self[field])
-                    for field in self.data_fields()])
-
-    def data_fields(self):
-        return []
+                    for field in data_fields])
 
     def _validate_positive_integer(self, attribute_name):
         if(utils.parse_int(self[attribute_name]) < 0):
@@ -216,9 +221,11 @@ class IpAddressIterator(object):
 
 class IpBlock(ModelBase):
 
+    _data_fields = ['cidr', 'network_id', 'policy_id', 'tenant_id']
+
     def __init__(self, **kwargs):
-        self.type = 'private'
         super(IpBlock, self).__init__(**kwargs)
+        self.type = self.type or 'private'
 
     @classmethod
     def find_or_allocate_ip(cls, ip_block_id, address):
@@ -312,13 +319,13 @@ class IpBlock(ModelBase):
         if ip_address != None:
             ip_address.deallocate()
 
-    def validate_cidr(self):
+    def _validate_cidr(self):
         try:
             IPNetwork(self.cidr)
         except Exception:
             self._add_error('cidr', 'cidr is invalid')
 
-    def validate_uniqueness_for_public_ip_block(self):
+    def _validate_uniqueness_for_public_ip_block(self):
         if (self.type == 'public'):
             block = IpBlock.get_by(type=self.type, cidr=self.cidr)
             if (block and block != self):
@@ -326,14 +333,14 @@ class IpBlock(ModelBase):
                                 'cidr for public ip block should be unique')
 
     def _validate(self):
-        self.validate_cidr()
-        self.validate_uniqueness_for_public_ip_block()
-
-    def data_fields(self):
-        return ['id', 'cidr', 'network_id', 'policy_id']
+        self._validate_cidr()
+        self._validate_uniqueness_for_public_ip_block()
+        self._validate_existence_of('policy_id', Policy)
 
 
 class IpAddress(ModelBase):
+
+    _data_fields = ['ip_block_id', 'address', 'port_id']
 
     @classmethod
     def delete_deallocated_addresses(self):
@@ -389,11 +396,10 @@ class IpAddress(ModelBase):
     def locked(self):
         return self.marked_for_deallocation
 
-    def data_fields(self):
-        return ['id', 'ip_block_id', 'address', 'port_id']
-
 
 class Policy(ModelBase):
+
+    _data_fields = ['name', 'description', 'tenant_id']
 
     def _validate(self):
         self._validate_presence_of('name')
@@ -434,13 +440,11 @@ class Policy(ModelBase):
     def find_ip_octet(self, ip_octet_id):
         return IpOctet.find_by(id=ip_octet_id, policy_id=self.id)
 
-    def data_fields(self):
-        return ['id', 'name', 'description', 'tenant_id']
-
 
 class IpRange(ModelBase):
 
     _columns = {'offset': data_types.integer, 'length': data_types.integer}
+    _data_fields = ['offset', 'length', 'policy_id']
 
     def contains(self, cidr, address):
         end_index = self.offset + self.length
@@ -453,13 +457,11 @@ class IpRange(ModelBase):
     def _validate(self):
         self._validate_positive_integer('length')
 
-    def data_fields(self):
-        return ['id', 'offset', 'length', 'policy_id']
-
 
 class IpOctet(ModelBase):
 
     _columns = {'octet': data_types.integer}
+    _data_fields = ['octet', 'policy_id']
 
     @classmethod
     def find_all_by_policy(cls, policy_id):
@@ -467,9 +469,6 @@ class IpOctet(ModelBase):
 
     def applies_to(self, address):
         return self.octet == IPAddress(address).words[-1]
-
-    def data_fields(self):
-        return ['id', 'octet', 'policy_id']
 
 
 class Network(ModelBase):

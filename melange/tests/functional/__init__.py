@@ -18,7 +18,8 @@ import os
 import socket
 import subprocess
 
-from tests.functional.server import Server
+from melange import melange_bin_path
+from melange.tests.functional.server import Server
 from melange.common import config
 from melange.ipam import models
 from melange.db import session
@@ -29,7 +30,7 @@ _PORT = None
 
 def setup():
     print "Restarting melange server..."
-    Server('../bin/melange',
+    Server(melange_bin_path('melange'),
            port=setup_unused_port()).restart()
     _setup_db()
 
@@ -42,7 +43,7 @@ def _setup_db():
 
 def teardown():
     print "Stopping melange server..."
-    Server('../bin/melange').stop()
+    Server(melange_bin_path('melange')).stop()
 
 
 def execute(cmd, raise_error=True):
@@ -61,7 +62,7 @@ def execute(cmd, raise_error=True):
 
     # Make sure that we use the programs in the
     # current source directory's bin/ directory.
-    env['PATH'] = os.path.join(os.getcwd(), 'bin') + ':' + env['PATH']
+    env['PATH'] = melange_bin_path() + ':' + env['PATH']
     process = subprocess.Popen(cmd,
                                shell=True,
                                stdin=subprocess.PIPE,

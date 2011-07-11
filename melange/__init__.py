@@ -14,3 +14,16 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+import os
+
+
+def melange_root_path():
+    return os.path.dirname(__file__)
+
+
+def melange_bin_path(filename="."):
+    return os.path.join(melange_root_path(), "..", "bin", filename)
+
+
+def melange_etc_path(filename="."):
+    return os.path.join(melange_root_path(), "..", "etc", filename)

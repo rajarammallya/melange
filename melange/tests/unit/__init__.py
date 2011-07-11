@@ -25,6 +25,7 @@ import os
 import urlparse
 import json
 
+from melange import melange_etc_path
 from melange.db import session
 from melange.common import config, utils, wsgi
 from melange.common.config import Config
@@ -62,7 +63,7 @@ class BaseTest(unittest.TestCase):
 
 
 def test_config_path():
-    return os.path.abspath("../etc/melange.conf.test")
+    return melange_etc_path("melange.conf.test")
 
 
 def sanitize(data):

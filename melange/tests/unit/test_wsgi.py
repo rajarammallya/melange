@@ -17,7 +17,7 @@
 import webob
 import routes
 import json
-from tests import BaseTest
+from melange.tests import BaseTest
 from webtest import TestApp
 from webob.exc import (HTTPNotFound, HTTPBadRequest,
                        HTTPUnsupportedMediaType)

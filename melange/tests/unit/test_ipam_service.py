@@ -18,18 +18,18 @@ import json
 import routes
 import unittest
 import mox
-from tests.unit import TestApp, sanitize
+from melange.tests.unit import TestApp
 from webob.exc import (HTTPUnprocessableEntity, HTTPBadRequest,
                        HTTPNotFound, HTTPConflict)
-from tests import BaseTest
-from tests.unit import test_config_path
+from melange.tests import BaseTest
+from melange.tests.unit import test_config_path
 from melange.common import config, wsgi, utils
 from melange.common.config import Config
 from melange.ipam import models
 from melange.ipam.service import BaseController
 from melange.ipam.models import IpBlock, IpAddress, Policy, IpRange, IpOctet
-from tests.unit import StubConfig
-from tests.factories.models import (PublicIpBlockFactory,
+from melange.tests.unit import StubConfig
+from melange.tests.factories.models import (PublicIpBlockFactory,
                                          PrivateIpBlockFactory,
                                          IpAddressFactory, PolicyFactory,
                                          IpRangeFactory, IpOctetFactory)
@@ -110,39 +110,38 @@ class IpBlockControllerBase():
         response = self.app.get("%s/%s" % (self.ip_block_path, block.id))
 
         self.assertEqual(response.status, "200 OK")
-        self.assertEqual(response.json['ip_block'], _data(block))
+        self.assertEqual(response.json, dict(ip_block=block.data()))
 
     def test_update(self):
         old_policy = PolicyFactory()
         new_policy = PolicyFactory()
         block = self._ip_block_factory(network_id="net1",
                                        policy_id=old_policy.id)
-
         response = self.app.put_json("%s/%s" % (self.ip_block_path, block.id),
                                      {'ip_block': {'network_id': "new_net",
                                                   'policy_id': new_policy.id}})
         updated_block = IpBlock.find(block.id)
+
         self.assertEqual(response.status_int, 200)
         self.assertEqual(updated_block.network_id, "new_net")
         self.assertEqual(updated_block.policy_id, new_policy.id)
 
-        self.assertEqual(response.json,
-                         dict(ip_block=_data(updated_block)))
+        self.assertEqual(response.json, dict(ip_block=updated_block.data()))
 
     def test_update_to_exclude_type_tenenat_id_and_cidr(self):
         block = self._ip_block_factory(cidr="10.0.0.0/29")
-
         response = self.app.put_json("%s/%s" % (self.ip_block_path, block.id),
                                      {'ip_block': {'type': "new_type",
                                                   'cidr': "50.0.0.0/29",
                                                    'tenant_id': "new_tenant"}})
         updated_block = IpBlock.find(block.id)
+
         self.assertEqual(response.status_int, 200)
         self.assertEqual(updated_block.cidr, "10.0.0.0/29")
         self.assertNotEqual(updated_block.tenant_id, "new_tenant")
         self.assertNotEqual(updated_block.type, "new_type")
 
-        self.assertEqual(response.json, dict(ip_block=_data(updated_block)))
+        self.assertEqual(response.json, dict(ip_block=block.data()))
 
     def test_delete(self):
         block = self._ip_block_factory()
@@ -160,7 +159,7 @@ class IpBlockControllerBase():
         self.assertEqual(response.status, "200 OK")
         response_blocks = response.json['ip_blocks']
         self.assertEqual(len(response_blocks), 3)
-        self.assertItemsEqual(response_blocks, _data(blocks))
+        self.assertItemsEqual(response_blocks, _data_of(*blocks))
 
     def test_index_with_pagination(self):
         blocks = models.sort([self._ip_block_factory(cidr="10.1.1.0/32"),
@@ -174,7 +173,7 @@ class IpBlockControllerBase():
         response_blocks = response.json['ip_blocks']
         self.assertEqual(response.status, "200 OK")
         self.assertEqual(len(response_blocks), 2)
-        self.assertItemsEqual(response_blocks, _data([blocks[2], blocks[3]]))
+        self.assertItemsEqual(response_blocks, _data_of(blocks[2], blocks[3]))
 
 
 class TestPublicIpBlockController(IpBlockControllerBase, BaseTestController):
@@ -197,7 +196,7 @@ class TestPublicIpBlockController(IpBlockControllerBase, BaseTestController):
         self.assertEqual(saved_block.cidr, "10.1.1.0/2")
         self.assertEqual(saved_block.type, "public")
         self.assertEqual(saved_block.tenant_id, None)
-        self.assertEqual(response.json, dict(ip_block=_data(saved_block)))
+        self.assertEqual(response.json, dict(ip_block=saved_block.data()))
 
     def test_cannot_create_duplicate_public_cidr(self):
         self.app.post_json("/ipam/public_ip_blocks",
@@ -233,7 +232,7 @@ class TestTenantPrivateIpBlockController(IpBlockControllerBase,
         super(TestTenantPrivateIpBlockController, self).setUp()
 
     def _ip_block_factory(self, **kwargs):
-        return PrivateIpBlockFactory(tenant_id='123', **kwargs)
+        return PrivateIpBlockFactory(tenant_id=123, **kwargs)
 
     def test_create(self):
         response = self.app.post_json(
@@ -245,7 +244,7 @@ class TestTenantPrivateIpBlockController(IpBlockControllerBase,
         self.assertEqual(saved_block.cidr, "10.1.1.0/2")
         self.assertEqual(saved_block.type, "private")
         self.assertEqual(saved_block.tenant_id, "111")
-        self.assertEqual(response.json, dict(ip_block=_data(saved_block)))
+        self.assertEqual(response.json, dict(ip_block=saved_block.data()))
 
     def test_create_ignores_tenant_id_passed_in_post_body(self):
         response = self.app.post_json("/ipam/tenants/111/private_ip_blocks",
@@ -254,7 +253,7 @@ class TestTenantPrivateIpBlockController(IpBlockControllerBase,
 
         saved_block = IpBlock.find_by(network_id="300")
         self.assertEqual(saved_block.tenant_id, "111")
-        self.assertEqual(response.json, dict(ip_block=_data(saved_block)))
+        self.assertEqual(response.json, dict(ip_block=saved_block.data()))
 
     def test_show_fails_if_block_doenst_belong_to_tenant(self):
         block = PrivateIpBlockFactory(tenant_id='0000')
@@ -273,7 +272,7 @@ class TestTenantPrivateIpBlockController(IpBlockControllerBase,
         self.assertEqual(response.status, "200 OK")
         response_blocks = response.json['ip_blocks']
         self.assertEqual(len(response_blocks), 2)
-        self.assertItemsEqual(response_blocks, _data([ip_block1, ip_block2]))
+        self.assertItemsEqual(response_blocks, _data_of(ip_block1, ip_block2))
 
     def test_update_fails_for_non_existent_block_for_given_tenant(self):
         ip_block = PrivateIpBlockFactory(tenant_id="123")
@@ -304,7 +303,7 @@ class IpAddressControllerBase(object):
         allocated_address = IpAddress.find_all(ip_block_id=block.id).first()
         self.assertEqual(allocated_address.address, "10.1.1.0")
         self.assertEqual(response.json,
-                         dict(ip_address=_data(allocated_address)))
+                         dict(ip_address=allocated_address.data()))
 
     def test_create_with_given_address(self):
         block = self.ip_block_factory(cidr="10.1.1.0/28")
@@ -384,7 +383,7 @@ class IpAddressControllerBase(object):
                                                       ip.address))
 
         self.assertEqual(response.status, "200 OK")
-        self.assertEqual(response.json, dict(ip_address=_data(ip)))
+        self.assertEqual(response.json, dict(ip_address=ip.data()))
 
     def test_show_fails_for_nonexistent_address(self):
         block = self.ip_block_factory(cidr="10.1.1.0/28")
@@ -563,8 +562,9 @@ class TestInsideGlobalsController(BaseTestController):
                                 "inside_globals"
                                  % (local_block.id, local_ip.address))
 
-        self.assertItemsEqual(response.json['ip_addresses'],
-                              _data([global_ip_1, global_ip_2]))
+        self.assertItemsEqual(response.json,
+                         {'ip_addresses': _data_of(global_ip_1,
+                                                   global_ip_2)})
 
     def test_index_with_pagination(self):
         local_block, global_block = _create_blocks("10.1.1.1/8",
@@ -578,8 +578,9 @@ class TestInsideGlobalsController(BaseTestController):
                                 % (local_block.id, local_ip.address,
                                    global_ips[1].id))
 
-        self.assertEqual(response.json['ip_addresses'],
-                         _data([global_ips[2], global_ips[3]]))
+        self.assertEqual(response.json,
+                        {'ip_addresses': _data_of(global_ips[2],
+                                                  global_ips[3])})
 
     def test_index_for_nonexistent_block(self):
         non_existant_block_id = 12122
@@ -681,7 +682,8 @@ class TestInsideLocalsController(BaseTestController):
                                 "inside_locals"
                                 % (global_block.id, global_ip.address))
 
-        self.assertEqual(response.json['ip_addresses'], _data(local_ips))
+        self.assertEqual(response.json,
+                         {'ip_addresses': _data_of(*local_ips)})
 
     def test_index_with_pagination(self):
         global_block, local_block = _create_blocks("192.1.1.1/8",
@@ -696,8 +698,9 @@ class TestInsideLocalsController(BaseTestController):
                                    global_ip.address,
                                    local_ips[1].id))
 
-        self.assertEqual(response.json['ip_addresses'],
-                         _data([local_ips[2], local_ips[3]]))
+        self.assertEqual(response.json,
+                         {'ip_addresses': _data_of(local_ips[2],
+                                                   local_ips[3])})
 
     def test_index_for_nonexistent_block(self):
         non_existant_block_id = 12122
@@ -802,7 +805,7 @@ class UnusableIpRangesControllerBase():
 
         unusable_range = IpRange.find_all(policy_id=policy.id).first()
         self.assertEqual(response.status, "201 Created")
-        self.assertEqual(response.json, dict(ip_range=_data(unusable_range)))
+        self.assertEqual(response.json, dict(ip_range=unusable_range.data()))
 
     def test_create_on_non_existent_policy(self):
         response = self.app.post("%s/10000/unusable_ip_ranges"
@@ -821,7 +824,7 @@ class UnusableIpRangesControllerBase():
                                 % (self.policy_path, policy.id, ip_range.id))
 
         self.assertEqual(response.status_int, 200)
-        self.assertEqual(response.json, dict(ip_range=_data(ip_range)))
+        self.assertEqual(response.json, dict(ip_range=ip_range.data()))
 
     def test_show_when_ip_range_does_not_exists(self):
         policy = self._policy_factory()
@@ -846,7 +849,7 @@ class UnusableIpRangesControllerBase():
         updated_range = IpRange.find(ip_range.id)
         self.assertEqual(updated_range.offset, 1111)
         self.assertEqual(updated_range.length, 2222)
-        self.assertEqual(response.json, dict(ip_range=_data(updated_range)))
+        self.assertEqual(response.json, dict(ip_range=updated_range.data()))
 
     def test_update_ignores_change_in_policy_id(self):
         policy = self._policy_factory()
@@ -886,7 +889,7 @@ class UnusableIpRangesControllerBase():
         response_ranges = response.json["ip_ranges"]
         self.assertEqual(len(response_ranges), 3)
         self.assertItemsEqual(response_ranges,
-                         _data(policy.unusable_ip_ranges))
+                         _data_of(*policy.unusable_ip_ranges))
 
     def test_delete(self):
         policy = self._policy_factory()
@@ -991,7 +994,7 @@ class UnusableIpOctetsControllerBase():
         response_octets = response.json["ip_octets"]
         self.assertEqual(len(response_octets), 3)
         self.assertItemsEqual(response_octets,
-                         _data(policy.unusable_ip_octets))
+                         _data_of(*policy.unusable_ip_octets))
 
     def test_index_with_limits(self):
         policy = self._policy_factory()
@@ -1004,7 +1007,7 @@ class UnusableIpOctetsControllerBase():
         response_octets = response.json["ip_octets"]
         self.assertEqual(len(response_octets), 2)
         self.assertItemsEqual(response_octets,
-                       _data(models.sort(policy.unusable_ip_octets)[0:2]))
+                       _data_of(*models.sort(policy.unusable_ip_octets)[0:2]))
 
     def test_create(self):
         policy = self._policy_factory()
@@ -1014,7 +1017,7 @@ class UnusableIpOctetsControllerBase():
 
         ip_octet = IpOctet.find_all(policy_id=policy.id).first()
         self.assertEqual(response.status, "201 Created")
-        self.assertEqual(response.json['ip_octet'], _data(ip_octet))
+        self.assertEqual(response.json['ip_octet'], ip_octet.data())
 
     def test_create_on_non_existent_policy(self):
         response = self.app.post_json("%s/10000/unusable_ip_octets"
@@ -1032,7 +1035,7 @@ class UnusableIpOctetsControllerBase():
                                  % (self.policy_path, policy.id, ip_octet.id))
 
         self.assertEqual(response.status_int, 200)
-        self.assertEqual(response.json['ip_octet'], _data(ip_octet))
+        self.assertEqual(response.json['ip_octet'], ip_octet.data())
 
     def test_show_when_ip_octet_does_not_exists(self):
         policy = self._policy_factory()
@@ -1055,7 +1058,7 @@ class UnusableIpOctetsControllerBase():
         self.assertEqual(response.status_int, 200)
         updated_octet = IpOctet.find(ip_octet.id)
         self.assertEqual(updated_octet.octet, 123)
-        self.assertEqual(response.json['ip_octet'], _data(updated_octet))
+        self.assertEqual(response.json['ip_octet'], updated_octet.data())
 
     def test_update_ignores_change_in_policy_id(self):
         policy = self._policy_factory()
@@ -1192,7 +1195,7 @@ class TestPoliciesController(BaseTestController):
         response_policies = response.json['policies']
         policies = Policy.find_all().all()
         self.assertEqual(len(policies), 2)
-        self.assertItemsEqual(response_policies, _data(policies))
+        self.assertItemsEqual(response_policies, _data_of(*policies))
 
     def test_show_when_requested_policy_exists(self):
         policy = PolicyFactory(name="DRAC")
@@ -1200,7 +1203,7 @@ class TestPoliciesController(BaseTestController):
         response = self.app.get("/ipam/policies/%s" % policy.id)
 
         self.assertEqual(response.status, "200 OK")
-        self.assertEqual(response.json, dict(policy=_data(policy)))
+        self.assertEqual(response.json, dict(policy=policy.data()))
 
     def test_show_when_requested_policy_does_not_exist(self):
         response = self.app.get("/ipam/policies/invalid_id", status="*")
@@ -1219,7 +1222,7 @@ class TestPoliciesController(BaseTestController):
         updated_policy = Policy.find(policy.id)
         self.assertEqual(updated_policy.name, "Updated Name")
         self.assertEqual(updated_policy.description, "Updated Des")
-        self.assertEqual(response.json, dict(policy=_data(updated_policy)))
+        self.assertEqual(response.json, dict(policy=updated_policy.data()))
 
     def test_update_fails_for_invalid_policy_id(self):
         response = self.app.put("/ipam/policies/invalid",
@@ -1246,7 +1249,7 @@ class TestTenantPoliciesController(BaseTestController):
 
         self.assertEqual(response.status_int, 200)
         self.assertItemsEqual(response.json["policies"],
-                              _data([policy1, policy3]))
+                              _data_of(policy1, policy3))
 
     def test_create(self):
         response = self.app.post_json("/ipam/tenants/1111/policies",
@@ -1337,7 +1340,7 @@ class NetworksControllerBase():
 
         ip_address = IpAddress.find_by(ip_block_id=ip_block.id)
         self.assertEqual(response.status_int, 201)
-        self.assertEqual(_data(ip_address), response.json['ip_address'])
+        self.assertEqual(ip_address.data(), response.json['ip_address'])
 
     def test_allocate_ip_address_for_a_port(self):
         ip_block = self._ip_block_factory(network_id=1)
@@ -1348,7 +1351,7 @@ class NetworksControllerBase():
 
         ip_address = IpAddress.find_by(ip_block_id=ip_block.id, port_id=123)
         self.assertEqual(response.status_int, 201)
-        self.assertEqual(_data(ip_address), response.json['ip_address'])
+        self.assertEqual(ip_address.data(), response.json['ip_address'])
 
     def test_allocate_ip_with_given_address(self):
         ip_block = self._ip_block_factory(network_id=1, cidr='10.0.0.0/31')
@@ -1360,7 +1363,7 @@ class NetworksControllerBase():
         ip_address = IpAddress.find_by(ip_block_id=ip_block.id,
                                        address='10.0.0.1')
         self.assertEqual(response.status_int, 201)
-        self.assertEqual(_data(ip_address), response.json['ip_address'])
+        self.assertEqual(ip_address.data(), response.json['ip_address'])
 
     def test_allocate_ip_fails_when_network_doesnt_have_given_address(self):
         ip_block = self._ip_block_factory(network_id=1, cidr='10.0.0.0/31')
@@ -1451,7 +1454,5 @@ def _create_blocks(*args):
     return [PrivateIpBlockFactory(cidr=cidr) for cidr in args]
 
 
-def _data(resource):
-    if isinstance(resource, models.ModelBase):
-        return sanitize(resource.data())
-    return [_data(model) for model in resource]
+def _data_of(*args):
+    return [model.data() for model in args]

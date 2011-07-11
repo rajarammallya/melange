@@ -41,7 +41,7 @@ pipeline = extensions extensions_test_app
 paste.filter_factory = melange.common.extensions:ExtensionMiddleware.factory
 
 [app:extensions_test_app]
-paste.app_factory = tests.unit.test_extensions:app_factory
+paste.app_factory = melange.tests.unit.test_extensions:app_factory
 
 [composite:versioned_melange]
 use = egg:Paste#urlmap

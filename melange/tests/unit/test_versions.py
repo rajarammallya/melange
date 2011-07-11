@@ -17,8 +17,8 @@
 
 from webtest import TestApp
 
-from tests import BaseTest
-from tests.unit import  test_config_path
+from melange.tests import BaseTest
+from melange.tests.unit import  test_config_path
 from melange.common import config
 
 

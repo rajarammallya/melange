@@ -17,7 +17,7 @@
 
 import unittest
 from melange.common.client import Client
-from tests.functional import get_api_port
+from melange.tests.functional import get_api_port
 
 
 class TestServiceConf(unittest.TestCase):

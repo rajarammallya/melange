@@ -17,7 +17,7 @@ import json
 import unittest
 import routes
 
-from tests.unit import test_config_path
+from melange.tests.unit import test_config_path
 from webtest import TestApp
 from melange.common import extensions
 from melange.common import wsgi

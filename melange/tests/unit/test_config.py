@@ -16,7 +16,7 @@
 #    under the License.
 import unittest
 from melange.common.config import Config
-from tests.unit import StubConfig
+from melange.tests.unit import StubConfig
 
 
 class TestConfig(unittest.TestCase):

@@ -16,10 +16,10 @@
 #    under the License.
 import hashlib
 
-from tests import BaseTest
+from melange.tests import BaseTest
 from netaddr import IPNetwork, IPAddress
 from melange.ipv6.default_generator import DefaultIpV6Generator
-from tests.factories.models import IpV6IpBlockFactory
+from melange.tests.factories.models import IpV6IpBlockFactory
 
 
 class TestDefaultIpV6Generator(BaseTest):

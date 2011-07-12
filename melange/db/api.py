@@ -128,9 +128,19 @@ def find_natted_ips(**kwargs):
                  filter_by(**kwargs)
 
 
+def find_all_blocks_with_deallocated_ips():
+    return find_all_by(session.models()["IpBlock"]).\
+           join(_ip_address()).\
+           filter(_ip_address().marked_for_deallocation == True)
+
+
 def _ip_nat():
     return session.models()["ip_nat_relation"]
 
 
 def _ip_address():
     return session.models()["IpAddress"]
+
+
+def delete_all(models):
+    models.update({'deleted': True})

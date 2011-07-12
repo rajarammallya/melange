@@ -19,11 +19,9 @@
 SQLAlchemy models for Melange data
 """
 import netaddr
-import hashlib
-from datetime import datetime
-
 from netaddr.strategy.ipv6 import ipv6_verbose
 from netaddr import IPNetwork, IPAddress
+
 from melange.common.exception import MelangeError
 from melange.db import api as db_api
 from melange.common import utils
@@ -252,6 +250,12 @@ class IpBlock(ModelBase):
     def allowed_by_policy(cls, ip_block, policy, address):
         return policy == None or policy.allows(ip_block.cidr, address)
 
+    @classmethod
+    def delete_all_deallocated_ips(cls):
+        for block in db_api.find_all_blocks_with_deallocated_ips():
+            block.update(is_full=False)
+            block.delete_deallocated_ips()
+
     def is_ipv6(self):
         return IPNetwork(self.cidr).version == 6
 
@@ -279,6 +283,7 @@ class IpBlock(ModelBase):
             self._validate_address(address)
 
         if not address:
+            self.update(is_full=True)
             raise NoMoreAddressesError("IpBlock is full")
 
         return IpAddress.create(address=address, port_id=port_id,
@@ -329,6 +334,10 @@ class IpBlock(ModelBase):
         ip_address = IpAddress.find_by(ip_block_id=self.id, address=address)
         if ip_address != None:
             ip_address.deallocate()
+
+    def delete_deallocated_ips(self):
+        db_api.delete_all(IpAddress.find_all(ip_block_id=self.id,
+                                           marked_for_deallocation=True))
 
     def _validate_cidr_format(self):
         try:
@@ -384,10 +393,6 @@ class IpBlock(ModelBase):
 class IpAddress(ModelBase):
 
     _data_fields = ['ip_block_id', 'address', 'port_id']
-
-    @classmethod
-    def delete_deallocated_addresses(self):
-        return db_api.delete_deallocated_addresses()
 
     @classmethod
     def _get_conditions(cls, raw_conditions):

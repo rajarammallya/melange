@@ -350,6 +350,18 @@ class TestIpBlock(BaseTest):
         self.assertEqual(block.allocate_ip(address="10.0.0.1").address,
                          "10.0.0.1")
 
+    def test_ip_block_is_marked_full_when_all_ips_are_allocated(self):
+        ip_block = PrivateIpBlockFactory(cidr="10.0.0.0/32")
+        ip_block.allocate_ip()
+
+        self.assertRaises(models.NoMoreAddressesError, ip_block.allocate_ip)
+        self.assertTrue(ip_block.is_full)
+
+    def test_ip_block_is_full_is_marked_as_false_by_default(self):
+        ip_block = PrivateIpBlockFactory(cidr="10.0.0.0/32")
+
+        self.assertFalse(ip_block.is_full)
+
     def test_allocate_ip_when_no_more_ips(self):
         block = PrivateIpBlockFactory(cidr="10.0.0.0/32")
         block.allocate_ip()
@@ -473,8 +485,8 @@ class TestIpBlock(BaseTest):
 
     def test_delete_to_cascade_delete_ip_addresses(self):
         ip_block = PrivateIpBlockFactory(cidr="10.0.0.0/29")
-        ipa_1 = IpAddressFactory(ip_block_id=ip_block.id, address="10.0.0.0")
-        ipa_2 = IpAddressFactory(ip_block_id=ip_block.id, address="10.0.0.1")
+        ip1 = IpAddressFactory(ip_block_id=ip_block.id, address="10.0.0.0")
+        ip2 = IpAddressFactory(ip_block_id=ip_block.id, address="10.0.0.1")
         self.assertTrue(len(IpAddress.
                             find_all(ip_block_id=ip_block.id).all()) is 2)
 
@@ -492,6 +504,44 @@ class TestIpBlock(BaseTest):
         ip_block = IpBlock(cidr="ff::/120")
 
         self.assertTrue(ip_block.is_ipv6())
+
+    def test_delete_all_deallocated_addresses(self):
+        ip_block1 = PrivateIpBlockFactory(cidr="10.0.1.1/29")
+        ip_block2 = PrivateIpBlockFactory(cidr="10.0.1.1/29")
+        ip1 = ip_block1.allocate_ip()
+        ip2 = ip_block2.allocate_ip()
+        ip1.deallocate()
+        ip2.deallocate()
+
+        IpBlock.delete_all_deallocated_ips()
+
+        self.assertEqual(IpAddress.find_all(
+                               ip_block_id=ip_block1.id).all(), [])
+        self.assertEqual(IpAddress.find_all(
+                               ip_block_id=ip_block2.id).all(), [])
+
+    def test_delete_deallocated_addresses(self):
+        ip_block = PrivateIpBlockFactory(cidr="10.0.1.1/29")
+        ip1 = ip_block.allocate_ip()
+        ip2 = ip_block.allocate_ip()
+        ip3 = ip_block.allocate_ip()
+        ip1.deallocate()
+        ip3.deallocate()
+
+        ip_block.delete_deallocated_ips()
+        existing_ips = IpAddress.find_all(ip_block_id=ip_block.id).all()
+        self.assertModelsEqual(existing_ips, [ip2])
+
+    def test_is_full_flag_reset_when_addresses_are_deleted(self):
+        ip_block = PrivateIpBlockFactory(cidr="10.0.0.0/32")
+        ip = ip_block.allocate_ip()
+        ip.deallocate()
+        self.assertRaises(NoMoreAddressesError, ip_block.allocate_ip)
+        self.assertTrue(ip_block.is_full)
+
+        IpBlock.delete_all_deallocated_ips()
+
+        self.assertFalse(IpBlock.find(ip_block.id).is_full)
 
 
 class TestIpAddress(BaseTest):
@@ -679,17 +729,6 @@ class TestIpAddress(BaseTest):
         ip_address.restore()
 
         self.assertFalse(ip_address.marked_for_deallocation)
-
-    def test_delete_deallocated_addresses(self):
-        ip_block = PrivateIpBlockFactory(cidr="10.0.1.1/29")
-        ip_1 = ip_block.allocate_ip()
-        ip_2 = ip_block.allocate_ip()
-        ip_1.deallocate()
-        ip_2.deallocate()
-
-        IpAddress.delete_deallocated_addresses()
-
-        self.assertEqual(IpAddress.find_all(ip_block_id=ip_block.id).all(), [])
 
     def test_ip_block(self):
         ip_block = PrivateIpBlockFactory()

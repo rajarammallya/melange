@@ -238,6 +238,13 @@ class TestIpBlock(BaseTest):
         self.assertEqual(subnet.errors['network_id'],
                          ["network_id should be same as that of parent"])
 
+    def test_subnet_of_parent_with_no_network_can_have_network(self):
+        parent = PrivateIpBlockFactory(cidr="10.0.0.0/28", network_id=None)
+        subnet = PrivateIpBlockFactory.build(cidr="10.0.0.0/29",
+                                        network_id="2", parent_id=parent.id)
+
+        self.assertTrue(subnet.is_valid())
+
     def test_save_validates_existence_parent_block_of_same_type(self):
         noise_block = IpBlockFactory(type='public')
         block = IpBlockFactory.build(parent_id=noise_block.id, type='private')

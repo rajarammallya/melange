@@ -356,7 +356,8 @@ class IpBlock(ModelBase):
                                 "cidr for public ip block should be unique")
 
     def _validate_belongs_to_supernet_network(self):
-        if self.parent and self.parent.network_id != self.network_id:
+        if(self.parent and self.parent.network_id and
+           self.parent.network_id != self.network_id):
             self._add_error('network_id',
                             "network_id should be same as that of parent")
 

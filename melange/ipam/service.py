@@ -24,7 +24,7 @@ from melange.common.config import Config
 from melange.ipam import models
 from melange.ipam.models import (IpBlock, IpAddress, Policy, IpRange,
                                  IpOctet, Network)
-from melange.common.utils import exclude, stringify_keys
+from melange.common.utils import exclude, stringify_keys, filter_dict
 
 
 class BaseController(wsgi.Controller):
@@ -60,7 +60,7 @@ class BaseController(wsgi.Controller):
 
 class IpBlockController(BaseController):
 
-    exclude_attr = ['type', 'tenant_id']
+    exclude_attr = ['type', 'tenant_id', 'parent_id']
 
     def _find_block(self, **kwargs):
         return IpBlock.find_by(type=self.type, **kwargs)
@@ -84,7 +84,7 @@ class IpBlockController(BaseController):
     def update(self, request, id, tenant_id=None):
         ip_block = self._find_block(id=id, tenant_id=tenant_id)
         params = self._extract_required_params(request, 'ip_block')
-        ip_block.update(**exclude(params, 'cidr', 'parent_id'))
+        ip_block.update(**exclude(params, 'cidr'))
         return dict(ip_block=ip_block.data()), 200
 
     def show(self, request, id, tenant_id=None):
@@ -106,8 +106,13 @@ class SubnetController(BaseController):
 
     def index(self, request, ip_block_id, tenant_id=None):
         ip_block = self._find_block(id=ip_block_id, tenant_id=tenant_id)
-        subnets = IpBlock.find_all(parent_id=ip_block.id)
-        return dict(subnets=[subnet.data() for subnet in subnets])
+        return dict(subnets=[subnet.data() for subnet in ip_block.subnets()])
+
+    def create(self, request, ip_block_id, tenant_id=None):
+        ip_block = self._find_block(id=ip_block_id, tenant_id=tenant_id)
+        params = self._extract_required_params(request, 'subnet')
+        subnet = ip_block.subnet(**filter_dict(params, 'cidr', 'network_id'))
+        return dict(subnet=subnet.data()), 201
 
 
 class IpAddressController(BaseController):
@@ -352,7 +357,9 @@ class API(wsgi.Router):
         with mapper.submapper(controller=subnet_controller,
                               path_prefix=path_prefix) as submap:
             self._connect(submap, "/subnets",
-                           action="index", conditions=dict(method=["GET"]))
+                          action="index", conditions=dict(method=["GET"]))
+            self._connect(submap, "/subnets",
+                          action="create", conditions=dict(method=["POST"]))
 
 
     def _ip_address_mapper(self, mapper, ip_address_controller,

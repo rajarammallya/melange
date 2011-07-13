@@ -94,15 +94,19 @@ class IpBlockControllerBase():
         self.assertErrorResponse(response, HTTPBadRequest,
                                  'cidr is invalid')
 
-    def test_create_ignores_type_from_params(self):
+    def test_create_ignores_uneditable_fields(self):
         response = self.app.post_json("%s" % self.ip_block_path,
                                  {'ip_block': {'network_id': "300",
-                                  'cidr': "10.0.0.0/31", 'type': "Ignored"}},
+                                  'cidr': "10.0.0.0/31", 'type': "Ignored",
+                                    'parent_id': 'input_parent_id',
+                                    'tenant_id': 'input_tenant_id'}},
                                  status="*")
 
         self.assertEqual(response.status_int, 201)
         created_block = IpBlock.find_by(network_id="300")
         self.assertNotEqual(created_block.type, "Ignored")
+        self.assertNotEqual(created_block.parent_id, "input_parent_id")
+        self.assertNotEqual(created_block.tenant_id, "input_tenant_id")
         self.assertEqual(created_block.type, self.ip_block_type)
 
     def test_show(self):
@@ -298,9 +302,33 @@ class SubnetControllerBase(object):
         response = self.app.get(self._subnets_path(parent))
 
         self.assertEqual(response.status_int, 200)
-        self.assertEqual(response.json['subnets'], _data([subnet1, subnet2]))        
-    
+        self.assertEqual(response.json['subnets'], _data([subnet1, subnet2]))
 
+    def test_create(self):
+        parent = self._ip_block_factory(cidr="10.0.0.0/28")
+
+        response = self.app.post_json(self._subnets_path(parent),
+                                 {'subnet': {'cidr': "10.0.0.0/29",
+                                               'network_id': "2"}})
+
+        subnet = IpBlock.find_by(parent_id=parent.id)
+        self.assertEqual(response.status_int, 201)
+        self.assertEqual(response.json['subnet'], _data(subnet))
+                                 
+    
+    def test_create_excludes_uneditable_fields(self):
+        parent = self._ip_block_factory(cidr="10.0.0.0/28")
+
+        response = self.app.post_json(self._subnets_path(parent),
+                                 {'subnet': {'cidr': "10.0.0.0/29",
+                                             'type': "Input type",
+                                             'parent_id': "Input"}})
+
+        subnet = IpBlock.find_by(parent_id=parent.id)
+        self.assertEqual(response.status_int, 201)
+        self.assertNotEqual(subnet.type, "Input type")
+                                 
+    
 class TestPublicSubnetController(BaseTestController,
                                  SubnetControllerBase):
 

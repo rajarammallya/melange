@@ -191,12 +191,6 @@ class ModelBase(object):
     def _has_error_on(self, attribute):
         return self.errors.get(attribute, None) is not None
 
-    def __str__(self):
-        return str(self.id)
-
-    def __repr__(self):
-        return str(self)
-
 
 def ipv6_address_generator_factory(cidr, **kwargs):
     default_generator = "melange.ipv6.default_generator.DefaultIpV6Generator"
@@ -259,7 +253,12 @@ class IpBlock(ModelBase):
     def is_ipv6(self):
         return IPNetwork(self.cidr).version == 6
 
+    def subnets(self):
+        return IpBlock.find_all(parent_id=self.id)
+
     def delete(self):
+        for block in self.subnets():
+            block.delete()
         db_api.delete_all(IpAddress.find_all(ip_block_id=self.id))
         super(IpBlock, self).delete()
 
@@ -341,6 +340,11 @@ class IpBlock(ModelBase):
     def delete_deallocated_ips(self):
         db_api.delete_all(IpAddress.find_all(ip_block_id=self.id,
                                            marked_for_deallocation=True))
+
+    def subnet(self, cidr, network_id=None):
+        network_id = network_id or self.network_id
+        return IpBlock.create(cidr=cidr, network_id=network_id,
+                              parent_id=self.id, type=self.type)
 
     def _validate_cidr_format(self):
         try:

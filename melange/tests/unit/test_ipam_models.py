@@ -491,12 +491,27 @@ class TestIpBlock(BaseTest):
         ip_block = PrivateIpBlockFactory(cidr="10.0.0.0/29")
         ip1 = IpAddressFactory(ip_block_id=ip_block.id, address="10.0.0.0")
         ip2 = IpAddressFactory(ip_block_id=ip_block.id, address="10.0.0.1")
-        self.assertTrue(len(IpAddress.
-                            find_all(ip_block_id=ip_block.id).all()) is 2)
 
         ip_block.delete()
+
         self.assertTrue(len(IpAddress.
                             find_all(ip_block_id=ip_block.id).all()) is 0)
+
+    def test_delete_to_cascade_delete_subnet_tree_and_their_address(self):
+        ip_block = PrivateIpBlockFactory(cidr="10.0.0.0/29")
+        subnet1 = ip_block.subnet("10.0.0.0/30")
+        subnet11 = subnet1.subnet("10.0.0.1/31")
+        subnet2 = ip_block.subnet("10.0.0.4/30")
+        ip1 = IpAddressFactory(ip_block_id=subnet11.id, address="10.0.0.0")
+        ip2 = IpAddressFactory(ip_block_id=subnet2.id, address="10.0.0.4")
+
+        ip_block.delete()
+
+        self.assertIsNone(IpBlock.get(subnet1.id))
+        self.assertIsNone(IpBlock.get(subnet11.id))
+        self.assertIsNone(IpBlock.get(subnet2.id))
+        self.assertIsNone(IpAddress.get(ip1.id))
+        self.assertIsNone(IpAddress.get(ip2.id))
 
     def test_contains_address(self):
         ip_block = IpBlock(cidr="10.0.0.0/20")
@@ -508,6 +523,15 @@ class TestIpBlock(BaseTest):
         ip_block = IpBlock(cidr="ff::/120")
 
         self.assertTrue(ip_block.is_ipv6())
+
+    def test_subnets(self):
+        ip_block = PrivateIpBlockFactory(cidr="10.0.0.0/28")
+        subnet1 = PrivateIpBlockFactory(cidr="10.0.0.0/29",
+                                        parent_id=ip_block.id)
+        subnet2 = PrivateIpBlockFactory(cidr="10.0.0.8/29",
+                                        parent_id=ip_block.id)
+
+        self.assertModelsEqual(ip_block.subnets(), [subnet1, subnet2])
 
     def test_delete_all_deallocated_addresses(self):
         ip_block1 = PrivateIpBlockFactory(cidr="10.0.1.1/29")
@@ -546,6 +570,24 @@ class TestIpBlock(BaseTest):
         IpBlock.delete_all_deallocated_ips()
 
         self.assertFalse(IpBlock.find(ip_block.id).is_full)
+
+    def test_subnet_creates_child_block_with_the_given_params(self):
+        ip_block = PrivateIpBlockFactory(cidr="10.0.0.0/28")
+        
+        subnet = ip_block.subnet("10.0.0.0/29", network_id="1")
+
+        self.assertEqual(subnet.cidr, "10.0.0.0/29")
+        self.assertEqual(subnet.network_id, "1")
+        self.assertEqual(subnet.parent_id, ip_block.id)
+        self.assertEqual(subnet.type, ip_block.type)
+
+    def test_subnet_derives_network_id_from_parent_block_when_not_given(self):
+        ip_block = PrivateIpBlockFactory(cidr="10.0.0.0/28", network_id="2")
+        
+        subnet = ip_block.subnet("10.0.0.0/29")
+
+        self.assertEqual(subnet.cidr, "10.0.0.0/29")
+        self.assertEqual(subnet.network_id, ip_block.network_id)
 
 
 class TestIpAddress(BaseTest):

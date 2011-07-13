@@ -288,6 +288,49 @@ class TestTenantPrivateIpBlockController(IpBlockControllerBase,
         self.assertErrorResponse(response, HTTPNotFound, "IpBlock Not Found")
 
 
+class SubnetControllerBase(object):
+
+    def test_index(self):
+        parent = self._ip_block_factory(cidr="10.0.0.0/28")
+        subnet1 = self._ip_block_factory(cidr="10.0.0.0/29", parent_id=parent.id)
+        subnet2 = self._ip_block_factory(cidr="10.0.0.8/29", parent_id=parent.id)
+
+        response = self.app.get(self._subnets_path(parent))
+
+        self.assertEqual(response.status_int, 200)
+        self.assertEqual(response.json['subnets'], _data([subnet1, subnet2]))        
+    
+
+class TestPublicSubnetController(BaseTestController,
+                                 SubnetControllerBase):
+
+    def _ip_block_factory(self, **kwargs):
+        return PublicIpBlockFactory(**kwargs)
+
+    def _subnets_path(self, ip_block):
+        return "/ipam/public_ip_blocks/{0}/subnets".format(ip_block.id)
+
+
+class TestTenantBasedPrivateSubnetController(BaseTestController,
+                                 SubnetControllerBase):
+
+    def _ip_block_factory(self, **kwargs):
+        return PrivateIpBlockFactory(tenant_id="1", **kwargs)
+
+    def _subnets_path(self, ip_block):
+        return "/ipam/tenants/1/private_ip_blocks/{0}/subnets".format(ip_block.id)
+
+
+class TestGlobalPrivateSubnetController(BaseTestController,
+                                 SubnetControllerBase):
+
+    def _ip_block_factory(self, **kwargs):
+        return PrivateIpBlockFactory(tenant_id=None, **kwargs)
+
+    def _subnets_path(self, ip_block):
+        return "/ipam/private_ip_blocks/{0}/subnets".format(ip_block.id)
+
+
 class IpAddressControllerBase(object):
 
     def setUp(self):

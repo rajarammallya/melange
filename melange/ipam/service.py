@@ -95,6 +95,21 @@ class IpBlockController(BaseController):
         self._find_block(id=id, tenant_id=tenant_id).delete()
 
 
+class SubnetController(BaseController):
+
+    def __init__(self, type):
+        self.type = type
+        super(SubnetController, self).__init__()
+
+    def _find_block(self, id, tenant_id):
+        return IpBlock.find_by(id=id, tenant_id=tenant_id, type=self.type)
+
+    def index(self, request, ip_block_id, tenant_id=None):
+        ip_block = self._find_block(id=ip_block_id, tenant_id=tenant_id)
+        subnets = IpBlock.find_all(parent_id=ip_block.id)
+        return dict(subnets=[subnet.data() for subnet in subnets])
+
+
 class IpAddressController(BaseController):
 
     def __init__(self, type):
@@ -276,17 +291,19 @@ class API(wsgi.Router):
         self.options = options
         mapper = routes.Mapper()
         super(API, self).__init__(mapper)
-        self._block_and_address_mapper(mapper, "public_ip_block",
-                                "/ipam/public_ip_blocks",
-                                IpBlockController('public',
+        self. _block_and_nested_resource_mapper(mapper, "public_ip_block",
+                                                "/ipam/public_ip_blocks",
+                                                IpBlockController('public',
                                                   admin_actions=['create',
                                                                  'delete']))
-        self._block_and_address_mapper(mapper, "global_private_ip_block",
-                                 "/ipam/private_ip_blocks",
+        self. _block_and_nested_resource_mapper(mapper,
+                                                "global_private_ip_block",
+                                                "/ipam/private_ip_blocks",
+                                                IpBlockController('private'))
+        self. _block_and_nested_resource_mapper(mapper,
+                                 "tenant_private_ip_block",
+                                 "/ipam/tenants/{tenant_id}/private_ip_blocks",
                                  IpBlockController('private'))
-        self._block_and_address_mapper(mapper, "tenant_private_ip_block",
-                                "/ipam/tenants/{tenant_id}/private_ip_blocks",
-                                IpBlockController('private'))
         self._natting_mapper(mapper, "inside_globals",
                              InsideGlobalsController())
         self._natting_mapper(mapper, "inside_locals",
@@ -315,19 +332,32 @@ class API(wsgi.Router):
                         parent_resource=dict(member_name="policy",
                                            collection_name=policy_path))
 
-    def _block_and_address_mapper(self, mapper, block_resource,
+    def _block_and_nested_resource_mapper(self, mapper, block_resource,
                                   block_resource_path, block_controller):
         mapper.resource(block_resource, block_resource_path,
                         controller=block_controller)
         block_as_parent = dict(member_name="ip_block",
-                            collection_name=block_resource_path)
+                            collection_path=block_resource_path)
         self._ip_address_mapper(mapper,
                                 IpAddressController(block_controller.type),
                                 block_as_parent)
+        self._subnet_mapper(mapper,
+                                SubnetController(block_controller.type),
+                                block_as_parent)
+
+    def _subnet_mapper(self, mapper, subnet_controller,
+                           parent_resource):
+        path_prefix = "%s/{%s_id}" % (parent_resource["collection_path"],
+                                      parent_resource["member_name"])
+        with mapper.submapper(controller=subnet_controller,
+                              path_prefix=path_prefix) as submap:
+            self._connect(submap, "/subnets",
+                           action="index", conditions=dict(method=["GET"]))
+
 
     def _ip_address_mapper(self, mapper, ip_address_controller,
                            parent_resource):
-        path_prefix = "%s/{%s_id}" % (parent_resource["collection_name"],
+        path_prefix = "%s/{%s_id}" % (parent_resource["collection_path"],
                                       parent_resource["member_name"])
         with mapper.submapper(controller=ip_address_controller,
                               path_prefix=path_prefix) as submap:
@@ -360,7 +390,7 @@ class API(wsgi.Router):
                 conditions=dict(method=["DELETE"]))
 
     def _connect(self, mapper, path, *args, **kwargs):
-        return mapper.connect(mapper, path + "{.format:(json|xml)?}",
+        return mapper.connect(path + "{.format:(json|xml)?}",
                               *args, **kwargs)
 
 

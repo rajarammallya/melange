@@ -28,7 +28,6 @@ from melange.common.config import Config
 from melange.ipam import models
 from melange.ipam.service import BaseController
 from melange.ipam.models import IpBlock, IpAddress, Policy, IpRange, IpOctet
-from melange.tests.unit import StubConfig
 from melange.tests.factories.models import (PublicIpBlockFactory,
                                          PrivateIpBlockFactory,
                                          IpAddressFactory, PolicyFactory,
@@ -296,8 +295,10 @@ class SubnetControllerBase(object):
 
     def test_index(self):
         parent = self._ip_block_factory(cidr="10.0.0.0/28")
-        subnet1 = self._ip_block_factory(cidr="10.0.0.0/29", parent_id=parent.id)
-        subnet2 = self._ip_block_factory(cidr="10.0.0.8/29", parent_id=parent.id)
+        subnet1 = self._ip_block_factory(cidr="10.0.0.0/29",
+                                         parent_id=parent.id)
+        subnet2 = self._ip_block_factory(cidr="10.0.0.8/29",
+                                         parent_id=parent.id)
 
         response = self.app.get(self._subnets_path(parent))
 
@@ -316,8 +317,7 @@ class SubnetControllerBase(object):
         self.assertEqual(subnet.network_id, "2")
         self.assertEqual(subnet.cidr, "10.0.0.0/29")
         self.assertEqual(response.json['subnet'], _data(subnet))
-                                 
-    
+
     def test_create_excludes_uneditable_fields(self):
         parent = self._ip_block_factory(cidr="10.0.0.0/28")
 
@@ -330,8 +330,8 @@ class SubnetControllerBase(object):
         self.assertEqual(response.status_int, 201)
         self.assertNotEqual(subnet.type, "Input type")
         self.assertNotEqual(subnet.parent_id, "Input parent")
-                                 
-    
+
+
 class TestPublicSubnetController(BaseTestController,
                                  SubnetControllerBase):
 
@@ -362,7 +362,8 @@ class TestTenantBasedPrivateSubnetController(BaseTestController,
         return PrivateIpBlockFactory(**kwargs)
 
     def _subnets_path(self, ip_block):
-        return "/ipam/tenants/1/private_ip_blocks/{0}/subnets".format(ip_block.id)
+        return "/ipam/tenants/1/private_ip_blocks/{0}/subnets".format(
+                                                           ip_block.id)
 
     def test_create_for_the_another_tenant_fails(self):
         parent = self._ip_block_factory(cidr="10.0.0.0/28", tenant_id="1")
@@ -1443,72 +1444,35 @@ class NetworksControllerBase():
     def test_allocate_ip_address(self):
         ip_block = self._ip_block_factory(network_id=1)
 
-        response = self.app.post("{0}/networks/1/ip_addresses"\
+        response = self.app.post("{0}/networks/1/ports/123/ip_allocations"\
                                  .format(self.network_path))
 
         ip_address = IpAddress.find_by(ip_block_id=ip_block.id)
         self.assertEqual(response.status_int, 201)
-        self.assertEqual(_data(ip_address), response.json['ip_address'])
+        self.assertEqual([_data(ip_address)], response.json['ip_addresses'])
+        self.assertEqual(ip_address.port_id, "123")
 
     def test_allocate_ip_address_for_a_port(self):
         ip_block = self._ip_block_factory(network_id=1)
 
-        response = self.app.post("{0}/networks/1/ip_addresses"\
-                                 .format(self.network_path),
-                                 {'port_id': '123'})
+        response = self.app.post("{0}/networks/1/ports/123/ip_allocations"\
+                                 .format(self.network_path))
 
         ip_address = IpAddress.find_by(ip_block_id=ip_block.id, port_id=123)
         self.assertEqual(response.status_int, 201)
-        self.assertEqual(_data(ip_address), response.json['ip_address'])
+        self.assertEqual([_data(ip_address)], response.json['ip_addresses'])
 
     def test_allocate_ip_with_given_address(self):
         ip_block = self._ip_block_factory(network_id=1, cidr='10.0.0.0/31')
 
-        response = self.app.post("{0}/networks/1/ip_addresses"\
-                                 .format(self.network_path),
-                                 {'address': '10.0.0.1'})
+        response = self.app.post_json("{0}/networks/1/ports/123"
+                                 "/ip_allocations".format(self.network_path),
+                                 {'network': {'addresses': ['10.0.0.1']}})
 
         ip_address = IpAddress.find_by(ip_block_id=ip_block.id,
                                        address='10.0.0.1')
         self.assertEqual(response.status_int, 201)
-        self.assertEqual(_data(ip_address), response.json['ip_address'])
-
-    def test_allocate_ip_fails_when_network_doesnt_have_given_address(self):
-        ip_block = self._ip_block_factory(network_id=1, cidr='10.0.0.0/31')
-
-        response = self.app.post("{0}/networks/1/ip_addresses"\
-                                 .format(self.network_path),
-                                 {'address': '20.0.0.0'}, status='*')
-
-        self.assertEqual(response.status_int, 422)
-
-    def test_allocate_ip_fails_if_network_has_no_free_ip(self):
-        full_ip_block = self._ip_block_factory(network_id=1,
-                                               cidr="10.0.0.0/32")
-        IpAddressFactory(ip_block_id=full_ip_block.id)
-        response = self.app.post("{0}/networks/1/ip_addresses"\
-                                 .format(self.network_path), status="*")
-
-        self.assertEqual(response.status_int, 422)
-
-    #When given network does not exist
-    def test_allocate_ip_given_address_is_outside_config_default_cidr(self):
-        with(StubConfig(default_cidr="10.0.0.0/24")):
-            response = self.app.post("{0}/networks/1/ip_addresses"\
-                                    .format(self.network_path),
-                                    {'address': '20.0.0.0'}, status="*")
-
-        self.assertErrorResponse(response, HTTPUnprocessableEntity,
-                         "Address does not belong to network")
-
-    #When given network does not exist
-    def test_allocate_ip_given_address_is_inside_config_default_cidr(self):
-        with(StubConfig(default_cidr="10.0.0.0/24")):
-            response = self.app.post("{0}/networks/1/ip_addresses"\
-                                    .format(self.network_path),
-                                    {'address': '10.0.0.0'}, status="*")
-
-        self.assertEqual(response.status_int, 201)
+        self.assertEqual([_data(ip_address)], response.json['ip_addresses'])
 
 
 class TestNetworksController(NetworksControllerBase,
@@ -1522,10 +1486,11 @@ class TestNetworksController(NetworksControllerBase,
         return PublicIpBlockFactory(**kwargs)
 
     def test_allocate_ip_creates_network_if_network_not_found(self):
-        response = self.app.post("/ipam/networks/1/ip_addresses")
+        response = self.app.post("/ipam/networks/1/ports/123/ip_allocations")
 
         self.assertEqual(response.status_int, 201)
-        ip_block = IpBlock.find(response.json['ip_address']['ip_block_id'])
+        ip_address_json = response.json['ip_addresses'][0]
+        ip_block = IpBlock.find(ip_address_json['ip_block_id'])
         self.assertEqual(ip_block.network_id, '1')
         self.assertEqual(ip_block.cidr, Config.get('default_cidr'))
         self.assertEqual(ip_block.type, 'private')
@@ -1543,10 +1508,12 @@ class TestTenantNetworksController(NetworksControllerBase,
         return PrivateIpBlockFactory(tenant_id=123, **kwargs)
 
     def test_allocate_ip_creates_network_if_network_not_found(self):
-        response = self.app.post("/ipam/tenants/123/networks/1/ip_addresses")
+        response = self.app.post("/ipam/tenants/123/networks/1"
+                                 "/ports/123/ip_allocations")
 
         self.assertEqual(response.status_int, 201)
-        ip_block = IpBlock.find(response.json['ip_address']['ip_block_id'])
+        ip_address_json = response.json['ip_addresses'][0]
+        ip_block = IpBlock.find(ip_address_json['ip_block_id'])
         self.assertEqual(ip_block.network_id, '1')
         self.assertEqual(ip_block.cidr, Config.get('default_cidr'))
         self.assertEqual(ip_block.type, 'private')

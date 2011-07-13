@@ -553,26 +553,40 @@ class Network(ModelBase):
                                      network_id=id, tenant_id=tenant_id)
             return cls(id=id, ip_blocks=[ip_block])
 
-    def allocate_ip(self, address=None, port_id=None):
-        if(address):
-            return self._allocate_specific_ip(address, port_id)
-        return self._allocate_first_free_ip(port_id)
+    def allocate_ips(self, addresses=[], **kwargs):
+        if addresses:
+            return filter(None, [self._allocate_specific_ip(address, **kwargs)
+                    for address in addresses])
 
-    def _allocate_specific_ip(self, address, port_id):
+        ips = [self._allocate_first_free_ip(blocks, **kwargs)
+               for blocks in self._block_partitions()]
+
+        if not any(ips):
+            raise NoMoreAddressesError("ip blocks in this network are full")
+
+        return filter(None, ips)
+
+    def _block_partitions(self):
+        return [[block for block in self.ip_blocks
+                 if not block.is_ipv6()],
+                [block for block in self.ip_blocks
+                 if block.is_ipv6()]]
+
+    def _allocate_specific_ip(self, address, **kwargs):
         ip_block = utils.find(lambda ip_block: ip_block.contains(address),
                               self.ip_blocks)
-        if(ip_block is None):
-            raise AddressDoesNotBelongError(
-                "Address does not belong to network")
-        return ip_block.allocate_ip(port_id=port_id, address=address)
-
-    def _allocate_first_free_ip(self, port_id):
-        for ip_block in self.ip_blocks:
+        if(ip_block is not None):
             try:
-                return ip_block.allocate_ip(port_id=port_id)
-            except (NoMoreAddressesError):
+                return ip_block.allocate_ip(address=address, **kwargs)
+            except DuplicateAddressError:
                 pass
-        raise NoMoreAddressesError
+
+    def _allocate_first_free_ip(self, ip_blocks, **kwargs):
+        for ip_block in ip_blocks:
+            try:
+                return ip_block.allocate_ip(**kwargs)
+            except NoMoreAddressesError:
+                pass
 
 
 def models():

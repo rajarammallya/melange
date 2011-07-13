@@ -204,11 +204,6 @@ class LazyPluggable(object):
         return getattr(backend, key)
 
 
-def if_not_null(**kwargs):
-    return dict((key, kwargs[key])
-                for key in kwargs if kwargs[key] is not None)
-
-
 def exclude(key_values, *exclude_keys):
     return dict((key, value) for key, value in key_values.iteritems()
                 if key not in exclude_keys)

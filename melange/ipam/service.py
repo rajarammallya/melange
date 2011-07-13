@@ -111,7 +111,8 @@ class SubnetController(BaseController):
     def create(self, request, ip_block_id, tenant_id=None):
         ip_block = self._find_block(id=ip_block_id, tenant_id=tenant_id)
         params = self._extract_required_params(request, 'subnet')
-        subnet = ip_block.subnet(**filter_dict(params, 'cidr', 'network_id', 'tenant_id'))
+        subnet = ip_block.subnet(**filter_dict(params, 'cidr', 'network_id',
+                                               'tenant_id'))
         return dict(subnet=subnet.data()), 201
 
 
@@ -283,12 +284,13 @@ class PoliciesController(BaseController):
 
 
 class NetworksController(BaseController):
-    def allocate_ip(self, request, network_id, tenant_id=None):
+    def allocate_ips(self, request, network_id, port_id, tenant_id=None):
         network = Network.find_or_create_by(id=network_id, tenant_id=tenant_id)
-        address, port_id = self._get_optionals(request.params,
-                                               *['address', 'port_id'])
-        ip_address = network.allocate_ip(address=address, port_id=port_id)
-        return dict(ip_address=ip_address.data()), 201
+        params = self._extract_required_params(request, 'network')
+        [addresses] = self._get_optionals(params, 'addresses')
+        ip_addresses = network.allocate_ips(addresses=addresses,
+                                            port_id=port_id)
+        return dict(ip_addresses=[ip.data() for ip in ip_addresses]), 201
 
 
 class API(wsgi.Router):
@@ -316,14 +318,13 @@ class API(wsgi.Router):
         self._policy_and_rules_mapper(mapper, "/ipam/policies")
         self._policy_and_rules_mapper(mapper,
                                       "/ipam/tenants/{tenant_id}/policies")
-        self._connect(mapper, "/ipam/networks/{network_id}/ip_addresses",
-                       controller=NetworksController(),
-                       action='allocate_ip',
-                       conditions=dict(method=['POST']))
+        self._connect(mapper, "/ipam/networks/{network_id}/ports/{port_id}/"
+                      "ip_allocations", controller=NetworksController(),
+                       action='allocate_ips', conditions=dict(method=['POST']))
         self._connect(mapper, "/ipam/tenants/{tenant_id}/networks/{network_id}"
-                       "/ip_addresses", controller=NetworksController(),
-                       action='allocate_ip',
-                       conditions=dict(method=['POST']))
+                      "/ports/{port_id}/ip_allocations",
+                      controller=NetworksController(), action='allocate_ips',
+                      conditions=dict(method=['POST']))
 
     def _policy_and_rules_mapper(self, mapper, policy_path):
         mapper.resource("policy", policy_path,
@@ -360,7 +361,6 @@ class API(wsgi.Router):
                           action="index", conditions=dict(method=["GET"]))
             self._connect(submap, "/subnets",
                           action="create", conditions=dict(method=["POST"]))
-
 
     def _ip_address_mapper(self, mapper, ip_address_controller,
                            parent_resource):

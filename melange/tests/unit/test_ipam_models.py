@@ -263,7 +263,7 @@ class TestIpBlock(BaseTest):
 
     def test_subnet_creates_child_block_with_the_given_params(self):
         ip_block = IpBlockFactory(cidr="10.0.0.0/28")
-        
+
         subnet = ip_block.subnet("10.0.0.0/29", network_id="1",
                                  tenant_id="3")
 
@@ -275,7 +275,7 @@ class TestIpBlock(BaseTest):
 
     def test_subnet_derives_network_id_from_parent_block_when_not_given(self):
         ip_block = PrivateIpBlockFactory(cidr="10.0.0.0/28", network_id="2")
-        
+
         subnet = ip_block.subnet("10.0.0.0/29")
 
         self.assertEqual(subnet.cidr, "10.0.0.0/29")
@@ -283,7 +283,7 @@ class TestIpBlock(BaseTest):
 
     def test_subnet_derives_tenant_id_from_parent_block_when_not_given(self):
         ip_block = PrivateIpBlockFactory(cidr="10.0.0.0/28", tenant_id="2")
-        
+
         subnet = ip_block.subnet("10.0.0.0/29")
 
         self.assertEqual(subnet.cidr, "10.0.0.0/29")
@@ -1116,13 +1116,17 @@ class TestNetwork(BaseTest):
         self.assertEqual(network.ip_blocks[0].network_id, '1')
         self.assertEqual(network.ip_blocks[0].type, 'private')
 
-    def test_allocate_ip(self):
-        ip_block = PublicIpBlockFactory(network_id=1)
+    def test_allocate_ip_to_allocate_both_ipv4_and_ipv6_addresses(self):
+        ipv4_block = PublicIpBlockFactory(network_id=1, cidr="10.0.0.0/24")
+        ipv6_block = PublicIpBlockFactory(network_id=1, cidr="ff::00/120")
         network = Network.find_by(id=1)
-        allocated_ip = network.allocate_ip()
 
-        ip_address = IpAddress.find_by(ip_block_id=ip_block.id)
-        self.assertEqual(allocated_ip, ip_address)
+        allocated_ips = network.allocate_ips(mac_address="aa:bb:cc:dd:ee:ff",
+                                            tenant_id="123")
+        allocated_ip_blocks_ids = [ip.ip_block_id for ip in allocated_ips]
+        self.assertEqual(len(allocated_ips), 2)
+        self.assertItemsEqual(allocated_ip_blocks_ids,
+                              [ipv4_block.id, ipv6_block.id])
 
     def test_allocate_ip_from_first_free_ip_block(self):
         full_ip_block = PublicIpBlockFactory(network_id=1, cidr="10.0.0.0/32",
@@ -1130,50 +1134,46 @@ class TestNetwork(BaseTest):
         free_ip_block = PublicIpBlockFactory(network_id=1, cidr="10.0.1.0/31",
                                              is_full=False)
         network = Network(ip_blocks=[full_ip_block, free_ip_block])
-        allocated_ip = network.allocate_ip()
+        [allocated_ipv4] = network.allocate_ips()
 
         ip_address = IpAddress.find_by(ip_block_id=free_ip_block.id)
-        self.assertEqual(allocated_ip, ip_address)
+        self.assertEqual(allocated_ipv4, ip_address)
 
     def test_allocate_ip_raises_error_when_all_ip_blocks_are_full(self):
         full_ip_block = PublicIpBlockFactory(network_id=1, cidr="10.0.0.0/32")
         IpAddressFactory(ip_block_id=full_ip_block.id)
         network = Network.find_by(id=1)
 
-        self.assertRaises(NoMoreAddressesError, network.allocate_ip)
+        self.assertRaises(NoMoreAddressesError, network.allocate_ips)
 
-    def test_allocate_ip_assigns_given_port_and_address(self):
-        ip_block = PublicIpBlockFactory(network_id=1, cidr="10.0.0.0/31")
+    def test_allocate_ip_assigns_given_port_and_addresses(self):
+        PublicIpBlockFactory(network_id=1, cidr="10.0.0.0/24")
+        PublicIpBlockFactory(network_id=1, cidr="169.0.0.0/24")
+        addresses = ["10.0.0.7", "169.0.0.2", "10.0.0.3"]
         network = Network.find_by(id=1)
 
-        allocated_ip = network.allocate_ip(address="10.0.0.1", port_id=123)
+        allocated_ips = network.allocate_ips(addresses=addresses, port_id=123)
 
-        self.assertEqual(allocated_ip.address, "10.0.0.1")
-        self.assertEqual(allocated_ip.port_id, 123)
+        self.assertItemsEqual([ip.address for ip in allocated_ips], addresses)
+        [self.assertEqual(ip.port_id, 123) for ip in allocated_ips]
 
     def test_allocate_ip_assigns_given_address_from_its_block(self):
         ip_block1 = PublicIpBlockFactory(network_id=1, cidr="10.0.0.0/31")
         ip_block2 = PublicIpBlockFactory(network_id=1, cidr="20.0.0.0/31")
         network = Network(ip_blocks=[ip_block1, ip_block2])
 
-        allocated_ip = network.allocate_ip(address="20.0.0.1")
+        allocated_ip = network.allocate_ips(addresses=["20.0.0.1"])[0]
 
         self.assertEqual(allocated_ip.address, "20.0.0.1")
         self.assertEqual(allocated_ip.ip_block_id, ip_block2.id)
 
-    def test_allocate_ip_fails_if_given_address_is_not_in_network(self):
-        ip_block = PublicIpBlockFactory(network_id=1, cidr="10.0.0.0/31")
-        network = Network.find_by(id=1)
-
-        self.assertRaisesExcMessage(AddressDoesNotBelongError,
-                                    "Address does not belong to network",
-                                    network.allocate_ip, address="20.0.0.1")
-
-    def test_allocate_ip_fails_if_given_address_is_already_allocated(self):
-        ip_block1 = PublicIpBlockFactory(network_id=1, cidr="10.0.0.0/31")
-        ip_block2 = PublicIpBlockFactory(network_id=1, cidr="20.0.0.0/31")
-        IpAddressFactory(ip_block_id=ip_block2.id, address="20.0.0.0")
+    def test_allocate_ip_ignores_already_allocated_addresses(self):
+        ip_block1 = PublicIpBlockFactory(network_id=1, cidr="10.0.0.0/24")
+        ip_block2 = PublicIpBlockFactory(network_id=1, cidr="20.0.0.0/24")
+        IpAddressFactory(ip_block_id=ip_block1.id, address="10.0.0.0")
         network = Network(ip_blocks=[ip_block1, ip_block2])
 
-        self.assertRaises(DuplicateAddressError,
-                          network.allocate_ip, address="20.0.0.0")
+        allocated_ips = network.allocate_ips(addresses=["10.0.0.0",
+                                                         "20.0.0.0"])
+        self.assertTrue(len(allocated_ips) is 1)
+        self.assertEqual(allocated_ips[0].address, "20.0.0.0")

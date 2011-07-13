@@ -341,10 +341,12 @@ class IpBlock(ModelBase):
         db_api.delete_all(IpAddress.find_all(ip_block_id=self.id,
                                            marked_for_deallocation=True))
 
-    def subnet(self, cidr, network_id=None):
+    def subnet(self, cidr, network_id=None, tenant_id=None):
         network_id = network_id or self.network_id
+        tenant_id = tenant_id or self.tenant_id
         return IpBlock.create(cidr=cidr, network_id=network_id,
-                              parent_id=self.id, type=self.type)
+                              parent_id=self.id, type=self.type,
+                              tenant_id=tenant_id)
 
     def _validate_cidr_format(self):
         try:
@@ -377,6 +379,12 @@ class IpBlock(ModelBase):
             self._add_error('network_id',
                             "network_id should be same as that of parent")
 
+    def _validate_belongs_to_supernet_tenant(self):
+        if(self.parent and self.parent.tenant_id and
+           self.parent.tenant_id != self.tenant_id):
+            self._add_error('tenant_id',
+                            "tenant_id should be same as that of parent")
+
     def _validate_type_is_same_within_network(self):
         block = IpBlock.get_by(network_id=self.network_id)
         if(block and block.type != self.type):
@@ -386,6 +394,7 @@ class IpBlock(ModelBase):
         self._validate_cidr()
         self._validate_existence_of('parent_id', IpBlock, type=self.type)
         self._validate_belongs_to_supernet_network()
+        self._validate_belongs_to_supernet_tenant()
         self._validate_uniqueness_for_public_ip_block()
         self._validate_existence_of('policy_id', Policy)
         self._validate_type_is_same_within_network()

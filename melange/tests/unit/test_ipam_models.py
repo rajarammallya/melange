@@ -229,7 +229,7 @@ class TestIpBlock(BaseTest):
         self.assertEqual(ip_block.errors['cidr'],
                          ["cidr is invalid"])
 
-    def test_subnet_has_same_network_as_parent(self):
+    def test_validates_subnet_has_same_network_as_parent(self):
         parent = PrivateIpBlockFactory(cidr="10.0.0.0/28", network_id="1")
         subnet = PrivateIpBlockFactory.build(cidr="10.0.0.0/29",
                                         network_id="2", parent_id=parent.id)
@@ -244,6 +244,50 @@ class TestIpBlock(BaseTest):
                                         network_id="2", parent_id=parent.id)
 
         self.assertTrue(subnet.is_valid())
+
+    def test_validates_subnet_has_same_tenant_as_parent(self):
+        parent = PrivateIpBlockFactory(cidr="10.0.0.0/28", tenant_id="1")
+        subnet = PrivateIpBlockFactory.build(cidr="10.0.0.0/29",
+                                        tenant_id="2", parent_id=parent.id)
+
+        self.assertFalse(subnet.is_valid())
+        self.assertEqual(subnet.errors['tenant_id'],
+                         ["tenant_id should be same as that of parent"])
+
+    def test_subnet_of_parent_with_no_tenant_can_have_tenant(self):
+        parent = PrivateIpBlockFactory(cidr="10.0.0.0/28", tenant_id=None)
+        subnet = PrivateIpBlockFactory.build(cidr="10.0.0.0/29",
+                                        tenant_id="2", parent_id=parent.id)
+
+        self.assertTrue(subnet.is_valid())
+
+    def test_subnet_creates_child_block_with_the_given_params(self):
+        ip_block = IpBlockFactory(cidr="10.0.0.0/28")
+        
+        subnet = ip_block.subnet("10.0.0.0/29", network_id="1",
+                                 tenant_id="3")
+
+        self.assertEqual(subnet.cidr, "10.0.0.0/29")
+        self.assertEqual(subnet.network_id, "1")
+        self.assertEqual(subnet.parent_id, ip_block.id)
+        self.assertEqual(subnet.tenant_id, "3")
+        self.assertEqual(subnet.type, ip_block.type)
+
+    def test_subnet_derives_network_id_from_parent_block_when_not_given(self):
+        ip_block = PrivateIpBlockFactory(cidr="10.0.0.0/28", network_id="2")
+        
+        subnet = ip_block.subnet("10.0.0.0/29")
+
+        self.assertEqual(subnet.cidr, "10.0.0.0/29")
+        self.assertEqual(subnet.network_id, ip_block.network_id)
+
+    def test_subnet_derives_tenant_id_from_parent_block_when_not_given(self):
+        ip_block = PrivateIpBlockFactory(cidr="10.0.0.0/28", tenant_id="2")
+        
+        subnet = ip_block.subnet("10.0.0.0/29")
+
+        self.assertEqual(subnet.cidr, "10.0.0.0/29")
+        self.assertEqual(subnet.tenant_id, ip_block.tenant_id)
 
     def test_save_validates_existence_parent_block_of_same_type(self):
         noise_block = IpBlockFactory(type='public')
@@ -570,24 +614,6 @@ class TestIpBlock(BaseTest):
         IpBlock.delete_all_deallocated_ips()
 
         self.assertFalse(IpBlock.find(ip_block.id).is_full)
-
-    def test_subnet_creates_child_block_with_the_given_params(self):
-        ip_block = PrivateIpBlockFactory(cidr="10.0.0.0/28")
-        
-        subnet = ip_block.subnet("10.0.0.0/29", network_id="1")
-
-        self.assertEqual(subnet.cidr, "10.0.0.0/29")
-        self.assertEqual(subnet.network_id, "1")
-        self.assertEqual(subnet.parent_id, ip_block.id)
-        self.assertEqual(subnet.type, ip_block.type)
-
-    def test_subnet_derives_network_id_from_parent_block_when_not_given(self):
-        ip_block = PrivateIpBlockFactory(cidr="10.0.0.0/28", network_id="2")
-        
-        subnet = ip_block.subnet("10.0.0.0/29")
-
-        self.assertEqual(subnet.cidr, "10.0.0.0/29")
-        self.assertEqual(subnet.network_id, ip_block.network_id)
 
 
 class TestIpAddress(BaseTest):

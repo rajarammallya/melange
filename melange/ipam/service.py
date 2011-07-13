@@ -111,7 +111,7 @@ class SubnetController(BaseController):
     def create(self, request, ip_block_id, tenant_id=None):
         ip_block = self._find_block(id=ip_block_id, tenant_id=tenant_id)
         params = self._extract_required_params(request, 'subnet')
-        subnet = ip_block.subnet(**filter_dict(params, 'cidr', 'network_id'))
+        subnet = ip_block.subnet(**filter_dict(params, 'cidr', 'network_id', 'tenant_id'))
         return dict(subnet=subnet.data()), 201
 
 

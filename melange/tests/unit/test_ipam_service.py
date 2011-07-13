@@ -309,10 +309,12 @@ class SubnetControllerBase(object):
 
         response = self.app.post_json(self._subnets_path(parent),
                                  {'subnet': {'cidr': "10.0.0.0/29",
-                                               'network_id': "2"}})
+                                             'network_id': "2"}})
 
         subnet = IpBlock.find_by(parent_id=parent.id)
         self.assertEqual(response.status_int, 201)
+        self.assertEqual(subnet.network_id, "2")
+        self.assertEqual(subnet.cidr, "10.0.0.0/29")
         self.assertEqual(response.json['subnet'], _data(subnet))
                                  
     
@@ -322,11 +324,12 @@ class SubnetControllerBase(object):
         response = self.app.post_json(self._subnets_path(parent),
                                  {'subnet': {'cidr': "10.0.0.0/29",
                                              'type': "Input type",
-                                             'parent_id': "Input"}})
+                                             'parent_id': "Input parent"}})
 
         subnet = IpBlock.find_by(parent_id=parent.id)
         self.assertEqual(response.status_int, 201)
         self.assertNotEqual(subnet.type, "Input type")
+        self.assertNotEqual(subnet.parent_id, "Input parent")
                                  
     
 class TestPublicSubnetController(BaseTestController,
@@ -338,15 +341,38 @@ class TestPublicSubnetController(BaseTestController,
     def _subnets_path(self, ip_block):
         return "/ipam/public_ip_blocks/{0}/subnets".format(ip_block.id)
 
+    def test_create_for_the_given_tenant(self):
+        parent = self._ip_block_factory(cidr="10.0.0.0/28")
+
+        response = self.app.post_json(self._subnets_path(parent),
+                                 {'subnet': {'cidr': "10.0.0.0/29",
+                                             'tenant_id': "2"}})
+
+        subnet = IpBlock.find_by(parent_id=parent.id)
+        self.assertEqual(response.status_int, 201)
+        self.assertEqual(subnet.tenant_id, "2")
+
 
 class TestTenantBasedPrivateSubnetController(BaseTestController,
                                  SubnetControllerBase):
 
     def _ip_block_factory(self, **kwargs):
-        return PrivateIpBlockFactory(tenant_id="1", **kwargs)
+        if 'tenant_id' not in kwargs:
+            kwargs['tenant_id'] = "1"
+        return PrivateIpBlockFactory(**kwargs)
 
     def _subnets_path(self, ip_block):
         return "/ipam/tenants/1/private_ip_blocks/{0}/subnets".format(ip_block.id)
+
+    def test_create_for_the_another_tenant_fails(self):
+        parent = self._ip_block_factory(cidr="10.0.0.0/28", tenant_id="1")
+
+        response = self.app.post_json(self._subnets_path(parent),
+                                 {'subnet': {'cidr': "10.0.0.0/29",
+                                             'tenant_id': "2"}}, status="4*")
+
+        self.assertErrorResponse(response, HTTPBadRequest,
+                                 "tenant_id should be same as that of parent")
 
 
 class TestGlobalPrivateSubnetController(BaseTestController,
@@ -357,6 +383,17 @@ class TestGlobalPrivateSubnetController(BaseTestController,
 
     def _subnets_path(self, ip_block):
         return "/ipam/private_ip_blocks/{0}/subnets".format(ip_block.id)
+
+    def test_create_for_the_given_tenant(self):
+        parent = self._ip_block_factory(cidr="10.0.0.0/28")
+
+        response = self.app.post_json(self._subnets_path(parent),
+                                 {'subnet': {'cidr': "10.0.0.0/29",
+                                             'tenant_id': "2"}})
+
+        subnet = IpBlock.find_by(parent_id=parent.id)
+        self.assertEqual(response.status_int, 201)
+        self.assertEqual(subnet.tenant_id, "2")
 
 
 class IpAddressControllerBase(object):

@@ -277,6 +277,9 @@ class IpBlock(ModelBase):
         return IpBlock.get(self.parent_id)
 
     def allocate_ip(self, port_id=None, address=None, **kwargs):
+        if self.is_full:
+            raise NoMoreAddressesError("IpBlock is full")
+
         if address is None:
             address = self._generate_ip_address(**kwargs)
         else:

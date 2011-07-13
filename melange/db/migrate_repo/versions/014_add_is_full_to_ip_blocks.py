@@ -28,7 +28,7 @@ def upgrade(migrate_engine):
     meta.bind = migrate_engine
 
     ip_block_table = Table('ip_blocks', meta)
-    Column('is_full', Boolean(), default=False).create(ip_block_table)
+    Column('is_full', Boolean()).create(ip_block_table)
 
 
 def downgrade(migrate_engine):

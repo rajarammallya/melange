@@ -357,9 +357,13 @@ class TestIpBlock(BaseTest):
         self.assertRaises(models.NoMoreAddressesError, ip_block.allocate_ip)
         self.assertTrue(ip_block.is_full)
 
-    def test_ip_block_is_full_is_marked_as_false_by_default(self):
-        ip_block = PrivateIpBlockFactory(cidr="10.0.0.0/32")
+    def test_allocate_ip_raises_error_when_ip_block_is_marked_full(self):
+        ip_block = PrivateIpBlockFactory(cidr="10.0.0.0/29", is_full=True)
 
+        self.assertRaises(models.NoMoreAddressesError, ip_block.allocate_ip)
+
+    def test_ip_block_is_not_full(self):
+        ip_block = PrivateIpBlockFactory(cidr="10.0.0.0/32")
         self.assertFalse(ip_block.is_full)
 
     def test_allocate_ip_when_no_more_ips(self):
@@ -1053,10 +1057,11 @@ class TestNetwork(BaseTest):
         self.assertEqual(allocated_ip, ip_address)
 
     def test_allocate_ip_from_first_free_ip_block(self):
-        full_ip_block = PublicIpBlockFactory(network_id=1, cidr="10.0.0.0/32")
-        IpAddressFactory(ip_block_id=full_ip_block.id)
-        free_ip_block = PublicIpBlockFactory(network_id=1, cidr="10.0.1.0/31")
-        network = Network.find_by(id=1)
+        full_ip_block = PublicIpBlockFactory(network_id=1, cidr="10.0.0.0/32",
+                                             is_full=True)
+        free_ip_block = PublicIpBlockFactory(network_id=1, cidr="10.0.1.0/31",
+                                             is_full=False)
+        network = Network(ip_blocks=[full_ip_block, free_ip_block])
         allocated_ip = network.allocate_ip()
 
         ip_address = IpAddress.find_by(ip_block_id=free_ip_block.id)

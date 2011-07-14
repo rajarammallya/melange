@@ -23,6 +23,7 @@ from melange.ipam.models import *
 class IpBlockFactory(factory.Factory):
     FACTORY_FOR = IpBlock
     cidr = factory.Sequence(lambda n: "192.168.{0}.0/24".format(int(n) % 255))
+    type = "private"
 
 
 class PublicIpBlockFactory(IpBlockFactory):
@@ -37,6 +38,7 @@ class PrivateIpBlockFactory(IpBlockFactory):
 
 class IpV6IpBlockFactory(IpBlockFactory):
     cidr = factory.Sequence(lambda n: "fe::{0}00/120".format(hex(int(n) % 16)))
+    type = "public"
 
 
 class IpAddressFactory(factory.Factory):

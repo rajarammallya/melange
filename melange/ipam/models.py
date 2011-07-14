@@ -219,12 +219,9 @@ class IpAddressIterator(object):
 
 class IpBlock(ModelBase):
 
+    _allowed_types = ["private", "public"]
     _data_fields = ['cidr', 'network_id', 'policy_id', 'tenant_id',
-                    'parent_id']
-
-    def __init__(self, **kwargs):
-        super(IpBlock, self).__init__(**kwargs)
-        self.type = self.type or 'private'
+                    'parent_id', 'type']
 
     @classmethod
     def find_or_allocate_ip(cls, ip_block_id, address):
@@ -360,6 +357,11 @@ class IpBlock(ModelBase):
             self._add_error('cidr',
                             "cidr should be within parent block's cidr")
 
+    def _validate_type(self):
+        if not (self.type in self._allowed_types):
+            self._add_error('type', "type should be one among {0}".format(
+                    ", ".join(self._allowed_types)))
+
     def _validate_cidr(self):
         self._validate_cidr_format()
         if not self._has_error_on('cidr'):
@@ -391,6 +393,7 @@ class IpBlock(ModelBase):
             self._add_error('type', "type should be same within a network")
 
     def _validate(self):
+        self._validate_type()
         self._validate_cidr()
         self._validate_existence_of('parent_id', IpBlock, type=self.type)
         self._validate_belongs_to_supernet_network()
@@ -550,7 +553,8 @@ class Network(ModelBase):
             return cls.find_by(id=id, tenant_id=tenant_id)
         except ModelNotFoundError:
             ip_block = IpBlock.create(cidr=Config.get('default_cidr'),
-                                     network_id=id, tenant_id=tenant_id)
+                                      network_id=id, tenant_id=tenant_id,
+                                      type="private")
             return cls(id=id, ip_blocks=[ip_block])
 
     def allocate_ips(self, addresses=[], **kwargs):

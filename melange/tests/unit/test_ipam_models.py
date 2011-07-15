@@ -837,9 +837,12 @@ class TestIpAddress(BaseTest):
 
         ip_address = block.allocate_ip()
 
-        data = ip_address.data_with_network_info()
+        with(StubConfig(nameserver="ns.example.com")):
+            data = ip_address.data_with_network_info()
+
         self.assertEqual(data['broadcast_address'], "10.0.0.255")
         self.assertEqual(data['gateway_address'], "10.0.0.1")
+        self.assertEqual(data['nameserver'], "ns.example.com")
 
 
 class TestPolicy(BaseTest):

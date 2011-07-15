@@ -31,6 +31,12 @@ api_extensions_path = extensions
 # Cidr used for auto creating private ip block in a network
 default_cidr = 10.0.0.0/24
 
+#IPV6 Generator Factory
+#ipv6_generator=melange.ipv6.default_generator.DefaultIpV6Generator
+
+#DNS info for a data_center
+nameserver = "ns.example.com"
+
 [composite:melange]
 use = egg:Paste#urlmap
 /: versions

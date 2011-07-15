@@ -139,6 +139,22 @@ class IpBlockCommands(object):
         print self.block.delete(id)
 
 
+class SubnetCommands(object):
+
+    def __init__(self, resource):
+        self.resource = resource
+
+    def _subnet(self, parent_id):
+        return self.resource("ip_blocks/{0}/subnets".format(parent_id),
+                             "subnet")
+
+    def create(self, parent_id, cidr, network_id=None):
+        print self._subnet(parent_id).create(cidr=cidr, network_id=network_id)
+
+    def list(self, parent_id):
+        print self._subnet(parent_id).all()
+
+
 class PolicyCommands(object):
 
     def __init__(self, policy):
@@ -294,6 +310,7 @@ Available categories:
 def categories(resource_factory=Resource):
     return \
     [('ip_block', IpBlockCommands(resource_factory("ip_blocks", 'ip_block'))),
+     ('subnet', SubnetCommands(resource_factory)),
      ('policy', PolicyCommands(resource_factory("policies", 'policy'))),
      ('unusable_ip_range', UnusableIpRangesCommands(resource_factory)),
      ('unusable_ip_octet', UnusableIpOctetsCommands(resource_factory))]

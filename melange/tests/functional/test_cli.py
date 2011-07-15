@@ -25,7 +25,8 @@ from melange.tests.functional import execute
 from melange.tests.functional import get_api_port
 from melange.tests.factories.models import (PublicIpBlockFactory,
                                     PrivateIpBlockFactory, PolicyFactory,
-                                    IpRangeFactory, IpOctetFactory)
+                                    IpRangeFactory, IpOctetFactory,
+                                    IpBlockFactory)
 from melange.tests import BaseTest
 
 
@@ -145,6 +146,57 @@ class TestTenantBasedIpBlockCLI(BaseTest):
 
         self.assertEqual(exitcode, 0)
         self.assertTrue(IpBlock.get(ip_block.id) is None)
+
+
+class TestGlobalSubnetCLI(BaseTest):
+
+    def test_create(self):
+        block = IpBlockFactory(cidr="10.0.0.0/28")
+        exitcode, out, err = run("subnet create {0} 10.0.0.0/29".format(
+                                 block.id))
+
+        self.assertEqual(exitcode, 0)
+        subnet = IpBlock.get_by(parent_id=block.id)
+        self.assertTrue(subnet is not None)
+        self.assertEqual(subnet.tenant_id, None)
+        
+    def test_index(self):
+        block = IpBlockFactory(cidr="10.0.0.0/28")
+        subnet1 = block.subnet("10.0.0.0/30")
+        subnet2 = block.subnet("10.0.0.4/30")
+        subnet3 = block.subnet("10.0.0.8/30")
+        exitcode, out, err = run("subnet list {0}".format(block.id))
+
+        self.assertEqual(exitcode, 0)
+        self.assertIn("subnets", out)
+        self.assertIn("10.0.0.0/30", out)
+        self.assertIn("10.0.0.4/30", out)
+        self.assertIn("10.0.0.8/30", out)
+
+class TestTenantBasedSubnetCLI(BaseTest):
+
+    def test_create(self):
+        block = IpBlockFactory(cidr="10.0.0.0/28", tenant_id="123")
+        exitcode, out, err = run("subnet create {0} 10.0.0.0/29 -t 123".format(
+                                 block.id))
+
+        self.assertEqual(exitcode, 0)
+        subnet = IpBlock.get_by(parent_id=block.id)
+        self.assertTrue(subnet is not None)
+        self.assertEqual(subnet.tenant_id, "123")
+        
+    def test_index(self):
+        block = IpBlockFactory(cidr="10.0.0.0/28", tenant_id="123")
+        subnet1 = block.subnet("10.0.0.0/30")
+        subnet2 = block.subnet("10.0.0.4/30")
+        subnet3 = block.subnet("10.0.0.8/30")
+        exitcode, out, err = run("subnet list {0} -t 123".format(block.id))
+
+        self.assertEqual(exitcode, 0)
+        self.assertIn("subnets", out)
+        self.assertIn("10.0.0.0/30", out)
+        self.assertIn("10.0.0.4/30", out)
+        self.assertIn("10.0.0.8/30", out)
 
 
 class TestPolicyCLI(BaseTest):

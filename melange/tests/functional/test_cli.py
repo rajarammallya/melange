@@ -159,7 +159,7 @@ class TestGlobalSubnetCLI(BaseTest):
         subnet = IpBlock.get_by(parent_id=block.id)
         self.assertTrue(subnet is not None)
         self.assertEqual(subnet.tenant_id, None)
-        
+
     def test_index(self):
         block = IpBlockFactory(cidr="10.0.0.0/28")
         subnet1 = block.subnet("10.0.0.0/30")
@@ -173,6 +173,7 @@ class TestGlobalSubnetCLI(BaseTest):
         self.assertIn("10.0.0.4/30", out)
         self.assertIn("10.0.0.8/30", out)
 
+
 class TestTenantBasedSubnetCLI(BaseTest):
 
     def test_create(self):
@@ -184,7 +185,7 @@ class TestTenantBasedSubnetCLI(BaseTest):
         subnet = IpBlock.get_by(parent_id=block.id)
         self.assertTrue(subnet is not None)
         self.assertEqual(subnet.tenant_id, "123")
-        
+
     def test_index(self):
         block = IpBlockFactory(cidr="10.0.0.0/28", tenant_id="123")
         subnet1 = block.subnet("10.0.0.0/30")

@@ -463,6 +463,12 @@ class IpAddress(ModelBase):
     def locked(self):
         return self.marked_for_deallocation
 
+    def data_with_network_info(self):
+        ip_block = self.ip_block()
+        network_info = {'broadcast_address': ip_block.broadcast_address,
+                        'gateway_address': ip_block.gateway_address}
+        return dict(self.data().items() + network_info.items())
+
 
 class Policy(ModelBase):
 

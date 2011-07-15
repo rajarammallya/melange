@@ -1369,7 +1369,7 @@ class TestTenantPoliciesController(BaseTestController):
                                  "Policy Not Found")
 
 
-class NetworksControllerBase():
+class NetworksControllerBase(object):
 
     def test_allocate_ip_address(self):
         ip_block = self._ip_block_factory(network_id=1)
@@ -1379,7 +1379,8 @@ class NetworksControllerBase():
 
         ip_address = IpAddress.find_by(ip_block_id=ip_block.id)
         self.assertEqual(response.status_int, 201)
-        self.assertEqual([_data(ip_address)], response.json['ip_addresses'])
+        self.assertEqual([_data(ip_address, self.data_method)],
+                         response.json['ip_addresses'])
         self.assertEqual(ip_address.port_id, "123")
 
     def test_allocate_ip_address_for_a_port(self):
@@ -1390,7 +1391,8 @@ class NetworksControllerBase():
 
         ip_address = IpAddress.find_by(ip_block_id=ip_block.id, port_id=123)
         self.assertEqual(response.status_int, 201)
-        self.assertEqual([_data(ip_address)], response.json['ip_addresses'])
+        self.assertEqual([_data(ip_address, self.data_method)],
+                         response.json['ip_addresses'])
 
     def test_allocate_ip_with_given_address(self):
         ip_block = self._ip_block_factory(network_id=1, cidr='10.0.0.0/31')
@@ -1402,14 +1404,16 @@ class NetworksControllerBase():
         ip_address = IpAddress.find_by(ip_block_id=ip_block.id,
                                        address='10.0.0.1')
         self.assertEqual(response.status_int, 201)
-        self.assertEqual([_data(ip_address)], response.json['ip_addresses'])
+        self.assertEqual([_data(ip_address, self.data_method)],
+                         response.json['ip_addresses'])
 
 
-class TestNetworksController(NetworksControllerBase,
-                             BaseTestController):
+class TestNetworksController(BaseTestController,
+                             NetworksControllerBase):
 
     def setUp(self):
         self.network_path = "/ipam"
+        self.data_method = lambda res: res.data_with_network_info()
         super(TestNetworksController, self).setUp()
 
     def _ip_block_factory(self, **kwargs):
@@ -1432,6 +1436,7 @@ class TestTenantNetworksController(NetworksControllerBase,
 
     def setUp(self):
         self.network_path = "/ipam/tenants/123"
+        self.data_method = lambda res: res.data_with_network_info()
         super(TestTenantNetworksController, self).setUp()
 
     def _ip_block_factory(self, **kwargs):
@@ -1459,7 +1464,7 @@ def _create_blocks(*args):
     return [PrivateIpBlockFactory(cidr=cidr) for cidr in args]
 
 
-def _data(resource):
+def _data(resource, data_lambda=lambda res: res.data()):
     if isinstance(resource, models.ModelBase):
-        return sanitize(resource.data())
+        return sanitize(data_lambda(resource))
     return [_data(model) for model in resource]

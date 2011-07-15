@@ -284,7 +284,8 @@ class NetworksController(BaseController):
         [addresses] = self._get_optionals(params, 'addresses')
         ip_addresses = network.allocate_ips(addresses=addresses,
                                             port_id=port_id)
-        return dict(ip_addresses=[ip.data() for ip in ip_addresses]), 201
+        return dict(ip_addresses=[ip.data_with_network_info()
+                                  for ip in ip_addresses]), 201
 
 
 class API(wsgi.Router):

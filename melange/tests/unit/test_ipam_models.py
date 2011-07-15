@@ -831,6 +831,16 @@ class TestIpAddress(BaseTest):
 
         self.assertEqual([actual_ip], found_ips)
 
+    def test_data_with_network_info_should_have_extra_network_info(self):
+        block = IpBlockFactory(cidr="10.0.0.0/24", gateway_address="10.0.0.1",
+                               broadcast_address="10.0.0.255")
+
+        ip_address = block.allocate_ip()
+
+        data = ip_address.data_with_network_info()
+        self.assertEqual(data['broadcast_address'], "10.0.0.255")
+        self.assertEqual(data['gateway_address'], "10.0.0.1")
+
 
 class TestPolicy(BaseTest):
 

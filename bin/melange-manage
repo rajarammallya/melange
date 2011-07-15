@@ -121,8 +121,9 @@ class IpBlockCommands(object):
     def __init__(self, block):
         self.block = block
 
-    def create(self, cidr, network_id=None, policy_id=None, parent_id=None):
-        print self.block.create(cidr=cidr, network_id=network_id,
+    def create(self, type, cidr, network_id=None,
+               policy_id=None, parent_id=None):
+        print self.block.create(type=type, cidr=cidr, network_id=network_id,
                                 policy_id=policy_id, parent_id=parent_id)
 
     def list(self):
@@ -292,10 +293,7 @@ Available categories:
 
 def categories(resource_factory=Resource):
     return \
-    [('public_ip_block', IpBlockCommands(Resource("public_ip_blocks",
-                                                  "ip_block"))),
-     ('private_ip_block', IpBlockCommands(resource_factory("private_ip_blocks",
-                                                           'ip_block'))),
+    [('ip_block', IpBlockCommands(resource_factory("ip_blocks", 'ip_block'))),
      ('policy', PolicyCommands(resource_factory("policies", 'policy'))),
      ('unusable_ip_range', UnusableIpRangesCommands(resource_factory)),
      ('unusable_ip_octet', UnusableIpOctetsCommands(resource_factory))]

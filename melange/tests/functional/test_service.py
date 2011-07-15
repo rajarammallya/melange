@@ -36,7 +36,7 @@ class TestServiceConf(unittest.TestCase):
         self.assertTrue("extensions" in response.read())
 
     def test_ipam_service_can_be_accessed(self):
-        response = self.client.get("/v0.1/ipam/public_ip_blocks",
+        response = self.client.get("/v0.1/ipam/ip_blocks",
                                    headers={'X_ROLE': 'Admin'})
 
         self.assertEqual(response.status, 200)
@@ -48,18 +48,18 @@ class TestAuthMiddleware(unittest.TestCase):
         self.client = Client(port=get_api_port())
 
     def test_forbids_tenants_accesing_other_tenants_resource(self):
-        response = self.client.get("/v0.1/ipam/tenants/123/private_ip_blocks",
+        response = self.client.get("/v0.1/ipam/tenants/123/ip_blocks",
                                    headers={'X_TENANT': "111"})
         self.assertEqual(response.status, 403)
 
     def test_authorizes_tenants_accesing_their_resource(self):
-        response = self.client.get("/v0.1/ipam/tenants/123/private_ip_blocks",
+        response = self.client.get("/v0.1/ipam/tenants/123/ip_blocks",
                                    headers={'X_TENANT': "123"})
 
         self.assertEqual(response.status, 200)
 
     def test_forbids_tenants_accesing_admin_resources(self):
-        response = self.client.get("/v0.1/ipam/public_ip_blocks",
+        response = self.client.get("/v0.1/ipam/ip_blocks",
                                    headers={'X_TENANT': "123",
                                             'X_ROLE': "Tenant"})
 

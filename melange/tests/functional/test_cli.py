@@ -35,13 +35,12 @@ def run(command):
             get_api_port(), command))
 
 
-class TestPublicIpBlockCLI(BaseTest):
+class TestIpBlockCLI(BaseTest):
 
-    def test_create(self):
+    def test_create_public_block(self):
         policy = PolicyFactory()
-        parent = PublicIpBlockFactory(cidr="10.1.1.0/24", network_id="net1")
-        exitcode, out, err = run("public_ip_block create 10.1.1.0/29 net1 "
-                                 "%s %s" % (policy.id, parent.id))
+        exitcode, out, err = run("ip_block create public 10.1.1.0/29 net1 "
+                                 "%s" % (policy.id))
         self.assertEqual(exitcode, 0)
         ip_block = IpBlock.get_by(cidr="10.1.1.0/29", type='public')
         self.assertTrue(ip_block is not None)
@@ -49,48 +48,10 @@ class TestPublicIpBlockCLI(BaseTest):
         self.assertEqual(ip_block.policy_id, policy.id)
         self.assertEqual(ip_block.tenant_id, None)
 
-    def test_list(self):
-        exitcode, out, err = run("public_ip_block list")
-
-        self.assertEqual(exitcode, 0)
-        self.assertIn("ip_blocks", out)
-
-    def test_show(self):
-        ip_block = PublicIpBlockFactory()
-
-        exitcode, out, err = run("public_ip_block show %s" % ip_block.id)
-
-        self.assertEqual(exitcode, 0)
-        self.assertIn(ip_block.cidr, out)
-
-    def test_update(self):
-        ip_block = PublicIpBlockFactory()
-        policy = PolicyFactory()
-
-        exitcode, out, err = run("public_ip_block update %s new_net %s"
-                                 % (ip_block.id, policy.id))
-
-        self.assertEqual(exitcode, 0)
-        updated_block = IpBlock.find(ip_block.id)
-        self.assertEqual(updated_block.network_id, "new_net")
-        self.assertEqual(updated_block.policy_id, policy.id)
-
-    def test_delete(self):
-        ip_block = PublicIpBlockFactory()
-
-        exitcode, out, err = run("public_ip_block delete %s" % ip_block.id)
-
-        self.assertEqual(exitcode, 0)
-        self.assertTrue(IpBlock.get(ip_block.id) is None)
-
-
-class TestPrivateIpBlockCLI(BaseTest):
-
     def test_create(self):
         policy = PolicyFactory()
-        parent = PrivateIpBlockFactory(cidr="10.1.1.0/24", network_id="net1")
-        exitcode, out, err = run("private_ip_block create 10.1.1.0/29 net1"
-                                 " %s %s" % (policy.id, parent.id))
+        exitcode, out, err = run("ip_block create private 10.1.1.0/29 net1"
+                                 " %s" % (policy.id))
 
         self.assertEqual(exitcode, 0)
         ip_block = IpBlock.get_by(cidr="10.1.1.0/29", type='private')
@@ -100,24 +61,24 @@ class TestPrivateIpBlockCLI(BaseTest):
         self.assertEqual(ip_block.tenant_id, None)
 
     def test_list(self):
-        exitcode, out, err = run("private_ip_block list")
+        exitcode, out, err = run("ip_block list")
 
         self.assertEqual(exitcode, 0)
         self.assertIn("ip_blocks", out)
 
     def test_show(self):
-        ip_block = PrivateIpBlockFactory(tenant_id=None)
+        ip_block = PublicIpBlockFactory()
 
-        exitcode, out, err = run("private_ip_block show %s" % ip_block.id)
+        exitcode, out, err = run("ip_block show %s" % ip_block.id)
 
         self.assertEqual(exitcode, 0)
         self.assertIn(ip_block.cidr, out)
 
     def test_update(self):
-        ip_block = PrivateIpBlockFactory(tenant_id=None)
+        ip_block = PublicIpBlockFactory()
         policy = PolicyFactory()
 
-        exitcode, out, err = run("private_ip_block update %s new_net %s"
+        exitcode, out, err = run("ip_block update %s new_net %s"
                                  % (ip_block.id, policy.id))
 
         self.assertEqual(exitcode, 0)
@@ -126,21 +87,21 @@ class TestPrivateIpBlockCLI(BaseTest):
         self.assertEqual(updated_block.policy_id, policy.id)
 
     def test_delete(self):
-        ip_block = PrivateIpBlockFactory(tenant_id=None)
+        ip_block = PublicIpBlockFactory()
 
-        exitcode, out, err = run("private_ip_block delete %s" % ip_block.id)
+        exitcode, out, err = run("ip_block delete %s" % ip_block.id)
 
         self.assertEqual(exitcode, 0)
         self.assertTrue(IpBlock.get(ip_block.id) is None)
 
 
-class TestTenantPrivateIpBlockCLI(BaseTest):
+class TestTenantBasedIpBlockCLI(BaseTest):
 
     def test_create(self):
         policy = PolicyFactory(tenant_id=123)
         parent = PrivateIpBlockFactory(cidr="10.1.1.0/24", tenant_id=123,
                                        network_id="net1")
-        exitcode, out, err = run("private_ip_block create 10.1.1.0/29 net1"
+        exitcode, out, err = run("ip_block create private 10.1.1.0/29 net1"
                                  " %s %s -t 123" % (policy.id, parent.id))
 
         self.assertEqual(exitcode, 0)
@@ -151,7 +112,7 @@ class TestTenantPrivateIpBlockCLI(BaseTest):
         self.assertEqual(ip_block.policy_id, policy.id)
 
     def test_list(self):
-        exitcode, out, err = run("private_ip_block list -t=123")
+        exitcode, out, err = run("ip_block list -t=123")
 
         self.assertEqual(exitcode, 0)
         self.assertIn("ip_blocks", out)
@@ -159,8 +120,7 @@ class TestTenantPrivateIpBlockCLI(BaseTest):
     def test_show(self):
         ip_block = PrivateIpBlockFactory(tenant_id=123)
 
-        exitcode, out, err = run("private_ip_block show"
-                                 " %s -t 123" % ip_block.id)
+        exitcode, out, err = run("ip_block show %s -t 123" % ip_block.id)
 
         self.assertEqual(exitcode, 0)
         self.assertIn(ip_block.cidr, out)
@@ -169,7 +129,7 @@ class TestTenantPrivateIpBlockCLI(BaseTest):
         ip_block = PrivateIpBlockFactory(tenant_id="123")
         policy = PolicyFactory()
 
-        exitcode, out, err = run("private_ip_block update %s new_net %s -t 123"
+        exitcode, out, err = run("ip_block update %s new_net %s -t 123"
                                  % (ip_block.id, policy.id))
 
         self.assertEqual(exitcode, 0)
@@ -180,7 +140,7 @@ class TestTenantPrivateIpBlockCLI(BaseTest):
     def test_delete(self):
         ip_block = PrivateIpBlockFactory(tenant_id=123)
 
-        exitcode, out, err = run("private_ip_block delete"
+        exitcode, out, err = run("ip_block delete"
                                  " %s -t 123" % ip_block.id)
 
         self.assertEqual(exitcode, 0)

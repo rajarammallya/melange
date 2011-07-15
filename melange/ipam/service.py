@@ -60,31 +60,33 @@ class BaseController(wsgi.Controller):
 
 class IpBlockController(BaseController):
 
-    exclude_attr = ['type', 'tenant_id', 'parent_id']
+    exclude_attr = ['tenant_id', 'parent_id']
 
     def _find_block(self, **kwargs):
-        return IpBlock.find_by(type=self.type, **kwargs)
-
-    def __init__(self, block_type, admin_actions=[]):
-        self.type = block_type
-        super(IpBlockController, self).__init__(admin_actions=admin_actions)
+        return IpBlock.find_by(**kwargs)
 
     def index(self, request, tenant_id=None):
-        all_ips = IpBlock.find_all(tenant_id=tenant_id,
-                                                 type=self.type)
+        type_dict = filter_dict(request.params, 'type')
+        print type_dict
+        if type_dict:
+            all_ips = IpBlock.find_all(tenant_id=tenant_id,
+                                       **type_dict)
+        else:
+            all_ips = IpBlock.find_all(tenant_id=tenant_id)
+
         blocks = IpBlock.with_limits(all_ips,
                                      **self._extract_limits(request.params))
         return dict(ip_blocks=[ip_block.data() for ip_block in blocks])
 
     def create(self, request, tenant_id=None):
         params = self._extract_required_params(request, 'ip_block')
-        block = IpBlock.create(tenant_id=tenant_id, type=self.type, **params)
+        block = IpBlock.create(tenant_id=tenant_id, **params)
         return dict(ip_block=block.data()), 201
 
     def update(self, request, id, tenant_id=None):
         ip_block = self._find_block(id=id, tenant_id=tenant_id)
         params = self._extract_required_params(request, 'ip_block')
-        ip_block.update(**exclude(params, 'cidr'))
+        ip_block.update(**exclude(params, 'cidr', 'type'))
         return dict(ip_block=ip_block.data()), 200
 
     def show(self, request, id, tenant_id=None):
@@ -97,12 +99,8 @@ class IpBlockController(BaseController):
 
 class SubnetController(BaseController):
 
-    def __init__(self, type):
-        self.type = type
-        super(SubnetController, self).__init__()
-
     def _find_block(self, id, tenant_id):
-        return IpBlock.find_by(id=id, tenant_id=tenant_id, type=self.type)
+        return IpBlock.find_by(id=id, tenant_id=tenant_id)
 
     def index(self, request, ip_block_id, tenant_id=None):
         ip_block = self._find_block(id=ip_block_id, tenant_id=tenant_id)
@@ -118,12 +116,8 @@ class SubnetController(BaseController):
 
 class IpAddressController(BaseController):
 
-    def __init__(self, type):
-        self.type = type
-        super(IpAddressController, self).__init__()
-
     def _find_block(self, id, tenant_id):
-        return IpBlock.find_by(id=id, tenant_id=tenant_id, type=self.type)
+        return IpBlock.find_by(id=id, tenant_id=tenant_id)
 
     def index(self, request, ip_block_id, tenant_id=None):
         ip_block = self._find_block(id=ip_block_id, tenant_id=tenant_id)
@@ -298,23 +292,19 @@ class API(wsgi.Router):
         self.options = options
         mapper = routes.Mapper()
         super(API, self).__init__(mapper)
-        self. _block_and_nested_resource_mapper(mapper, "public_ip_block",
-                                                "/ipam/public_ip_blocks",
-                                                IpBlockController('public',
-                                                  admin_actions=['create',
-                                                                 'delete']))
-        self. _block_and_nested_resource_mapper(mapper,
-                                                "global_private_ip_block",
-                                                "/ipam/private_ip_blocks",
-                                                IpBlockController('private'))
-        self. _block_and_nested_resource_mapper(mapper,
-                                 "tenant_private_ip_block",
-                                 "/ipam/tenants/{tenant_id}/private_ip_blocks",
-                                 IpBlockController('private'))
         self._natting_mapper(mapper, "inside_globals",
                              InsideGlobalsController())
         self._natting_mapper(mapper, "inside_locals",
                              InsideLocalsController())
+        self. _block_and_nested_resource_mapper(mapper, "ip_block",
+                                                "/ipam/ip_blocks",
+                                                IpBlockController(
+                                                  admin_actions=['create',
+                                                                 'delete']))
+        self. _block_and_nested_resource_mapper(mapper,
+                                 "ip_block",
+                                 "/ipam/tenants/{tenant_id}/ip_blocks",
+                                 IpBlockController())
         self._policy_and_rules_mapper(mapper, "/ipam/policies")
         self._policy_and_rules_mapper(mapper,
                                       "/ipam/tenants/{tenant_id}/policies")
@@ -344,11 +334,9 @@ class API(wsgi.Router):
                         controller=block_controller)
         block_as_parent = dict(member_name="ip_block",
                             collection_path=block_resource_path)
-        self._ip_address_mapper(mapper,
-                                IpAddressController(block_controller.type),
+        self._ip_address_mapper(mapper, IpAddressController(),
                                 block_as_parent)
-        self._subnet_mapper(mapper,
-                                SubnetController(block_controller.type),
+        self._subnet_mapper(mapper, SubnetController(),
                                 block_as_parent)
 
     def _subnet_mapper(self, mapper, subnet_controller,

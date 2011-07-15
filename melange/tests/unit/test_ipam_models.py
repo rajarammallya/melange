@@ -207,8 +207,8 @@ class TestIpBlock(BaseTest):
         block = IpBlockFactory.build(type=None, cidr="10.0.0.0/29")
 
         self.assertFalse(block.is_valid())
-        self.assertEqual(block.errors, {'type': ["type should be one among private, public"]})
-
+        self.assertEqual(block.errors, {'type':
+                            ["type should be one among private, public"]})
 
     def test_different_types_of_blocks_cannot_be_created_within_network(self):
         IpBlockFactory(network_id=1, type='private')

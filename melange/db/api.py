@@ -134,6 +134,12 @@ def find_all_blocks_with_deallocated_ips():
            filter(_ip_address().marked_for_deallocation == True)
 
 
+def delete_deallocated_ips(deallocated_by, **kwargs):
+    return delete_all(find_all_by(_ip_address(), **kwargs).\
+           filter_by(marked_for_deallocation=True).\
+           filter(_ip_address().deallocated_at <= deallocated_by))
+
+
 def _ip_nat():
     return session.models()["ip_nat_relation"]
 

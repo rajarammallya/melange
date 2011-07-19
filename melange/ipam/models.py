@@ -22,6 +22,7 @@ import netaddr
 from netaddr.strategy.ipv6 import ipv6_verbose
 from netaddr import IPNetwork, IPAddress
 
+from datetime import timedelta
 from melange.common.exception import MelangeError
 from melange.db import api as db_api
 from melange.common import utils
@@ -335,8 +336,12 @@ class IpBlock(ModelBase):
             ip_address.deallocate()
 
     def delete_deallocated_ips(self):
-        db_api.delete_all(IpAddress.find_all(ip_block_id=self.id,
-                                           marked_for_deallocation=True))
+        db_api.delete_deallocated_ips(
+            deallocated_by=self._deallocated_by_date(), ip_block_id=self.id)
+
+    def _deallocated_by_date(self):
+        days_to_keep_ips = Config.get('keep_deallocated_ips_for_days', 2)
+        return utils.utcnow() - timedelta(days=days_to_keep_ips)
 
     def subnet(self, cidr, network_id=None, tenant_id=None):
         network_id = network_id or self.network_id
@@ -437,10 +442,11 @@ class IpAddress(ModelBase):
             for local_address in ip_addresses])
 
     def deallocate(self):
-        return self.update(marked_for_deallocation=True)
+        return self.update(marked_for_deallocation=True,
+                           deallocated_at=utils.utcnow())
 
     def restore(self):
-        self.update(marked_for_deallocation=False)
+        self.update(marked_for_deallocation=False, deallocated_at=None)
 
     def inside_globals(self, **kwargs):
         return db_api.find_inside_globals_for(self.id, **kwargs)

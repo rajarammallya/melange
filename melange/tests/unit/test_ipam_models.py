@@ -16,7 +16,7 @@
 #    under the License.
 from melange.tests import unit
 from melange.tests import BaseTest
-from datetime import datetime
+from datetime import datetime, timedelta
 from melange.ipam import models
 from melange.db import session
 from melange.tests.unit import StubConfig, StubTime
@@ -124,7 +124,7 @@ class TestIpv6AddressGeneratorFactory(BaseTest):
 
     def test_loads_ipv6_generator_factory_from_config_file(self):
         args = dict(tenant_id="1", mac_address="00:11:22:33:44:55")
-        with(StubConfig(ipv6_generator=self.mock_generatore_name)):
+        with StubConfig(ipv6_generator=self.mock_generatore_name):
             ip_generator = models.ipv6_address_generator_factory("fe::/64",
                                                                  **args)
 
@@ -145,7 +145,7 @@ class TestIpv6AddressGeneratorFactory(BaseTest):
                           models.ipv6_address_generator_factory, "fe::/64")
 
     def test_does_not_raise_error_if_generator_does_not_require_params(self):
-        with(StubConfig(ipv6_generator=self.mock_generatore_name)):
+        with StubConfig(ipv6_generator=self.mock_generatore_name):
             ip_generator = models.ipv6_address_generator_factory("fe::/64")
 
         self.assertIsNotNone(ip_generator)
@@ -436,7 +436,7 @@ class TestIpBlock(BaseTest):
         block = IpV6IpBlockFactory(cidr="ff::/120")
         MockIpV6Generator.ip_list = ["ff::0001", "ff::0002"]
 
-        with(StubConfig(ipv6_generator=self.mock_generator_name)):
+        with StubConfig(ipv6_generator=self.mock_generator_name):
             ip = block.allocate_ip()
 
         self.assertEqual(ip.address, "00ff:0000:0000:0000:0000:0000:0000:0001")
@@ -446,7 +446,7 @@ class TestIpBlock(BaseTest):
         MockIpV6Generator.ip_list = ["ff::0001", "ff::0002"]
         IpAddressFactory(address="ff::0001", ip_block_id=block.id)
 
-        with(StubConfig(ipv6_generator=self.mock_generator_name)):
+        with StubConfig(ipv6_generator=self.mock_generator_name):
             ip = block.allocate_ip()
 
         self.assertEqual(ip.address, "00ff:0000:0000:0000:0000:0000:0000:0002")
@@ -584,32 +584,64 @@ class TestIpBlock(BaseTest):
 
         self.assertModelsEqual(ip_block.subnets(), [subnet1, subnet2])
 
-    def test_delete_all_deallocated_addresses(self):
+    def test_delete_all_deallocated_ips_after_default_of_two_days(self):
         ip_block1 = PrivateIpBlockFactory(cidr="10.0.1.1/29")
         ip_block2 = PrivateIpBlockFactory(cidr="10.0.1.1/29")
+        current_time = datetime(2050, 1, 1)
+        two_days_before = current_time - timedelta(days=2)
         ip1 = ip_block1.allocate_ip()
         ip2 = ip_block2.allocate_ip()
-        ip1.deallocate()
-        ip2.deallocate()
+        with StubTime(time=two_days_before):
+            ip1.deallocate()
+            ip2.deallocate()
 
-        IpBlock.delete_all_deallocated_ips()
+        with StubTime(time=current_time):
+            IpBlock.delete_all_deallocated_ips()
 
         self.assertEqual(IpAddress.find_all(
                                ip_block_id=ip_block1.id).all(), [])
         self.assertEqual(IpAddress.find_all(
                                ip_block_id=ip_block2.id).all(), [])
 
-    def test_delete_deallocated_addresses(self):
+    def test_delete_deallocated_ips_after_default_of_two_days(self):
+        ip_block = PrivateIpBlockFactory(cidr="10.0.1.1/29")
+        current_time = datetime(2050, 1, 1)
+        two_days_before = current_time - timedelta(days=2)
+        ip1 = ip_block.allocate_ip()
+        ip2 = ip_block.allocate_ip()
+        ip3 = ip_block.allocate_ip()
+        with StubTime(time=two_days_before):
+            ip1.deallocate()
+            ip3.deallocate()
+
+        with StubTime(time=current_time):
+            ip_block.delete_deallocated_ips()
+
+        existing_ips = IpAddress.find_all(ip_block_id=ip_block.id).all()
+        self.assertModelsEqual(existing_ips, [ip2])
+
+    def test_delete_deallocated_ips_after_configured_no_of_days(self):
         ip_block = PrivateIpBlockFactory(cidr="10.0.1.1/29")
         ip1 = ip_block.allocate_ip()
         ip2 = ip_block.allocate_ip()
         ip3 = ip_block.allocate_ip()
-        ip1.deallocate()
-        ip3.deallocate()
+        ip4 = ip_block.allocate_ip()
+        current_time = datetime(2050, 1, 1)
+        one_day_before = current_time - timedelta(days=1)
+        two_days_before = current_time - timedelta(days=2)
+        with StubTime(time=two_days_before):
+            ip1.deallocate()
+            ip3.deallocate()
+        with StubTime(time=one_day_before):
+            ip4.deallocate()
+        with StubTime(time=current_time):
+            ip2.deallocate()
 
-        ip_block.delete_deallocated_ips()
-        existing_ips = IpAddress.find_all(ip_block_id=ip_block.id).all()
-        self.assertModelsEqual(existing_ips, [ip2])
+        with StubConfig(keep_deallocated_ips_for_days=1):
+            with StubTime(time=current_time):
+                ip_block.delete_deallocated_ips()
+
+        self.assertEqual(ip_block.addresses().all(), [ip2])
 
     def test_is_full_flag_reset_when_addresses_are_deleted(self):
         ip_block = PrivateIpBlockFactory(cidr="10.0.0.0/32")
@@ -794,11 +826,15 @@ class TestIpAddress(BaseTest):
     def test_deallocate(self):
         ip_block = PrivateIpBlockFactory(cidr="10.0.0.1/8")
         ip_address = ip_block.allocate_ip()
+        current_time = datetime(2050, 1, 1)
 
-        ip_address.deallocate()
+        with StubTime(time=current_time):
+            ip_address.deallocate()
 
         self.assertNotEqual(IpAddress.find(ip_address.id), None)
         self.assertTrue(IpAddress.find(ip_address.id).marked_for_deallocation)
+        self.assertTrue(IpAddress.find(ip_address.id).deallocated_at,
+                        current_time)
 
     def test_restore(self):
         ip_block = PrivateIpBlockFactory(cidr="10.0.0.1/29")
@@ -808,6 +844,7 @@ class TestIpAddress(BaseTest):
         ip_address.restore()
 
         self.assertFalse(ip_address.marked_for_deallocation)
+        self.assertIsNone(ip_address.deallocated_at)
 
     def test_ip_block(self):
         ip_block = PrivateIpBlockFactory()
@@ -837,7 +874,7 @@ class TestIpAddress(BaseTest):
 
         ip_address = block.allocate_ip()
 
-        with(StubConfig(nameserver="ns.example.com")):
+        with StubConfig(nameserver="ns.example.com"):
             data = ip_address.data_with_network_info()
 
         self.assertEqual(data['broadcast_address'], "10.0.0.255")
@@ -1126,7 +1163,7 @@ class TestNetwork(BaseTest):
     def test_find_or_create_when_no_ip_blocks_for_given_network_exist(self):
         noise_ip_block = PublicIpBlockFactory(network_id=9999)
 
-        with(StubConfig(default_cidr="10.10.10.0/24")):
+        with StubConfig(default_cidr="10.10.10.0/24"):
             network = Network.find_or_create_by(id='1', tenant_id='123')
 
         self.assertEqual(network.id, '1')

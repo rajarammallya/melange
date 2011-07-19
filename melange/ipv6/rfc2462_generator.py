@@ -14,16 +14,14 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-import hashlib
-from netaddr import IPNetwork, IPAddress, EUI
+from netaddr import IPAddress, IPNetwork, EUI
 
 
-class DefaultIpV6Generator(object):
-    required_params = ["tenant_id", "mac_address"]
+class RFC2462IpV6Generator(object):
+    required_params = ["mac_address"]
 
     def __init__(self, cidr, **kwargs):
         self._cidr = cidr
-        self._tenant_id = kwargs['tenant_id']
         self._mac_address = kwargs['mac_address']
 
     def next_ip(self):
@@ -37,9 +35,6 @@ class DefaultIpV6Generator(object):
         return str(variable_segment & network.hostmask | network.cidr.ip)
 
     def _variable_segment(self):
-        tenant_hash = hashlib.sha1(self._tenant_id).hexdigest()
-        first_2_segments = int(tenant_hash[:8], 16) << 32
-        constant = 0xff << 24
-        ei_mac_address = int(EUI(self._mac_address)) & int("ffffff", 16)
-        last_2_segments = constant | ei_mac_address
-        return IPAddress(first_2_segments | last_2_segments)
+        mac64 = EUI(self._mac_address).eui64().words
+        int_addr = int(''.join(['%02x' % i for i in mac64]), 16)
+        return IPAddress(int_addr) ^ IPAddress("::0200:0:0:0")

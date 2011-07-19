@@ -35,7 +35,7 @@ from melange.tests.factories.models import (PublicIpBlockFactory,
                                             IpRangeFactory, IpOctetFactory,
                                             IpV6IpBlockFactory,
                                             IpBlockFactory)
-from melange.ipv6.default_generator import DefaultIpV6Generator
+from melange.ipv6.tenant_based_generator import TenantBasedIpV6Generator
 
 
 class TestModelBase(BaseTest):
@@ -138,7 +138,7 @@ class TestIpv6AddressGeneratorFactory(BaseTest):
 
         ip_generator = models.ipv6_address_generator_factory("fe::/64", **args)
 
-        self.assertTrue(isinstance(ip_generator, DefaultIpV6Generator))
+        self.assertTrue(isinstance(ip_generator, TenantBasedIpV6Generator))
 
     def test_raises_error_if_required_params_are_missing(self):
         self.assertRaises(DataMissingError,

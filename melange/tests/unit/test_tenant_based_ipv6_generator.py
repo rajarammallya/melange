@@ -14,18 +14,16 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-import hashlib
 
 from melange.tests import BaseTest
 from netaddr import IPNetwork, IPAddress
-from melange.ipv6.default_generator import DefaultIpV6Generator
-from melange.tests.factories.models import IpV6IpBlockFactory
+from melange.ipv6.tenant_based_generator import TenantBasedIpV6Generator
 
 
-class TestDefaultIpV6Generator(BaseTest):
+class TestTenantBasedIpV6Generator(BaseTest):
 
     def test_next_ip_generates_last_4_segments_for_slash_64_block(self):
-        generator = DefaultIpV6Generator(cidr="fe::/64", tenant_id="1234",
+        generator = TenantBasedIpV6Generator(cidr="fe::/64", tenant_id="1234",
                                          mac_address="00:ff:12:89:67:34")
 
         ip = generator.next_ip()
@@ -34,7 +32,7 @@ class TestDefaultIpV6Generator(BaseTest):
         self.assertIn(IPAddress(ip), IPNetwork("fe::/64"))
 
     def test_next_ip_increments_address_in_subsequent_calls(self):
-        generator = DefaultIpV6Generator(cidr="fe::/64", tenant_id="1234",
+        generator = TenantBasedIpV6Generator(cidr="fe::/64", tenant_id="1234",
                                          mac_address="00:ff:12:89:67:34")
 
         ip_1 = generator.next_ip()
@@ -44,7 +42,7 @@ class TestDefaultIpV6Generator(BaseTest):
         self.assertEqual(ip_2, "fe::7110:eda4:ff89:6735")
 
     def test_next_ip_generates_ip_for_block_smaller_than_slash_64(self):
-        generator = DefaultIpV6Generator(cidr="fe::/72", tenant_id="1234",
+        generator = TenantBasedIpV6Generator(cidr="fe::/72", tenant_id="1234",
                                          mac_address="00:ff:12:89:67:34")
 
         ip = generator.next_ip()

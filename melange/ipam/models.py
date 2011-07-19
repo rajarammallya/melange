@@ -194,7 +194,8 @@ class ModelBase(object):
 
 
 def ipv6_address_generator_factory(cidr, **kwargs):
-    default_generator = "melange.ipv6.default_generator.DefaultIpV6Generator"
+    default_generator = "melange.ipv6.tenant_based_generator."\
+                        "TenantBasedIpV6Generator"
     ip_generator_class_name = Config.get("ipv6_generator", default_generator)
     ip_generator = utils.import_class(ip_generator_class_name)
     required_params = ip_generator.required_params\

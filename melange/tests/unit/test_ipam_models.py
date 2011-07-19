@@ -250,8 +250,10 @@ class TestIpBlock(BaseTest):
     def test_subnet_fails_when_parent_block_has_allocated_ips(self):
         parent  = IpBlockFactory(cidr="10.0.0.0/29")
         parent.allocate_ip()
-        self.assertRaises(models.InvalidModelError,
-                          parent.subnet, cidr="10.0.0.0/30")
+        expected_msg = "parent is not subnettable since it has allocated ips"
+
+        self.assertRaisesExcMessage(models.InvalidModelError, expected_msg,
+                                    parent.subnet, cidr="10.0.0.0/30")
         
     def test_validates_subnet_has_same_tenant_as_parent(self):
         parent = PrivateIpBlockFactory(cidr="10.0.0.0/28", tenant_id="1")
@@ -268,6 +270,19 @@ class TestIpBlock(BaseTest):
                                         tenant_id="2", parent_id=parent.id)
 
         self.assertTrue(subnet.is_valid())
+
+    def test_subnets_cidr_can_not_overlap_with_siblings(self):
+        parent = IpBlockFactory(cidr="10.0.0.0/29")
+        subnet1 = parent.subnet(cidr="10.0.0.0/30")
+        subnet2 = parent.subnet(cidr="10.0.0.4/30")
+
+        overlapping_subnet = IpBlockFactory.build(cidr="10.0.0.0/31",
+                                                  tenant_id="2",
+                                                  parent_id=parent.id)
+
+        self.assertFalse(overlapping_subnet.is_valid())
+        self.assertEqual(overlapping_subnet.errors['cidr'],
+                         ["cidr overlaps with sibling 10.0.0.0/30"])
 
     def test_subnet_creates_child_block_with_the_given_params(self):
         ip_block = PrivateIpBlockFactory(cidr="10.0.0.0/28", tenant_id=None)
@@ -374,9 +389,9 @@ class TestIpBlock(BaseTest):
     def test_allocate_ip_from_non_leaf_block_fails(self):
         parent_block = IpBlockFactory(cidr="10.0.0.0/28")
         parent_block.subnet(cidr="10.0.0.0/28")
-
-        self.assertRaises(models.IpAllocationNotAllowedError,
-                          parent_block.allocate_ip)
+        expected_msg = "Non Leaf block can not allocate IPAddress"
+        self.assertRaisesExcMessage(models.IpAllocationNotAllowedError,
+                                    expected_msg, parent_block.allocate_ip)
 
     def test_allocate_ip_from_outside_cidr(self):
         block = PrivateIpBlockFactory(cidr="10.1.1.1/32")
@@ -589,6 +604,22 @@ class TestIpBlock(BaseTest):
                                         parent_id=ip_block.id)
 
         self.assertModelsEqual(ip_block.subnets(), [subnet1, subnet2])
+
+    def test_siblings_of_non_root_node(self):
+        ip_block = IpBlockFactory(cidr="10.0.0.0/28")
+ 
+        subnet1 = ip_block.subnet("10.0.0.0/29")
+        subnet2 = ip_block.subnet("10.0.0.8/30")
+        subnet3 = ip_block.subnet("10.0.0.12/30")
+        subnet11 = subnet1.subnet("10.0.0.0/30")
+
+        self.assertModelsEqual(subnet2.siblings(), [subnet1, subnet3])
+        self.assertModelsEqual(subnet11.siblings(), [])
+
+    def test_siblings_of_root_node_is_empty(self):
+        ip_block = IpBlockFactory(cidr="10.0.0.0/28")
+
+        self.assertModelsEqual(ip_block.siblings(), [])
 
     def test_delete_all_deallocated_ips_after_default_of_two_days(self):
         ip_block1 = PrivateIpBlockFactory(cidr="10.0.1.1/29")

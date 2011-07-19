@@ -254,6 +254,11 @@ class IpBlock(ModelBase):
     def subnets(self):
         return IpBlock.find_all(parent_id=self.id).all()
 
+    def siblings(self):
+        if not self.parent:
+            return []
+        return filter(lambda block: block != self, self.parent.subnets())
+
     def delete(self):
         for block in self.subnets():
             block.delete()
@@ -327,6 +332,11 @@ class IpBlock(ModelBase):
     def contains(self, address):
         return netaddr.IPAddress(address) in IPNetwork(self.cidr)
 
+    def _overlaps(self, other_block):
+        network = IPNetwork(self.cidr)
+        other_network = IPNetwork(other_block.cidr)
+        return network in other_network or other_network in network
+
     def find_allocated_ip(self, address):
         ip_address = IpAddress.find_by(ip_block_id=self.id, address=address)
         if ip_address == None:
@@ -374,6 +384,7 @@ class IpBlock(ModelBase):
         self._validate_cidr_format()
         if not self._has_error_on('cidr'):
             self._validate_cidr_is_within_parent_block_cidr()
+            self._validate_cidr_does_not_overlap_with_siblings()
 
     def _validate_uniqueness_for_public_ip_block(self):
         if (self.type == 'public' and not self._has_error_on('cidr')):
@@ -382,6 +393,13 @@ class IpBlock(ModelBase):
             if (block and block != self):
                 self._add_error('cidr',
                                 "cidr for public ip block should be unique")
+
+    def _validate_cidr_does_not_overlap_with_siblings(self):
+        for sibling in self.siblings():
+            if self._overlaps(sibling):
+                msg = "cidr overlaps with sibling {0}".format(sibling.cidr)
+                self._add_error('cidr', msg)
+                break
 
     def _validate_belongs_to_supernet_network(self):
         if(self.parent and self.parent.network_id and

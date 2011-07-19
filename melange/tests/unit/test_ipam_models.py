@@ -247,13 +247,12 @@ class TestIpBlock(BaseTest):
         self.assertEqual(subnet.errors['network_id'],
                          ["network_id should be same as that of parent"])
 
-    def test_subnet_of_parent_with_no_network_can_have_network(self):
-        parent = PrivateIpBlockFactory(cidr="10.0.0.0/28", network_id=None)
-        subnet = PrivateIpBlockFactory.build(cidr="10.0.0.0/29",
-                                        network_id="2", parent_id=parent.id)
-
-        self.assertTrue(subnet.is_valid())
-
+    def test_subnet_fails_when_parent_block_has_allocated_ips(self):
+        parent  = IpBlockFactory(cidr="10.0.0.0/29")
+        parent.allocate_ip()
+        self.assertRaises(models.InvalidModelError,
+                          parent.subnet, cidr="10.0.0.0/30")
+        
     def test_validates_subnet_has_same_tenant_as_parent(self):
         parent = PrivateIpBlockFactory(cidr="10.0.0.0/28", tenant_id="1")
         subnet = PrivateIpBlockFactory.build(cidr="10.0.0.0/29",
@@ -371,6 +370,13 @@ class TestIpBlock(BaseTest):
         saved_ip = IpAddress.find(ip.id)
         self.assertEqual(ip.address, saved_ip.address)
         self.assertEqual(ip.port_id, "1234")
+
+    def test_allocate_ip_from_non_leaf_block_fails(self):
+        parent_block = IpBlockFactory(cidr="10.0.0.0/28")
+        parent_block.subnet(cidr="10.0.0.0/28")
+
+        self.assertRaises(models.IpAllocationNotAllowedError,
+                          parent_block.allocate_ip)
 
     def test_allocate_ip_from_outside_cidr(self):
         block = PrivateIpBlockFactory(cidr="10.1.1.1/32")
@@ -641,7 +647,7 @@ class TestIpBlock(BaseTest):
             with StubTime(time=current_time):
                 ip_block.delete_deallocated_ips()
 
-        self.assertEqual(ip_block.addresses().all(), [ip2])
+        self.assertEqual(ip_block.addresses(), [ip2])
 
     def test_is_full_flag_reset_when_addresses_are_deleted(self):
         ip_block = PrivateIpBlockFactory(cidr="10.0.0.0/32")

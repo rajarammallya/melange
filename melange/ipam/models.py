@@ -252,7 +252,7 @@ class IpBlock(ModelBase):
         return IPNetwork(self.cidr).version == 6
 
     def subnets(self):
-        return IpBlock.find_all(parent_id=self.id)
+        return IpBlock.find_all(parent_id=self.id).all()
 
     def delete(self):
         for block in self.subnets():
@@ -267,13 +267,16 @@ class IpBlock(ModelBase):
         return IpAddress.get_by(ip_block_id=self.id, address=address)
 
     def addresses(self):
-        return IpAddress.find_all(ip_block_id=self.id)
+        return IpAddress.find_all(ip_block_id=self.id).all()
 
     @cached_property
     def parent(self):
         return IpBlock.get(self.parent_id)
 
     def allocate_ip(self, port_id=None, address=None, **kwargs):
+        if self.subnets():
+            raise IpAllocationNotAllowedError(
+                "Non Leaf block can not allocate IPAddress")
         if self.is_full:
             raise NoMoreAddressesError("IpBlock is full")
 
@@ -392,6 +395,11 @@ class IpBlock(ModelBase):
             self._add_error('tenant_id',
                             "tenant_id should be same as that of parent")
 
+    def _validate_parent_is_subnettable(self):
+        if (self.parent and self.parent.addresses()):
+            self._add_error('parent_id',
+                            "parent is not subnettable since it has allocated ips")
+
     def _validate_type_is_same_within_network(self):
         block = IpBlock.get_by(network_id=self.network_id)
         if(block and block.type != self.type):
@@ -403,6 +411,7 @@ class IpBlock(ModelBase):
         self._validate_existence_of('parent_id', IpBlock, type=self.type)
         self._validate_belongs_to_supernet_network()
         self._validate_belongs_to_supernet_tenant()
+        self._validate_parent_is_subnettable()
         self._validate_uniqueness_for_public_ip_block()
         self._validate_existence_of('policy_id', Policy)
         self._validate_type_is_same_within_network()
@@ -651,6 +660,12 @@ class AddressDisallowedByPolicyError(MelangeError):
 
     def _error_message(self):
         return "Policy does not allow this address"
+
+
+class IpAllocationNotAllowedError(MelangeError):
+
+    def _error_message(self):
+        return "Ip Block can not allocate address"
 
 
 class InvalidModelError(MelangeError):

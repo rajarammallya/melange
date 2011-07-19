@@ -100,10 +100,9 @@ class TestTenantBasedIpBlockCLI(BaseTest):
 
     def test_create(self):
         policy = PolicyFactory(tenant_id=123)
-        parent = PrivateIpBlockFactory(cidr="10.1.1.0/24", tenant_id=123,
-                                       network_id="net1")
+
         exitcode, out, err = run("ip_block create private 10.1.1.0/29 net1"
-                                 " %s %s -t 123" % (policy.id, parent.id))
+                                 " %s -t 123" % policy.id)
 
         self.assertEqual(exitcode, 0)
         ip_block = IpBlock.get_by(cidr="10.1.1.0/29",

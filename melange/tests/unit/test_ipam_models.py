@@ -248,13 +248,13 @@ class TestIpBlock(BaseTest):
                          ["network_id should be same as that of parent"])
 
     def test_subnet_fails_when_parent_block_has_allocated_ips(self):
-        parent  = IpBlockFactory(cidr="10.0.0.0/29")
+        parent = IpBlockFactory(cidr="10.0.0.0/29")
         parent.allocate_ip()
         expected_msg = "parent is not subnettable since it has allocated ips"
 
         self.assertRaisesExcMessage(models.InvalidModelError, expected_msg,
                                     parent.subnet, cidr="10.0.0.0/30")
-        
+
     def test_validates_subnet_has_same_tenant_as_parent(self):
         parent = PrivateIpBlockFactory(cidr="10.0.0.0/28", tenant_id="1")
         subnet = PrivateIpBlockFactory.build(cidr="10.0.0.0/29",
@@ -283,6 +283,52 @@ class TestIpBlock(BaseTest):
         self.assertFalse(overlapping_subnet.is_valid())
         self.assertEqual(overlapping_subnet.errors['cidr'],
                          ["cidr overlaps with sibling 10.0.0.0/30"])
+
+    def test_cidr_can_not_overlap_with_top_level_blocks_in_the_network(self):
+        block1 = IpBlockFactory(cidr="10.0.0.0/29", network_id="1")
+        block2 = IpBlockFactory(cidr="20.0.0.0/29", network_id="1")
+
+        overlapping_block = IpBlockFactory.build(cidr="10.0.0.0/31",
+                                                 network_id="1")
+
+        self.assertFalse(overlapping_block.is_valid())
+        self.assertEqual(overlapping_block.errors['cidr'],
+                     ["cidr overlaps with block 10.0.0.0/29 in same network"])
+
+    def test_cidr_can_overlap_for_blocks_in_different_network(self):
+        block1 = IpBlockFactory(cidr="10.0.0.0/29", network_id="1")
+        block2 = IpBlockFactory.build(cidr="10.0.0.0/29", network_id="2")
+
+        self.assertTrue(block2.is_valid())
+
+    def test_cidr_can_overlap_for_blocks_without_network(self):
+        block1 = IpBlockFactory(cidr="10.0.0.0/29", network_id=None)
+        block2 = IpBlockFactory.build(cidr="10.0.0.0/29", network_id=None)
+
+        self.assertTrue(block2.is_valid())
+
+    def test_networked_blocks_can_have_blocks_from_different_parents(self):
+        block1 = IpBlockFactory(cidr="10.0.0.0/29", network_id=None,
+                                parent_id=None)
+        subnet1 = block1.subnet(cidr="10.0.0.0/30", network_id="1")
+        block2 = IpBlockFactory(cidr="20.0.0.0/29", network_id="1")
+        block3 = IpBlockFactory(cidr="30.0.0.0/29", network_id="1")
+
+        self.assertModelsEqual(block3.networked_blocks(), [subnet1, block2])
+
+    def test_networked_blocks_has_only_top_level_blocks_in_network(self):
+        block1 = IpBlockFactory(cidr="10.0.0.0/29", network_id="1")
+        subnet1 = block1.subnet(cidr="10.0.0.0/30", network_id="1")
+        block2 = IpBlockFactory(cidr="20.0.0.0/29", network_id="1")
+        block3 = IpBlockFactory(cidr="30.0.0.0/29", network_id="1")
+
+        self.assertModelsEqual(block3.networked_blocks(), [block1, block2])
+
+    def test_has_no_networked_blocks_when_not_in_network(self):
+        block1 = IpBlockFactory(cidr="10.0.0.0/29", network_id=None)
+        noise = IpBlockFactory(cidr="20.0.0.0/29", network_id=None)
+
+        self.assertModelsEqual(block1.networked_blocks(), [])
 
     def test_subnet_creates_child_block_with_the_given_params(self):
         ip_block = PrivateIpBlockFactory(cidr="10.0.0.0/28", tenant_id=None)
@@ -607,7 +653,7 @@ class TestIpBlock(BaseTest):
 
     def test_siblings_of_non_root_node(self):
         ip_block = IpBlockFactory(cidr="10.0.0.0/28")
- 
+
         subnet1 = ip_block.subnet("10.0.0.0/29")
         subnet2 = ip_block.subnet("10.0.0.8/30")
         subnet3 = ip_block.subnet("10.0.0.12/30")

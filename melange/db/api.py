@@ -14,7 +14,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-from sqlalchemy import or_
+from sqlalchemy import or_, select, not_
 
 from melange.common import utils
 from melange.db import session
@@ -129,7 +129,7 @@ def find_natted_ips(**kwargs):
 
 
 def find_all_blocks_with_deallocated_ips():
-    return find_all_by(session.models()["IpBlock"]).\
+    return find_all_by(_ip_block()).\
            join(_ip_address()).\
            filter(_ip_address().marked_for_deallocation == True)
 
@@ -140,8 +140,21 @@ def delete_deallocated_ips(deallocated_by, **kwargs):
            filter(_ip_address().deallocated_at <= deallocated_by))
 
 
+def find_all_top_level_blocks_in_network(network_id):
+    base_query = find_all_by(_ip_block()).\
+        filter(_ip_block().network_id == network_id)
+    inner_query = select([_ip_block().id],
+                         _ip_block().network_id == network_id)
+    return base_query.filter(or_(not_(_ip_block().parent_id.in_(inner_query)),
+                                 _ip_block().parent_id == None))
+
+
 def _ip_nat():
     return session.models()["ip_nat_relation"]
+
+
+def _ip_block():
+    return session.models()["IpBlock"]
 
 
 def _ip_address():

@@ -386,6 +386,7 @@ class IpBlock(ModelBase):
         if not self._has_error_on('cidr'):
             self._validate_cidr_is_within_parent_block_cidr()
             self._validate_cidr_does_not_overlap_with_siblings()
+            self._validate_cidr_does_not_overlap_with_other_blocks_in_network()
 
     def _validate_uniqueness_for_public_ip_block(self):
         if (self.type == 'public' and not self._has_error_on('cidr')):
@@ -402,6 +403,20 @@ class IpBlock(ModelBase):
                 self._add_error('cidr', msg)
                 break
 
+    def networked_blocks(self):
+        if not self.network_id:
+            return []
+        blocks = db_api.find_all_top_level_blocks_in_network(self.network_id)
+        return filter(lambda block: block != self and block != self.parent,
+                      blocks)
+
+    def _validate_cidr_does_not_overlap_with_other_blocks_in_network(self):
+        for block in self.networked_blocks():
+            if self._overlaps(block):
+                self._add_error('cidr', "cidr overlaps with block {0}"
+                                " in same network".format(block.cidr))
+                break
+
     def _validate_belongs_to_supernet_network(self):
         if(self.parent and self.parent.network_id and
            self.parent.network_id != self.network_id):
@@ -416,8 +431,8 @@ class IpBlock(ModelBase):
 
     def _validate_parent_is_subnettable(self):
         if (self.parent and self.parent.addresses()):
-            self._add_error('parent_id',
-                            "parent is not subnettable since it has allocated ips")
+            msg = "parent is not subnettable since it has allocated ips"
+            self._add_error('parent_id', msg)
 
     def _validate_type_is_same_within_network(self):
         block = IpBlock.get_by(network_id=self.network_id)

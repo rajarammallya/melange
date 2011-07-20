@@ -23,15 +23,32 @@ import urllib2
 
 class Server(object):
 
-    def __init__(self, name, port=9292):
+    def __init__(self, name, path):
         self.name = name
-        self.port = port
+        self.path = path
 
-    def restart(self):
+    def restart(self, port):
         self.stop()
-        self.start()
+        self.start(port)
 
-    def close_stdio(self):
+    def start(self, port):
+        pid = os.fork()
+        if pid == 0:
+            os.setsid()
+            self._close_stdio()
+            try:
+                os.system("(%s -p %s >func_test.log)" % (self.path, port))
+            except OSError:
+                os._exit(1)
+            os._exit(0)
+        else:
+            self._wait_till_running(port)
+
+    def stop(self):
+        os.system("ps x -o pid,command | grep -v 'grep'|"
+                  "grep 'bin/melange' | awk '{print $1}'| xargs kill -9")
+
+    def _close_stdio(self):
         with open(os.devnull, 'r+b') as nullfile:
             for desc in (0, 1, 2):  # close stdio
                 try:
@@ -39,39 +56,22 @@ class Server(object):
                 except OSError:
                     pass
 
-    def pid_file_path(self):
+    def _pid_file_path(self):
         return os.path.join('/', 'tmp', self.name + ".pid")
 
-    def start(self):
-        pid = os.fork()
-        if pid == 0:
-            os.setsid()
-            self.close_stdio()
-            try:
-                os.system("(%s -p %s >func_test.log)" % (self.name, self.port))
-            except OSError:
-                os._exit(1)
-            os._exit(0)
-        else:
-            self.wait_till_running()
-
-    def stop(self):
-        os.system("ps x -o pid,command | grep -v 'grep'|"
-                  "grep 'bin/melange' | awk '{print $1}'| xargs kill -9")
-
-    def wait_till_running(self, timeout=10):
+    def _wait_till_running(self, port, timeout=10):
         now = datetime.datetime.now()
         timeout_time = now + datetime.timedelta(seconds=timeout)
         while (timeout_time > now):
-            if self.running():
+            if self._running(port):
                 return
             now = datetime.datetime.now()
             time.sleep(0.05)
         print("Failed to start servers.")
 
-    def running(self):
+    def _running(self, port):
         try:
-            urllib2.urlopen("http://localhost:{0}".format(self.port))
+            urllib2.urlopen("http://localhost:{0}".format(port))
             return True
         except urllib2.URLError:
             return False

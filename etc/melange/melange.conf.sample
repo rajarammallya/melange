@@ -1,26 +1,20 @@
 [DEFAULT]
 # Show more verbose log output (sets INFO log level output)
-verbose = False
+verbose = True
 
 # Show debugging output in logs (sets DEBUG log level output)
-debug = False
-
-# Path to the extensions
-api_extensions_path = unit/extensions
+debug = True
 
 # Address to bind the API server
 bind_host = 0.0.0.0
 
 # Port the bind the API server to
-bind_port = 9292
+bind_port = 9696
 
-# SQLAlchemy connection string for the reference implementation          
-# registry server. Any valid SQLAlchemy connection string is fine. 
+# SQLAlchemy connection string for the reference implementation
+# registry server. Any valid SQLAlchemy connection string is fine.
 # See: http://www.sqlalchemy.org/docs/05/reference/sqlalchemy/connections.html#sqlalchemy.create_engine
-sql_connection = sqlite:///melange_tests.sqlite
-#mysql+mysqldb://root@localhost/melange
-#postgres://root@localhost/melange
-#sqlite:///melange_tests.sqlite
+sql_connection = sqlite:///melange.sqlite
 
 # Period in seconds after which SQLAlchemy should reestablish its connection
 # to the database.
@@ -31,31 +25,36 @@ sql_connection = sqlite:///melange_tests.sqlite
 # before MySQL can drop the connection.
 sql_idle_timeout = 3600
 
+# Path to the extensions
+api_extensions_path = extensions
+
 # Cidr used for auto creating private ip block in a network
 default_cidr = 10.0.0.0/24
 
 #IPV6 Generator Factory
-#ipv6_generator=melange.ipv6.default_generator.DefaultIpV6Generator
+#ipv6_generator=melange.ipv6.tenant_based_generator.TenantBasedIpV6Generator
 
 #DNS info for a data_center
 nameserver = "ns.example.com"
 
-[pipeline:extensions_app_with_filter]
-pipeline = extensions extensions_test_app
-
-[filter:extensions]
-paste.filter_factory = melange.common.extensions:ExtensionMiddleware.factory
-
-[app:extensions_test_app]
-paste.app_factory = melange.tests.unit.test_extensions:app_factory
-
-[composite:versioned_melange]
+[composite:melange]
 use = egg:Paste#urlmap
 /: versions
-/v0.1: melange
+/v0.1: melangeapi
 
 [app:versions]
 paste.app_factory = melange.versions:app_factory
 
-[app:melange]
+[pipeline:melangeapi]
+pipeline = authorization extensions melangeapp
+
+[filter:extensions]
+paste.filter_factory = melange.common.extensions:ExtensionMiddleware.factory
+
+[filter:authorization]
+url_auth_factory = melange.ipam.service.UrlAuthorizationFactory
+paste.filter_factory = melange.common.auth:AuthorizationMiddleware.factory
+
+
+[app:melangeapp]
 paste.app_factory = melange.ipam.service:app_factory

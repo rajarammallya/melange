@@ -26,4 +26,4 @@ def melange_bin_path(filename="."):
 
 
 def melange_etc_path(filename="."):
-    return os.path.join(melange_root_path(), "..", "etc", filename)
+    return os.path.join(melange_root_path(), "..", "etc", "melange", filename)

@@ -22,7 +22,7 @@ import urllib
 
 class Client(object):
 
-    def __init__(self, host='localhost', port='9292', use_ssl=False):
+    def __init__(self, host='localhost', port=8080, use_ssl=False):
         self.host = host
         self.port = port
         self.use_ssl = use_ssl

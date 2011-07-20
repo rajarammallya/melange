@@ -30,8 +30,8 @@ _PORT = None
 
 def setup():
     print "Restarting melange server..."
-    Server(melange_bin_path('melange'),
-           port=setup_unused_port()).restart()
+    server = Server("melange", melange_bin_path('melange'))
+    server.restart(port=setup_unused_port())
     _setup_db()
 
 
@@ -43,7 +43,7 @@ def _setup_db():
 
 def teardown():
     print "Stopping melange server..."
-    Server(melange_bin_path('melange')).stop()
+    Server("melange", melange_bin_path('melange')).stop()
 
 
 def execute(cmd, raise_error=True):

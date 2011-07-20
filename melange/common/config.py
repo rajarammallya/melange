@@ -17,7 +17,7 @@
 #    under the License.
 
 """
-Routines for configuring Glance
+Routines for configuring Melange
 """
 
 import logging
@@ -65,7 +65,7 @@ def add_common_options(parser):
     :param parser: optparse.OptionParser
     """
     help_text = "The following configuration options are common to "\
-                "all glance programs."
+                "all melange programs."
 
     group = optparse.OptionGroup(parser, "Common Options", help_text)
     group.add_option('-v', '--verbose', default=False, dest="verbose",
@@ -179,11 +179,11 @@ def find_config_file(options, args):
     We search for the paste config file in the following order:
     * If --config-file option is used, use that
     * If args[0] is a file, use that
-    * Search for glance.conf in standard directories:
+    * Search for melange.conf in standard directories:
         * .
-        * ~.glance/
+        * ~.melange/
         * ~
-        * /etc/glance
+        * /etc/melange
         * /etc
 
     :retval Full path to config file, or None if no config file found
@@ -197,7 +197,7 @@ def find_config_file(options, args):
         if os.path.exists(args[0]):
             return fix_path(args[0])
 
-    # Handle standard directory search for glance.conf
+    # Handle standard directory search for melange.conf
     config_file_dirs = [fix_path(os.getcwd()),
                         fix_path(os.path.join(os.getcwd(), "etc")),
                         fix_path(os.path.join('~', '.melange')),
@@ -219,11 +219,11 @@ def load_paste_config(app_name, options, args):
     We search for the paste config file in the following order:
     * If --config-file option is used, use that
     * If args[0] is a file, use that
-    * Search for glance.conf in standard directories:
+    * Search for melange.conf in standard directories:
         * .
-        * ~.glance/
+        * ~.melange/
         * ~
-        * /etc/glance
+        * /etc/melange
         * /etc
 
     :param app_name: Name of the application to load config for, or None.
@@ -255,11 +255,11 @@ def load_paste_app(app_name, options, args):
     We search for the paste config file in the following order:
     * If --config-file option is used, use that
     * If args[0] is a file, use that
-    * Search for glance.conf in standard directories:
+    * Search for melange.conf in standard directories:
         * .
-        * ~.glance/
+        * ~.melange/
         * ~
-        * /etc/glance
+        * /etc/melange
         * /etc
 
     :param app_name: Name of the application to load

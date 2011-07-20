@@ -394,18 +394,21 @@ class IpBlock(ModelBase):
         self._validate_cidr_format()
         if not self._has_valid_cidr():
             return
-        self._validate_uniqueness_for_public_ip_block()
+        self._validate_cidr_doesnt_overlap_for_root_public_ip_blocks()
         self._validate_cidr_is_within_parent_block_cidr()
         self._validate_cidr_does_not_overlap_with_siblings()
         if self._is_top_level_block_in_network():
             self._validate_cidr_doesnt_overlap_with_networked_toplevel_blocks()
 
-    def _validate_uniqueness_for_public_ip_block(self):
-        if self.type == 'public':
-            block = IpBlock.get_by(type=self.type, cidr=self.cidr)
-            if (block and block != self):
-                self._add_error('cidr',
-                                "cidr for public ip block should be unique")
+    def _validate_cidr_doesnt_overlap_for_root_public_ip_blocks(self):
+        if self.type != 'public':
+            return
+        for block in IpBlock.find_all(type='public', parent_id=None):
+            if  self != block and self._overlaps(block):
+                msg = "cidr overlaps with public block {0}".format(block.cidr)
+                self._add_error('cidr', msg)
+                break
+
 
     def _validate_cidr_does_not_overlap_with_siblings(self):
         for sibling in self.siblings():

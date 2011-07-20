@@ -181,27 +181,16 @@ class TestIpBlock(BaseTest):
         block.cidr = "10.1.1.1/8"
         self.assertTrue(block.is_valid())
 
-    def test_uniqueness_of_cidr_for_public_ip_blocks(self):
+    def test_validates_overlapping_cidr_for_public_ip_blocks(self):
         PublicIpBlockFactory(cidr="10.0.0.0/8",
                         network_id=145)
-        dup_block = PublicIpBlockFactory.build(cidr="10.0.0.0/8",
+        overlapping_block = PublicIpBlockFactory.build(cidr="10.0.0.0/30",
                                                network_id=11)
 
-        self.assertFalse(dup_block.is_valid())
-        self.assertEqual(dup_block.errors,
+        self.assertFalse(overlapping_block.is_valid())
+        self.assertEqual(overlapping_block.errors,
                          {'cidr':
-                              ['cidr for public ip block should be unique']})
-
-    def test_uniqueness_of_cidr_when_cidr_not_in_lowest_address_format(self):
-        PublicIpBlockFactory(cidr="10.0.0.0/8",
-                        network_id=145)
-        dup_block = PublicIpBlockFactory.build(cidr="10.0.0.1/8",
-                                               network_id=11)
-
-        self.assertFalse(dup_block.is_valid())
-        self.assertEqual(dup_block.errors,
-                         {'cidr':
-                              ['cidr for public ip block should be unique']})
+                              ["cidr overlaps with public block 10.0.0.0/8"]})
 
     def test_type_for_block_should_be_either_public_or_private(self):
         block = IpBlockFactory.build(type=None, cidr="10.0.0.0/29")

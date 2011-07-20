@@ -313,7 +313,6 @@ class TestIpBlock(BaseTest):
         subnet1 = block1.subnet(cidr="10.0.0.0/30", network_id="1")
         block2 = IpBlockFactory(cidr="20.0.0.0/29", network_id="1")
         block3 = IpBlockFactory(cidr="30.0.0.0/29", network_id="1")
-
         self.assertModelsEqual(block3.networked_blocks(), [subnet1, block2])
 
     def test_networked_blocks_has_only_top_level_blocks_in_network(self):

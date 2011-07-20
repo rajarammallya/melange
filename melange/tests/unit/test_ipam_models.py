@@ -307,27 +307,29 @@ class TestIpBlock(BaseTest):
 
         self.assertTrue(block2.is_valid())
 
-    def test_networked_blocks_can_have_blocks_from_different_parents(self):
+    def test_networked_top_level_blocks_have_blocks_of_different_parents(self):
         block1 = IpBlockFactory(cidr="10.0.0.0/29", network_id=None,
                                 parent_id=None)
         subnet1 = block1.subnet(cidr="10.0.0.0/30", network_id="1")
         block2 = IpBlockFactory(cidr="20.0.0.0/29", network_id="1")
         block3 = IpBlockFactory(cidr="30.0.0.0/29", network_id="1")
-        self.assertModelsEqual(block3.networked_blocks(), [subnet1, block2])
+        self.assertModelsEqual(block3.networked_top_level_blocks(),
+                               [subnet1, block2])
 
-    def test_networked_blocks_has_only_top_level_blocks_in_network(self):
+    def test_networked_top_level_blocks_has_only_top_level_blocks(self):
         block1 = IpBlockFactory(cidr="10.0.0.0/29", network_id="1")
         subnet1 = block1.subnet(cidr="10.0.0.0/30", network_id="1")
         block2 = IpBlockFactory(cidr="20.0.0.0/29", network_id="1")
         block3 = IpBlockFactory(cidr="30.0.0.0/29", network_id="1")
 
-        self.assertModelsEqual(block3.networked_blocks(), [block1, block2])
+        self.assertModelsEqual(block3.networked_top_level_blocks(),
+                               [block1, block2])
 
-    def test_has_no_networked_blocks_when_not_in_network(self):
+    def test_has_no_networked_top_level_blocks_when_not_in_network(self):
         block1 = IpBlockFactory(cidr="10.0.0.0/29", network_id=None)
         noise = IpBlockFactory(cidr="20.0.0.0/29", network_id=None)
 
-        self.assertModelsEqual(block1.networked_blocks(), [])
+        self.assertModelsEqual(block1.networked_top_level_blocks(), [])
 
     def test_subnet_creates_child_block_with_the_given_params(self):
         ip_block = PrivateIpBlockFactory(cidr="10.0.0.0/28", tenant_id=None)

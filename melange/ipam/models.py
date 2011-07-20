@@ -69,6 +69,9 @@ class ModelBase(object):
     def _validate(self):
         pass
 
+    def _before_validate(self):
+        pass
+
     def _before_save(self):
         pass
 
@@ -79,6 +82,7 @@ class ModelBase(object):
     def is_valid(self):
         self.errors = {}
         self._validate_columns_type()
+        self._before_validate()
         self._validate()
         return self.errors == {}
 
@@ -365,10 +369,15 @@ class IpBlock(ModelBase):
                               tenant_id=tenant_id)
 
     def _validate_cidr_format(self):
+        if not self._has_valid_cidr():
+            self._add_error('cidr', "cidr is invalid")
+
+    def _has_valid_cidr(self):
         try:
             IPNetwork(self.cidr)
+            return True
         except Exception:
-            self._add_error('cidr', "cidr is invalid")
+            return False
 
     def _validate_cidr_is_within_parent_block_cidr(self):
         parent = self.parent
@@ -383,14 +392,16 @@ class IpBlock(ModelBase):
 
     def _validate_cidr(self):
         self._validate_cidr_format()
-        if not self._has_error_on('cidr'):
-            self._validate_cidr_is_within_parent_block_cidr()
-            self._validate_cidr_does_not_overlap_with_siblings()
-            self._validate_cidr_does_not_overlap_with_other_blocks_in_network()
+        if not self._has_valid_cidr():
+            return
+        self._validate_uniqueness_for_public_ip_block()
+        self._validate_cidr_is_within_parent_block_cidr()
+        self._validate_cidr_does_not_overlap_with_siblings()
+        if self._is_top_level_block_in_network():
+            self._validate_cidr_doesnt_overlap_with_networked_toplevel_blocks()
 
     def _validate_uniqueness_for_public_ip_block(self):
-        if (self.type == 'public' and not self._has_error_on('cidr')):
-            self._convert_cidr_to_lowest_address()
+        if self.type == 'public':
             block = IpBlock.get_by(type=self.type, cidr=self.cidr)
             if (block and block != self):
                 self._add_error('cidr',
@@ -403,15 +414,18 @@ class IpBlock(ModelBase):
                 self._add_error('cidr', msg)
                 break
 
-    def networked_blocks(self):
+    def networked_top_level_blocks(self):
         if not self.network_id:
             return []
         blocks = db_api.find_all_top_level_blocks_in_network(self.network_id)
         return filter(lambda block: block != self and block != self.parent,
                       blocks)
 
-    def _validate_cidr_does_not_overlap_with_other_blocks_in_network(self):
-        for block in self.networked_blocks():
+    def _is_top_level_block_in_network(self):
+        return not self.parent or self.network_id != self.parent.network_id
+
+    def _validate_cidr_doesnt_overlap_with_networked_toplevel_blocks(self):
+        for block in self.networked_top_level_blocks():
             if self._overlaps(block):
                 self._add_error('cidr', "cidr overlaps with block {0}"
                                 " in same network".format(block.cidr))
@@ -446,14 +460,14 @@ class IpBlock(ModelBase):
         self._validate_belongs_to_supernet_network()
         self._validate_belongs_to_supernet_tenant()
         self._validate_parent_is_subnettable()
-        self._validate_uniqueness_for_public_ip_block()
         self._validate_existence_of('policy_id', Policy)
         self._validate_type_is_same_within_network()
 
     def _convert_cidr_to_lowest_address(self):
-        self.cidr = str(IPNetwork(self.cidr).cidr)
+        if self._has_valid_cidr():
+            self.cidr = str(IPNetwork(self.cidr).cidr)
 
-    def _before_save(self):
+    def _before_validate(self):
         self._convert_cidr_to_lowest_address()
 
 

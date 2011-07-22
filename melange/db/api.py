@@ -43,7 +43,7 @@ def save(model):
 def delete(model):
     model.deleted = True
     save(model)
-    
+
 
 def delete_all(model, **conditions):
     _delete_all(_query_by(model, **conditions))

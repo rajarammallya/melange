@@ -34,7 +34,7 @@ from melange.common import data_types
 class Query(object):
 
     def __init__(self, model, **conditions):
-        self._model  = model
+        self._model = model
         self._conditions = conditions
 
     def all(self):
@@ -53,7 +53,6 @@ class Query(object):
         return db_api.find_all_by_limit(self._model, self._conditions,
                                         limit=limit, marker=marker,
                                         marker_column=marker_column)
-
 
 
 class ModelBase(object):
@@ -429,7 +428,6 @@ class IpBlock(ModelBase):
                 msg = "cidr overlaps with public block {0}".format(block.cidr)
                 self._add_error('cidr', msg)
                 break
-
 
     def _validate_cidr_does_not_overlap_with_siblings(self):
         for sibling in self.siblings():

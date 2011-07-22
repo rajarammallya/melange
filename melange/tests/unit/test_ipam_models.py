@@ -485,7 +485,7 @@ class TestIpBlock(BaseTest):
         block = PrivateIpBlockFactory(cidr="10.0.0.0/30")
         self.assertEqual(block.allocate_ip().address, "10.0.0.0")
         self.assertEqual(
-            IpAddress.find_all(ip_block_id=block.id).first().address,
+            IpAddress.find_by(ip_block_id=block.id).address,
             "10.0.0.0")
         self.assertEqual(block.allocate_ip().address, "10.0.0.1")
 
@@ -999,7 +999,7 @@ class TestPolicy(BaseTest):
         ip_range2 = IpRangeFactory(offset=3, length=2,
                                     policy_id=policy.id)
 
-        self.assertModelsEqual(policy.unusable_ip_ranges.all(),
+        self.assertModelsEqual(policy.unusable_ip_ranges,
                          [ip_range1, ip_range2])
 
     def test_unusable_ip_ranges_are_cached(self):
@@ -1010,7 +1010,7 @@ class TestPolicy(BaseTest):
         ip_octet1 = IpOctetFactory(octet=123, policy_id=policy.id)
         ip_octet2 = IpOctetFactory(octet=124, policy_id=policy.id)
 
-        self.assertModelsEqual(policy.unusable_ip_octets.all(),
+        self.assertModelsEqual(policy.unusable_ip_octets,
                          [ip_octet1, ip_octet2])
 
     def test_unusable_ip_octets_are_cached(self):
@@ -1066,7 +1066,7 @@ class TestPolicy(BaseTest):
         ip_range = policy.create_unusable_range(offset=1, length=2)
 
         self.assertEqual(ip_range,
-                         IpRange.find_all(policy_id=policy.id).first())
+                         IpRange.find_by(policy_id=policy.id))
         self.assertEqual(ip_range.offset, 1)
         self.assertEqual(ip_range.length, 2)
 

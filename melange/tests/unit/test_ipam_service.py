@@ -391,7 +391,7 @@ class IpAddressControllerBase(object):
         response = self.app.post(self.address_path(block))
 
         self.assertEqual(response.status, "201 Created")
-        allocated_address = IpAddress.find_all(ip_block_id=block.id).first()
+        allocated_address = IpAddress.find_by(ip_block_id=block.id)
         self.assertEqual(allocated_address.address, "10.1.1.0")
         self.assertEqual(response.json,
                          dict(ip_address=_data(allocated_address)))
@@ -411,7 +411,7 @@ class IpAddressControllerBase(object):
         self.app.post_json(self.address_path(block),
                            {'ip_address': {"port_id": "1111"}})
 
-        allocated_address = IpAddress.find_all(ip_block_id=block.id).first()
+        allocated_address = IpAddress.find_by(ip_block_id=block.id)
         self.assertEqual(allocated_address.port_id, "1111")
 
     def test_create_ipv6_address_fails_when_mac_address_not_given(self):
@@ -842,7 +842,7 @@ class UnusableIpRangesControllerBase():
                                  % (self.policy_path, policy.id),
                                  {'ip_range': {'offset': '10', 'length': '2'}})
 
-        unusable_range = IpRange.find_all(policy_id=policy.id).first()
+        unusable_range = IpRange.find_by(policy_id=policy.id)
         self.assertEqual(response.status, "201 Created")
         self.assertEqual(response.json, dict(ip_range=_data(unusable_range)))
 
@@ -1054,7 +1054,7 @@ class UnusableIpOctetsControllerBase():
                                  % (self.policy_path, policy.id),
                                  {'ip_octet': {'octet': '123'}})
 
-        ip_octet = IpOctet.find_all(policy_id=policy.id).first()
+        ip_octet = IpOctet.find_by(policy_id=policy.id)
         self.assertEqual(response.status, "201 Created")
         self.assertEqual(response.json['ip_octet'], _data(ip_octet))
 

@@ -199,9 +199,9 @@ class UnusableIpRangesController(BaseController):
         return dict(ip_range=ip_range.data())
 
     def index(self, request, policy_id, tenant_id=None):
-        ip_range_all = Policy.find_by(id=policy_id,
-                                      tenant_id=tenant_id).unusable_ip_ranges
-        ip_ranges = IpRange.with_limits(ip_range_all,
+        policy = Policy.find_by(id=policy_id,
+                                      tenant_id=tenant_id)
+        ip_ranges = IpRange.with_limits(IpRange.find_all(policy_id=policy.id),
                                         **self._extract_limits(request.params))
         return dict(ip_ranges=[ip_range.data() for ip_range in ip_ranges])
 
@@ -222,7 +222,7 @@ class UnusableIpOctetsController(BaseController):
 
     def index(self, request, policy_id, tenant_id=None):
         policy = Policy.find_by(id=policy_id, tenant_id=tenant_id)
-        ip_octets = IpOctet.with_limits(policy.unusable_ip_octets,
+        ip_octets = IpOctet.with_limits(IpOctet.find_all(policy_id=policy.id),
                                         **self._extract_limits(request.params))
         return dict(ip_octets=[ip_octet.data() for ip_octet in ip_octets])
 

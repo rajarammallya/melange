@@ -31,6 +31,22 @@ from melange.common.config import Config
 from melange.common import data_types
 
 
+class Query(object):
+
+    def __init__(self, model, conditions={}):
+        self.model  = model
+        self.conditions = conditions
+
+    def all(self):
+        return db_api.find_all_by(self.model, **self.conditions)
+
+    def __iter__(self):
+        return iter(self.all())
+
+    def update(self, **values):
+        db_api.update_all(self.model, self.conditions, values)
+
+
 class ModelBase(object):
     _columns = {}
     _auto_generated_attrs = ["id", "created_at", "updated_at"]
@@ -125,10 +141,11 @@ class ModelBase(object):
 
     @classmethod
     def find_all(cls, **kwargs):
-        return db_api.find_all_by(cls, **cls._get_conditions(kwargs))
+        return Query(cls, cls._get_conditions(kwargs))
 
     @classmethod
     def with_limits(cls, query, **kwargs):
+        query = db_api._query_by(query.model, **query.conditions)
         return db_api.limits(cls, query, **kwargs)
 
     def merge_attributes(self, values):
@@ -267,7 +284,7 @@ class IpBlock(ModelBase):
     def delete(self):
         for block in self.subnets():
             block.delete()
-        db_api.delete_all(IpAddress.find_all(ip_block_id=self.id))
+        db_api.delete_all(IpAddress, ip_block_id=self.id)
         super(IpBlock, self).delete()
 
     def policy(self):
@@ -545,10 +562,10 @@ class Policy(ModelBase):
         self._validate_presence_of('name')
 
     def delete(self):
-        db_api.delete_all(self.unusable_ip_ranges)
-        db_api.delete_all(self.unusable_ip_octets)
+        db_api.delete_all(IpRange, policy_id=self.id)
+        db_api.delete_all(IpOctet, policy_id=self.id)
         ip_blocks = IpBlock.find_all(policy_id=self.id)
-        ip_blocks.update(dict(policy_id=None))
+        ip_blocks.update(policy_id=None)
         super(Policy, self).delete()
 
     def create_unusable_range(self, **attributes):
@@ -561,11 +578,11 @@ class Policy(ModelBase):
 
     @cached_property
     def unusable_ip_ranges(self):
-        return IpRange.find_all(policy_id=self.id)
+        return IpRange.find_all(policy_id=self.id).all()
 
     @cached_property
     def unusable_ip_octets(self):
-        return IpOctet.find_all(policy_id=self.id)
+        return IpOctet.find_all(policy_id=self.id).all()
 
     def allows(self, cidr, address):
         if (any(ip_octet.applies_to(address)

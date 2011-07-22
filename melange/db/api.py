@@ -21,10 +21,13 @@ from melange.common import utils
 from melange.db import session
 
 
-def find_all_by(cls, **kwargs):
+def find_all_by(cls, **conditions):
+    return _query_by(cls, **conditions).all()
+
+def _query_by(cls, **conditions):
     query = base_query(cls)
-    if kwargs:
-        query = query.filter_by(**kwargs)
+    if conditions:
+        query = query.filter_by(**conditions)
     return query
 
 
@@ -36,7 +39,7 @@ def limits(cls, query, limit=200, marker=None, marker_column=None):
 
 
 def find_by(cls, **kwargs):
-    return find_all_by(cls, **kwargs).first()
+    return _query_by(cls, **kwargs).first()
 
 
 def save(model):
@@ -57,7 +60,7 @@ def find_inside_globals_for(local_address_id, **kwargs):
     marker = kwargs.pop('marker', None)
 
     kwargs["inside_local_address_id"] = local_address_id
-    query = limits(_ip_nat(), find_all_by(_ip_nat(), **kwargs),
+    query = limits(_ip_nat(), _query_by(_ip_nat(), **kwargs),
                    limit, marker, marker_column)
     return [nat.inside_global_address for nat in query]
 
@@ -68,7 +71,7 @@ def find_inside_locals_for(global_address_id, **kwargs):
     marker = kwargs.pop('marker', None)
 
     kwargs["inside_global_address_id"] = global_address_id
-    query = limits(_ip_nat(), find_all_by(_ip_nat(), **kwargs),
+    query = limits(_ip_nat(), _query_by(_ip_nat(), **kwargs),
                    limit, marker, marker_column)
     return [nat.inside_local_address for nat in query]
 
@@ -130,13 +133,13 @@ def find_natted_ips(**kwargs):
 
 
 def find_all_blocks_with_deallocated_ips():
-    return find_all_by(_ip_block()).\
+    return base_query(_ip_block()).\
            join(_ip_address()).\
            filter(_ip_address().marked_for_deallocation == True)
 
 
 def delete_deallocated_ips(deallocated_by, **kwargs):
-    return delete_all(find_all_by(_ip_address(), **kwargs).\
+    return _delete_all(_query_by(_ip_address(), **kwargs).\
            filter_by(marked_for_deallocation=True).\
            filter(_ip_address().deallocated_at <= deallocated_by))
 
@@ -144,7 +147,7 @@ def delete_deallocated_ips(deallocated_by, **kwargs):
 def find_all_top_level_blocks_in_network(network_id):
     parent_block = aliased(_ip_block(), name="parent_block")
 
-    return find_all_by(_ip_block()).\
+    return base_query(_ip_block()).\
         outerjoin((parent_block,
                    and_(_ip_block().parent_id == parent_block.id,
                         parent_block.network_id == network_id))).\
@@ -164,5 +167,14 @@ def _ip_address():
     return session.models()["IpAddress"]
 
 
-def delete_all(models):
-    models.update({'deleted': True})
+def delete_all(model, **conditions):
+    _delete_all(_query_by(model, **conditions))
+
+
+def _delete_all(query):
+    query.update({'deleted': True})
+
+
+def update_all(model, conditions, values):
+    _query_by(model, **conditions).update(values)
+    

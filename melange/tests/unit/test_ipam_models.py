@@ -584,8 +584,8 @@ class TestIpBlock(BaseTest):
                               PrivateIpBlockFactory(cidr="10.4.0.1/28")])
 
         marker_block = blocks[1]
-        paginated_blocks = IpBlock.with_limits(IpBlock.find_all(),
-                                     limit=2, marker=marker_block.id).all()
+        paginated_blocks = IpBlock.find_all().limit(
+            limit=2, marker=marker_block.id)
 
         self.assertEqual(len(paginated_blocks), 2)
         self.assertEqual(paginated_blocks, [blocks[2], blocks[3]])
@@ -736,9 +736,8 @@ class TestIpAddress(BaseTest):
         marker = ips[1].id
         addrs_after_marker = [ips[i].address for i in range(2, 6)]
 
-        ip_addresses = IpAddress.with_limits(
-                                 IpAddress.find_all(ip_block_id=block.id),
-                                 limit=3, marker=marker)
+        ip_addresses = IpAddress.find_all(ip_block_id=block.id).limit(
+            limit=3, marker=marker)
         limited_addrs = [ip.address for ip in ip_addresses]
         self.assertEqual(len(limited_addrs), 3)
         self.assertItemsEqual(addrs_after_marker[0: 3], limited_addrs)

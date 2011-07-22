@@ -69,13 +69,12 @@ class IpBlockController(BaseController):
         type_dict = filter_dict(request.params, 'type')
         print type_dict
         if type_dict:
-            all_ips = IpBlock.find_all(tenant_id=tenant_id,
+            all_blocks = IpBlock.find_all(tenant_id=tenant_id,
                                        **type_dict)
         else:
-            all_ips = IpBlock.find_all(tenant_id=tenant_id)
+            all_blocks = IpBlock.find_all(tenant_id=tenant_id)
 
-        blocks = IpBlock.with_limits(all_ips,
-                                     **self._extract_limits(request.params))
+        blocks = all_blocks.limit(**self._extract_limits(request.params))
         return dict(ip_blocks=[ip_block.data() for ip_block in blocks])
 
     def create(self, request, tenant_id=None):
@@ -121,9 +120,8 @@ class IpAddressController(BaseController):
 
     def index(self, request, ip_block_id, tenant_id=None):
         ip_block = self._find_block(id=ip_block_id, tenant_id=tenant_id)
-        find_all_query = IpAddress.find_all(ip_block_id=ip_block.id)
-        addresses = IpAddress.with_limits(find_all_query,
-                                       **self._extract_limits(request.params))
+        addresses = IpAddress.find_all(ip_block_id=ip_block.id).\
+            limit(**self._extract_limits(request.params))
 
         return dict(ip_addresses=[ip_address.data()
                                    for ip_address in addresses])
@@ -201,8 +199,8 @@ class UnusableIpRangesController(BaseController):
     def index(self, request, policy_id, tenant_id=None):
         policy = Policy.find_by(id=policy_id,
                                       tenant_id=tenant_id)
-        ip_ranges = IpRange.with_limits(IpRange.find_all(policy_id=policy.id),
-                                        **self._extract_limits(request.params))
+        ip_ranges = IpRange.find_all(policy_id=policy.id).limit(
+            **self._extract_limits(request.params))
         return dict(ip_ranges=[ip_range.data() for ip_range in ip_ranges])
 
     def update(self, request, policy_id, id, tenant_id=None):
@@ -222,8 +220,8 @@ class UnusableIpOctetsController(BaseController):
 
     def index(self, request, policy_id, tenant_id=None):
         policy = Policy.find_by(id=policy_id, tenant_id=tenant_id)
-        ip_octets = IpOctet.with_limits(IpOctet.find_all(policy_id=policy.id),
-                                        **self._extract_limits(request.params))
+        ip_octets = IpOctet.find_all(policy_id=policy.id).limit(
+            **self._extract_limits(request.params))
         return dict(ip_octets=[ip_octet.data() for ip_octet in ip_octets])
 
     def create(self, request, policy_id, tenant_id=None):
@@ -255,8 +253,8 @@ class PoliciesController(BaseController):
     exclude_attr = ['tenant_id']
 
     def index(self, request, tenant_id=None):
-        policies = Policy.with_limits(Policy.find_all(tenant_id=tenant_id),
-                                      **self._extract_limits(request.params))
+        policies = Policy.find_all(tenant_id=tenant_id).limit(
+            **self._extract_limits(request.params))
         return dict(policies=[policy.data() for policy in policies])
 
     def show(self, request, id, tenant_id=None):

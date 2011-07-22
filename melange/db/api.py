@@ -24,18 +24,9 @@ from melange.db import session
 def find_all_by(cls, **conditions):
     return _query_by(cls, **conditions).all()
 
-def _query_by(cls, **conditions):
-    query = base_query(cls)
-    if conditions:
-        query = query.filter_by(**conditions)
-    return query
 
-
-def limits(cls, query, limit=200, marker=None, marker_column=None):
-    marker_column = marker_column or cls.id
-    if (marker is not None):
-        query = query.filter(marker_column > marker)
-    return query.order_by(marker_column).limit(limit)
+def find_all_by_limit(cls, conditions, limit, marker=None, marker_column=None):
+    return _limits(cls, conditions, limit, marker, marker_column).all()
 
 
 def find_by(cls, **kwargs):
@@ -52,6 +43,19 @@ def save(model):
 def delete(model):
     model.deleted = True
     save(model)
+    
+
+def delete_all(model, **conditions):
+    _delete_all(_query_by(model, **conditions))
+
+
+def update(model, values):
+    for k, v in values.iteritems():
+        model[k] = v
+
+
+def update_all(model, conditions, values):
+    _query_by(model, **conditions).update(values)
 
 
 def find_inside_globals_for(local_address_id, **kwargs):
@@ -60,8 +64,8 @@ def find_inside_globals_for(local_address_id, **kwargs):
     marker = kwargs.pop('marker', None)
 
     kwargs["inside_local_address_id"] = local_address_id
-    query = limits(_ip_nat(), _query_by(_ip_nat(), **kwargs),
-                   limit, marker, marker_column)
+    query = _limits(_ip_nat(), kwargs,
+                    limit, marker, marker_column)
     return [nat.inside_global_address for nat in query]
 
 
@@ -71,19 +75,9 @@ def find_inside_locals_for(global_address_id, **kwargs):
     marker = kwargs.pop('marker', None)
 
     kwargs["inside_global_address_id"] = global_address_id
-    query = limits(_ip_nat(), _query_by(_ip_nat(), **kwargs),
-                   limit, marker, marker_column)
+    query = _limits(_ip_nat(), kwargs,
+                    limit, marker, marker_column)
     return [nat.inside_local_address for nat in query]
-
-
-def base_query(cls):
-    return session.get_session().query(cls).\
-           filter(or_(cls.deleted == False, cls.deleted == None))
-
-
-def update(model, values):
-    for k, v in values.iteritems():
-        model[k] = v
 
 
 def save_nat_relationships(nat_relationships):
@@ -128,12 +122,12 @@ def remove_natted_ips(_filter_by_natted_address, natted_address, **kwargs):
 
 
 def find_natted_ips(**kwargs):
-    return base_query(_ip_nat()).\
+    return _base_query(_ip_nat()).\
                  filter_by(**kwargs)
 
 
 def find_all_blocks_with_deallocated_ips():
-    return base_query(_ip_block()).\
+    return _base_query(_ip_block()).\
            join(_ip_address()).\
            filter(_ip_address().marked_for_deallocation == True)
 
@@ -147,7 +141,7 @@ def delete_deallocated_ips(deallocated_by, **kwargs):
 def find_all_top_level_blocks_in_network(network_id):
     parent_block = aliased(_ip_block(), name="parent_block")
 
-    return base_query(_ip_block()).\
+    return _base_query(_ip_block()).\
         outerjoin((parent_block,
                    and_(_ip_block().parent_id == parent_block.id,
                         parent_block.network_id == network_id))).\
@@ -167,14 +161,25 @@ def _ip_address():
     return session.models()["IpAddress"]
 
 
-def delete_all(model, **conditions):
-    _delete_all(_query_by(model, **conditions))
-
-
 def _delete_all(query):
     query.update({'deleted': True})
 
 
-def update_all(model, conditions, values):
-    _query_by(model, **conditions).update(values)
-    
+def _base_query(cls):
+    return session.get_session().query(cls).\
+           filter(or_(cls.deleted == False, cls.deleted == None))
+
+
+def _query_by(cls, **conditions):
+    query = _base_query(cls)
+    if conditions:
+        query = query.filter_by(**conditions)
+    return query
+
+
+def _limits(cls, conditions, limit, marker, marker_column=None):
+    query = _query_by(cls, **conditions)
+    marker_column = marker_column or cls.id
+    if (marker is not None):
+        query = query.filter(marker_column > marker)
+    return query.order_by(marker_column).limit(limit)

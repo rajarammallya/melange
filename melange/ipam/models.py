@@ -46,6 +46,12 @@ class Query(object):
     def update(self, **values):
         db_api.update_all(self.model, self.conditions, values)
 
+    def limit(self, limit=200, marker=None, marker_column=None):
+        return db_api.find_all_by_limit(self.model, self.conditions,
+                                        limit=limit, marker=marker,
+                                        marker_column=marker_column)
+
+
 
 class ModelBase(object):
     _columns = {}
@@ -142,11 +148,6 @@ class ModelBase(object):
     @classmethod
     def find_all(cls, **kwargs):
         return Query(cls, cls._get_conditions(kwargs))
-
-    @classmethod
-    def with_limits(cls, query, **kwargs):
-        query = db_api._query_by(query.model, **query.conditions)
-        return db_api.limits(cls, query, **kwargs)
 
     def merge_attributes(self, values):
         """dict.update() behaviour."""

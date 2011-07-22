@@ -33,21 +33,24 @@ from melange.common import data_types
 
 class Query(object):
 
-    def __init__(self, model, conditions={}):
-        self.model  = model
-        self.conditions = conditions
+    def __init__(self, model, **conditions):
+        self._model  = model
+        self._conditions = conditions
 
     def all(self):
-        return db_api.find_all_by(self.model, **self.conditions)
+        return db_api.find_all_by(self._model, **self._conditions)
 
     def __iter__(self):
         return iter(self.all())
 
     def update(self, **values):
-        db_api.update_all(self.model, self.conditions, values)
+        db_api.update_all(self._model, self._conditions, values)
+
+    def delete(self):
+        db_api.delete_all(self._model, **self._conditions)
 
     def limit(self, limit=200, marker=None, marker_column=None):
-        return db_api.find_all_by_limit(self.model, self.conditions,
+        return db_api.find_all_by_limit(self._model, self._conditions,
                                         limit=limit, marker=marker,
                                         marker_column=marker_column)
 
@@ -147,7 +150,7 @@ class ModelBase(object):
 
     @classmethod
     def find_all(cls, **kwargs):
-        return Query(cls, cls._get_conditions(kwargs))
+        return Query(cls, **cls._get_conditions(kwargs))
 
     def merge_attributes(self, values):
         """dict.update() behaviour."""
@@ -285,7 +288,7 @@ class IpBlock(ModelBase):
     def delete(self):
         for block in self.subnets():
             block.delete()
-        db_api.delete_all(IpAddress, ip_block_id=self.id)
+        IpAddress.find_all(ip_block_id=self.id).delete()
         super(IpBlock, self).delete()
 
     def policy(self):
@@ -563,10 +566,9 @@ class Policy(ModelBase):
         self._validate_presence_of('name')
 
     def delete(self):
-        db_api.delete_all(IpRange, policy_id=self.id)
-        db_api.delete_all(IpOctet, policy_id=self.id)
-        ip_blocks = IpBlock.find_all(policy_id=self.id)
-        ip_blocks.update(policy_id=None)
+        IpRange.find_all(policy_id=self.id).delete()
+        IpOctet.find_all(policy_id=self.id).delete()
+        IpBlock.find_all(policy_id=self.id).update(policy_id=None)
         super(Policy, self).delete()
 
     def create_unusable_range(self, **attributes):

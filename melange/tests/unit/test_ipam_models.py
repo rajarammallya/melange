@@ -23,7 +23,7 @@ from melange.tests.unit import StubConfig, StubTime
 from melange.common import data_types
 from melange.common.utils import cached_property
 from melange.ipam.models import (ModelBase, IpBlock, IpAddress, Policy,
-                                 IpRange, IpOctet, Network)
+                                 IpRange, IpOctet, Network, Query)
 from melange.ipam.models import (ModelNotFoundError, NoMoreAddressesError,
                                  AddressDoesNotBelongError,
                                  DuplicateAddressError,
@@ -101,6 +101,63 @@ class TestModelBase(BaseTest):
         self.assertNotEqual(ModelBase(), ModelBase())
         self.assertNotEqual(ModelBase(id=1), ModelBase(id=2))
         self.assertNotEqual(IpBlock(id=1), IpAddress(id=1))
+
+
+class TestQuery(BaseTest):
+
+    def test_all(self):
+        block1 = IpBlockFactory(network_id="1")
+        block2 = IpBlockFactory(network_id="1")
+        noise_block = IpBlockFactory(network_id="999")
+
+        blocks = Query(IpBlock, network_id="1").all()
+
+        self.assertModelsEqual(blocks, [block1, block2])
+
+    def test_query_is_iterble(self):
+        block1 = IpBlockFactory(network_id="1")
+        block2 = IpBlockFactory(network_id="1")
+        noise_block = IpBlockFactory(network_id="999")
+
+        query = Query(IpBlock, network_id="1")
+        blocks = [block for block in query]
+
+        self.assertModelsEqual(blocks, [block1, block2])
+
+    def test_limit_with_given_marker(self):
+        blocks = models.sort([IpBlockFactory(cidr="10.2.0.1/28"),
+                              IpBlockFactory(cidr="10.3.0.1/28"),
+                              IpBlockFactory(cidr="10.1.0.1/28"),
+                              IpBlockFactory(cidr="10.4.0.1/28")])
+
+        marker_block = blocks[1]
+        paginated_blocks = Query(IpBlock).limit(limit=2,
+                                                marker=marker_block.id)
+
+        self.assertEqual(len(paginated_blocks), 2)
+        self.assertEqual(paginated_blocks, [blocks[2], blocks[3]])
+
+    def test_update(self):
+        block1 = IpBlockFactory(network_id="1")
+        block2 = IpBlockFactory(network_id="1")
+        noise_block = IpBlockFactory(network_id="999")
+
+        Query(IpBlock, network_id="1").update(network_id="2")
+
+        self.assertEqual(IpBlock.find(block1.id).network_id, "2")
+        self.assertEqual(IpBlock.find(block2.id).network_id, "2")
+        self.assertNotEqual(IpBlock.find(noise_block.id).network_id, "2")
+
+    def test_delete(self):
+        block1 = IpBlockFactory(network_id="1")
+        block2 = IpBlockFactory(network_id="1")
+        noise_block = IpBlockFactory(network_id="999")
+
+        Query(IpBlock, network_id="1").delete()
+
+        self.assertIsNone(IpBlock.get(block1.id))
+        self.assertIsNone(IpBlock.get(block2.id))
+        self.assertIsNotNone(IpBlock.get(noise_block.id))
 
 
 class MockIpV6Generator(object):
@@ -577,19 +634,6 @@ class TestIpBlock(BaseTest):
         self.assertItemsEqual(["10.2.0.0/28", "10.3.0.0/28", "10.1.0.0/28"],
                     [block.cidr for block in blocks])
 
-    def test_find_all_ip_blocks_with_pagination(self):
-        blocks = models.sort([PrivateIpBlockFactory(cidr="10.2.0.1/28"),
-                              PrivateIpBlockFactory(cidr="10.3.0.1/28"),
-                              PrivateIpBlockFactory(cidr="10.1.0.1/28"),
-                              PrivateIpBlockFactory(cidr="10.4.0.1/28")])
-
-        marker_block = blocks[1]
-        paginated_blocks = IpBlock.find_all().limit(
-            limit=2, marker=marker_block.id)
-
-        self.assertEqual(len(paginated_blocks), 2)
-        self.assertEqual(paginated_blocks, [blocks[2], blocks[3]])
-
     def test_delete(self):
         ip_block = PrivateIpBlockFactory(cidr="10.0.0.0/29")
         ip_block.delete()
@@ -729,18 +773,6 @@ class TestIpBlock(BaseTest):
 
 
 class TestIpAddress(BaseTest):
-
-    def test_limited_find_all(self):
-        block = PrivateIpBlockFactory(cidr="10.0.0.1/8")
-        ips = models.sort([block.allocate_ip() for i in range(6)])
-        marker = ips[1].id
-        addrs_after_marker = [ips[i].address for i in range(2, 6)]
-
-        ip_addresses = IpAddress.find_all(ip_block_id=block.id).limit(
-            limit=3, marker=marker)
-        limited_addrs = [ip.address for ip in ip_addresses]
-        self.assertEqual(len(limited_addrs), 3)
-        self.assertItemsEqual(addrs_after_marker[0: 3], limited_addrs)
 
     def test_find_ip_address(self):
         block = PrivateIpBlockFactory(cidr="10.0.0.1/8")

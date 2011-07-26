@@ -16,6 +16,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 import logging
+import optparse
 from melange.common import config
 from melange.ipam.models import IpBlock, models
 from melange.db import session
@@ -26,11 +27,15 @@ def _configure_db_session(conf):
     session.configure_db(conf)
     session.configure_sqlalchemy_log(conf)
 
+
 def _load_app_environment():
-    conf_file, conf = config.load_paste_config('melange', {}, [])
-    config.setup_logging(options={}, conf=conf)
+    oparser = optparse.OptionParser()
+    config.add_log_options(oparser)
+    (options, args) = config.parse_options(oparser)
+    conf_file, conf = config.load_paste_config('melange', options, args)
+    config.setup_logging(options=options, conf=conf)
     _configure_db_session(conf)
-    
+
 
 if __name__ == '__main__':
     try:

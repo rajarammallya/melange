@@ -15,38 +15,26 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
-from apscheduler.scheduler import Scheduler
+import logging
 from melange.common import config
 from melange.ipam.models import IpBlock, models
 from melange.db import session
-from time import sleep
 
-class ScheduledJobs(object):
 
-    def __init__(self):
-        self.scheduler = Scheduler()
-
-    def start(self):
-        self.scheduler.daemonic = False
-        self.scheduler.start()
-        self.scheduler.add_interval_job(
-            IpBlock.delete_all_deallocated_ips, seconds=5)
-
-    def stop(self):
-        self.scheduler.shutdown(0)
-
-def _configure_session(conf):
+def _configure_db_session(conf):
     conf["models"] = models()
     session.configure_db(conf)
     session.configure_sqlalchemy_log(conf)
+
+def _load_app_environment():
+    conf_file, conf = config.load_paste_config('melange', {}, [])
+    config.setup_logging(options={}, conf=conf)
+    _configure_db_session(conf)
     
 
 if __name__ == '__main__':
     try:
-        conf, app = config.load_paste_app('melange', {}, [])
-        _configure_session(conf)
-        scheduled_jobs = ScheduledJobs()
-        scheduled_jobs.start()
+        _load_app_environment()
+        IpBlock.delete_all_deallocated_ips()
     except RuntimeError, e:
         sys.exit("ERROR: %s" % e)

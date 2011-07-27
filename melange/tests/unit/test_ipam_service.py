@@ -226,7 +226,7 @@ class IpBlockControllerBase():
         response_blocks = response.json['ip_blocks']
         self.assertEqual(response.status, "200 OK")
         self.assertEqual(len(response_blocks), 2)
-        self.assertEqual(response.json["ip_blocks_links"], [])
+        self.assertTrue("ip_blocks_links" not in response.json)
 
 
 class TestGlobalIpBlockController(IpBlockControllerBase, BaseTestController):

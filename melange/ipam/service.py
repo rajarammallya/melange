@@ -25,7 +25,8 @@ from melange.common.config import Config
 from melange.ipam import models
 from melange.ipam.models import (IpBlock, IpAddress, Policy, IpRange,
                                  IpOctet, Network)
-from melange.common.utils import exclude, stringify_keys, filter_dict
+from melange.common.utils import (exclude, stringify_keys, filter_dict,
+                                  merge_dicts)
 
 
 class BaseController(wsgi.Controller):
@@ -63,10 +64,18 @@ class BaseController(wsgi.Controller):
         query_params["marker"] = marker
         return request.path_url + "?" + urllib.urlencode(query_params)
 
-    def _create_traversal_links(self, request, next_marker=None):
+    def _traversal_links(self, request, link_key, next_marker=None):
         if not next_marker:
-            return []
-        return [dict(rel='next', href=self._create_link(request, next_marker))]
+            return {}
+        next_link = dict(rel='next', href=self._create_link(request, next_marker))
+        return {link_key: [next_link]}
+
+    def _paginated_response(self, request, collection_query, data_key, link_key):
+        elements, next_marker = collection_query.paginated_collection(
+            **self._extract_limits(request.params))
+        data = {data_key : [element.data() for element in elements]}
+        links = self._traversal_links(request, link_key, next_marker)
+        return merge_dicts(data, links)
 
 
 class IpBlockController(BaseController):
@@ -78,13 +87,8 @@ class IpBlockController(BaseController):
 
     def index(self, request, tenant_id=None):
         type_dict = filter_dict(request.params, 'type')
-        all_blocks = IpBlock.find_all(tenant_id=tenant_id,
-                                       **type_dict)
-        blocks, next_marker = all_blocks.paginated_collection(
-                 **self._extract_limits(request.params))
-        ip_blocks_links = self._create_traversal_links(request, next_marker)
-        return dict(ip_blocks=[ip_block.data() for ip_block in blocks],
-                    ip_blocks_links=ip_blocks_links)
+        all_blocks = IpBlock.find_all(tenant_id=tenant_id, **type_dict)
+        return self._paginated_response(request, all_blocks, 'ip_blocks', 'ip_blocks_links')
 
     def create(self, request, tenant_id=None):
         params = self._extract_required_params(request, 'ip_block')

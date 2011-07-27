@@ -224,6 +224,13 @@ def find(predicate, items):
             return item
 
 
+def merge_dicts(*dictionaries):
+    merged_dict = dict()
+    for dictionary in dictionaries:
+        merged_dict = dict(merged_dict.items() + dictionary.items())
+    return merged_dict
+
+
 def guid():
     return str(uuid.uuid4())
 

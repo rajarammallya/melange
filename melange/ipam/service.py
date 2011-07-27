@@ -133,11 +133,9 @@ class IpAddressController(BaseController):
 
     def index(self, request, ip_block_id, tenant_id=None):
         ip_block = self._find_block(id=ip_block_id, tenant_id=tenant_id)
-        addresses = IpAddress.find_all(ip_block_id=ip_block.id).\
-            limit(**self._extract_limits(request.params))
-
-        return dict(ip_addresses=[ip_address.data()
-                                   for ip_address in addresses])
+        addresses = IpAddress.find_all(ip_block_id=ip_block.id)
+        return self._paginated_response(request, addresses, 'ip_addresses',
+                                        'ip_addresses_links')
 
     def show(self, request, address, ip_block_id, tenant_id=None):
         ip_block = self._find_block(id=ip_block_id, tenant_id=tenant_id)

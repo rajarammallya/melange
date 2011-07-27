@@ -513,9 +513,15 @@ class IpAddressControllerBase(object):
                 self.address_path(block), ips[1].id))
 
         ip_addresses = response.json["ip_addresses"]
+        next_link = response.json["ip_addresses_links"][0]['href']
+        expected_next_link = string.replace(response.request.url,
+                                        "marker=%s" % ips[1].id,
+                                        "marker=%s" % ips[3].id)
+
         self.assertEqual(len(ip_addresses), 2)
         self.assertEqual(ip_addresses[0]['address'], ips[2].address)
         self.assertEqual(ip_addresses[1]['address'], ips[3].address)
+        self.assertUrlEqual(expected_next_link, next_link)
 
     def test_restore_deallocated_ip(self):
         block = self.ip_block_factory()

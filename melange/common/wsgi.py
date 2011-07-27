@@ -23,10 +23,12 @@ import inspect
 import json
 import logging
 import sys
+import re
 import eventlet.wsgi
 import routes.middleware
 import webob.dec
 import webob.exc
+import paste.urlmap
 from webob import Response
 from xml.dom import minidom
 from webob.exc import HTTPBadRequest, HTTPInternalServerError, HTTPError
@@ -37,6 +39,30 @@ from melange.common.exception import MelangeError
 eventlet.patcher.monkey_patch(all=False, socket=True)
 
 LOG = logging.getLogger('melange.wsgi')
+
+
+def versioned_urlmap(*args, **kwargs):
+    urlmap = paste.urlmap.urlmap_factory(*args, **kwargs)
+    return VersionedURLMap(urlmap)
+
+
+class VersionedURLMap(object):
+
+    _accept_version = re.compile(".*application/vnd.openstack.melange"
+                                 "(\+xml|\+json)?;"
+                                 "version=(?P<version_no>\d+\.?\d*)")
+
+    def __init__(self, urlmap):
+        self.urlmap = urlmap
+
+    def __call__(self, environ, start_response):
+        req = webob.Request(environ)
+        accept = environ.get('HTTP_ACCEPT', "")
+        match = self._accept_version.search(accept)
+        version = "/v" + match.group("version_no") if match else None
+        if version is not None and version in self.urlmap:
+            return self.urlmap[version](environ, start_response)
+        return self.urlmap(environ, start_response)
 
 
 class WritableLogger(object):

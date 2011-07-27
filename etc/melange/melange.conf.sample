@@ -38,7 +38,7 @@ default_cidr = 10.0.0.0/24
 nameserver = "ns.example.com"
 
 [composite:melange]
-use = egg:Paste#urlmap
+use = call:melange.common.wsgi:versioned_urlmap
 /: versions
 /v0.1: melangeapi
 

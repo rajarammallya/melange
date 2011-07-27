@@ -17,8 +17,9 @@
 import os
 import socket
 import subprocess
+import shutil
 
-from melange import melange_bin_path
+from melange import melange_bin_path, melange_etc_path
 from melange.tests.functional.server import Server
 from melange.common import config
 from melange.ipam import models
@@ -30,6 +31,8 @@ _PORT = None
 
 def setup():
     print "Restarting melange server..."
+    shutil.copyfile(melange_etc_path("melange.conf.sample"),
+                    os.path.expanduser("~/melange.conf"))
     server = Server("melange", melange_bin_path('melange'))
     server.restart(port=setup_unused_port())
     _setup_db()

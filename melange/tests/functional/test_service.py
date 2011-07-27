@@ -42,6 +42,15 @@ class TestServiceConf(unittest.TestCase):
         self.assertEqual(response.status, 200)
         self.assertTrue("ip_blocks" in response.read())
 
+    def test_ipam_service_can_be_accessed_with_mime_type_versioning(self):
+        headers = {'X_ROLE': 'Admin',
+                   'Accept': "application/vnd.openstack.melange+xml;"
+                   "version=0.1"}
+        response = self.client.get("/ipam/ip_blocks", headers=headers)
+
+        self.assertEqual(response.status, 200)
+        self.assertTrue("ip_blocks" in response.read())
+
 
 class TestAuthMiddleware(unittest.TestCase):
     def setUp(self):

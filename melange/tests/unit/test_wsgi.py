@@ -24,6 +24,66 @@ from webob.exc import (HTTPNotFound, HTTPBadRequest,
 from melange.common import wsgi
 
 
+class StubApp(object):
+    def __init__(self):
+        self.called = False
+
+    def __call__(self, environ, start_response):
+        self.environ = environ
+        self.start_response = start_response
+        self.called = True
+
+
+class StubUrlMap(StubApp, dict):
+
+    def __init__(self, dictionary):
+        self.update(dictionary)
+        super(StubUrlMap, self).__init__()
+
+
+class VersionedURLMapTest(BaseTest):
+
+    def setUp(self):
+        self.v1_app = StubApp()
+        self.v2_app = StubApp()
+        self.root_app = StubApp()
+        self.urlmap = StubUrlMap({'/v2.0': self.v2_app,
+                                  '/v1.0': self.v1_app,
+                                  '/': self.root_app})
+        self.versioned_urlmap = wsgi.VersionedURLMap(self.urlmap)
+
+    def test_chooses_app_based_on_mime_type_version(self):
+        environ = {'HTTP_ACCEPT': "application/vnd.openstack.melange+xml;"
+                   "version=1.0"}
+        self.versioned_urlmap(environ=environ, start_response=None)
+
+        self.assertTrue(self.v1_app.called)
+
+    def test_delegates_to_urlmapper_when_accept_header_is_absent(self):
+        self.versioned_urlmap(environ={}, start_response=None)
+
+        self.assertTrue(self.urlmap.called)
+
+    def test_delegates_to_urlmapper_for_standard_accept_headers(self):
+        environ = {'HTTP_ACCEPT': "application/json"}
+        self.versioned_urlmap(environ=environ, start_response=None)
+
+        self.assertTrue(self.urlmap.called)
+
+    def test_delegates_to_urlmapper_for_nonexistant_version_of_app(self):
+        environ = {'HTTP_ACCEPT': "application/vnd.openstack.melange+xml;"
+                   "version=9.0"}
+        self.versioned_urlmap(environ=environ, start_response=None)
+
+        self.assertTrue(self.urlmap.called)
+
+    def test_delegates_to_urlmapper_for_std_accept_headers_with_version(self):
+        environ = {'HTTP_ACCEPT': "application/json;version=1.0"}
+        self.versioned_urlmap(environ=environ, start_response=None)
+
+        self.assertTrue(self.urlmap.called)
+
+
 class RequestTest(BaseTest):
     def test_content_type_missing_defaults_to_json(self):
         request = wsgi.Request.blank('/tests/123')

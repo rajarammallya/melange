@@ -16,6 +16,7 @@
 #    under the License.
 import json
 import routes
+import urllib
 from webob.exc import (HTTPUnprocessableEntity, HTTPBadRequest,
                        HTTPNotFound, HTTPConflict)
 
@@ -57,6 +58,16 @@ class BaseController(wsgi.Controller):
     def _get_addresses(self, ips):
         return dict(ip_addresses=[ip_address.data() for ip_address in ips])
 
+    def _create_link(self, request, marker):
+        query_params = dict(request.str_GET.items())
+        query_params["marker"] = marker
+        return request.path_url + "?" + urllib.urlencode(query_params)
+
+    def _create_traversal_links(self, request, next_marker=None):
+        if not next_marker:
+            return []
+        return [dict(rel='next', href=self._create_link(request, next_marker))]
+
 
 class IpBlockController(BaseController):
 
@@ -67,15 +78,13 @@ class IpBlockController(BaseController):
 
     def index(self, request, tenant_id=None):
         type_dict = filter_dict(request.params, 'type')
-        print type_dict
-        if type_dict:
-            all_blocks = IpBlock.find_all(tenant_id=tenant_id,
+        all_blocks = IpBlock.find_all(tenant_id=tenant_id,
                                        **type_dict)
-        else:
-            all_blocks = IpBlock.find_all(tenant_id=tenant_id)
-
-        blocks = all_blocks.limit(**self._extract_limits(request.params))
-        return dict(ip_blocks=[ip_block.data() for ip_block in blocks])
+        blocks, next_marker = all_blocks.paginated_collection(
+                 **self._extract_limits(request.params))
+        ip_blocks_links = self._create_traversal_links(request, next_marker)
+        return dict(ip_blocks=[ip_block.data() for ip_block in blocks],
+                    ip_blocks_links=ip_blocks_links)
 
     def create(self, request, tenant_id=None):
         params = self._extract_required_params(request, 'ip_block')

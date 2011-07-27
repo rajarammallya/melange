@@ -15,6 +15,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 import unittest
+from urlparse import parse_qs
 from melange.db import session
 
 
@@ -52,3 +53,8 @@ class BaseTest(unittest.TestCase):
     def assertModelsEqual(self, expected, actual):
         self.assertEqual(sorted(expected, key=lambda model: model.id),
                          sorted(actual, key=lambda model: model.id))
+
+    def assertUrlEqual(self, expected, actual):
+        self.assertEqual(expected.partition("?")[0], actual.partition("?")[0])
+        self.assertEqual(parse_qs(expected.partition("?")[2]),
+                         parse_qs(actual.partition("?")[2]))

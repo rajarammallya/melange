@@ -14,7 +14,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-from sqlalchemy import or_, select, and_
+from sqlalchemy import or_, and_
 from sqlalchemy.orm import aliased
 
 from melange.common import utils

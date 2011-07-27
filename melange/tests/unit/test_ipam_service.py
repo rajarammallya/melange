@@ -18,9 +18,10 @@ import json
 import routes
 import unittest
 import mox
+import string
 from melange.tests.unit import TestApp, sanitize
 from webob.exc import (HTTPUnprocessableEntity, HTTPBadRequest,
-                       HTTPNotFound, HTTPConflict)
+                       HTTPNotFound)
 from melange.tests import BaseTest
 from melange.tests.unit import test_config_path
 from melange.common import config, wsgi, utils
@@ -193,17 +194,39 @@ class IpBlockControllerBase():
         blocks = [IpBlockFactory(**self._ip_block_args(cidr="10.1.1.0/32")),
                   IpBlockFactory(**self._ip_block_args(cidr='10.2.1.0/32')),
                   IpBlockFactory(**self._ip_block_args(cidr='10.3.1.0/32')),
-                  IpBlockFactory(**self._ip_block_args(cidr='10.4.1.0/32'))]
+                  IpBlockFactory(**self._ip_block_args(cidr='10.4.1.0/32')),
+                  IpBlockFactory(**self._ip_block_args(cidr='10.5.1.0/32'))]
 
         blocks = models.sort(blocks)
 
         response = self.app.get("%s?limit=2&marker=%s"
                                 % (self.ip_block_path, blocks[1].id))
 
+        next_link = response.json["ip_blocks_links"][0]['href']
         response_blocks = response.json['ip_blocks']
+        expected_next_link = string.replace(response.request.url,
+                                        "marker=%s" % blocks[1].id,
+                                        "marker=%s" % blocks[3].id)
+
         self.assertEqual(response.status, "200 OK")
         self.assertEqual(len(response_blocks), 2)
         self.assertItemsEqual(response_blocks, _data([blocks[2], blocks[3]]))
+        self.assertUrlEqual(expected_next_link, next_link)
+
+    def test_index_with_pagination_have_no_next_link_for_last_page(self):
+        blocks = [IpBlockFactory(**self._ip_block_args(cidr="10.1.1.0/32")),
+                  IpBlockFactory(**self._ip_block_args(cidr='10.2.1.0/32')),
+                  IpBlockFactory(**self._ip_block_args(cidr='10.3.1.0/32'))]
+
+        blocks = models.sort(blocks)
+
+        response = self.app.get("%s?limit=2&marker=%s"
+                                % (self.ip_block_path, blocks[0].id))
+
+        response_blocks = response.json['ip_blocks']
+        self.assertEqual(response.status, "200 OK")
+        self.assertEqual(len(response_blocks), 2)
+        self.assertEqual(response.json["ip_blocks_links"], [])
 
 
 class TestGlobalIpBlockController(IpBlockControllerBase, BaseTestController):

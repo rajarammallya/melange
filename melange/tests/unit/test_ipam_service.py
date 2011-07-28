@@ -27,7 +27,7 @@ from melange.tests.unit import test_config_path
 from melange.common import config, wsgi, utils
 from melange.common.config import Config
 from melange.ipam import models
-from melange.ipam.service import BaseController
+from melange.ipam.service import BaseController, PaginatedDataView
 from melange.ipam.models import IpBlock, IpAddress, Policy, IpRange, IpOctet
 from melange.tests.factories.models import (PublicIpBlockFactory,
                                             IpBlockFactory,
@@ -212,6 +212,25 @@ class IpBlockControllerBase():
         self.assertEqual(len(response_blocks), 2)
         self.assertItemsEqual(response_blocks, _data([blocks[2], blocks[3]]))
         self.assertUrlEqual(expected_next_link, next_link)
+
+    def test_index_with_pagination_for_xml_content_type(self):
+        blocks = [IpBlockFactory(**self._ip_block_args(cidr="10.1.1.0/32")),
+                  IpBlockFactory(**self._ip_block_args(cidr='10.2.1.0/32')),
+                  IpBlockFactory(**self._ip_block_args(cidr='10.3.1.0/32')),
+                  IpBlockFactory(**self._ip_block_args(cidr='10.4.1.0/32'))]
+
+        blocks = models.sort(blocks)
+
+        response = self.app.get("%s.xml?limit=2&marker=%s"
+                                % (self.ip_block_path, blocks[0].id))
+
+        expected_next_link = string.replace(response.request.url,
+                                        "marker=%s" % blocks[0].id,
+                                        "marker=%s" % blocks[2].id)
+
+        self.assertEqual(response.status, "200 OK")
+        self.assertUrlEqual(expected_next_link,
+                        response.xml.find("link").attrib["href"])
 
     def test_index_with_pagination_have_no_next_link_for_last_page(self):
         blocks = [IpBlockFactory(**self._ip_block_args(cidr="10.1.1.0/32")),
@@ -1482,6 +1501,21 @@ class TestTenantNetworksController(NetworksControllerBase,
         self.assertEqual(ip_block.cidr, Config.get('default_cidr'))
         self.assertEqual(ip_block.type, 'private')
         self.assertEqual(ip_block.tenant_id, '123')
+
+
+class TestPaginatedDataView(BaseTestController):
+
+    def test_links_data_for_json(self):
+        collection = [{'id': "resource1"}, {'id': "resource2"}]
+        next_page_marker = "resource2"
+        current_page_url = "http://abc.com/resources?limit=2&marker=resource0"
+        expected_href = "http://abc.com/resources?limit=2&marker=resource2"
+
+        data = PaginatedDataView('ip_blocks', collection, current_page_url,
+                                 next_page_marker).data_for_json()
+
+        self.assertUrlEqual(data['ip_blocks_links'][0]['href'], expected_href)
+        self.assertUrlEqual(data['ip_blocks_links'][0]['rel'], "next")
 
 
 def _allocate_ips(*args):

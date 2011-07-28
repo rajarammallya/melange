@@ -326,9 +326,12 @@ class Result(object):
         self.status = status
 
     def response(self, serializer, serialization_type):
-        serialized_data = serializer.serialize(self.data, serialization_type)
+        serialized_data = self.serialize_data(serializer, serialization_type)
         return Response(body=serialized_data, content_type=serialization_type,
                         status=self.status)
+
+    def serialize_data(self, serializer, serialization_type):
+        return serializer.serialize(self.data, serialization_type)
 
 
 class Controller(object):
@@ -363,7 +366,7 @@ class Controller(object):
         if type(result) is dict:
             result = Result(result)
 
-        if type(result) is Result:
+        if isinstance(result, Result):
             return result.response(self._serializer(),
                                req.best_match_content_type())
         return result
@@ -466,6 +469,8 @@ class Serializer(object):
 
     def _to_xml_node(self, doc, metadata, nodename, data):
         """Recursive method to convert data members to XML nodes."""
+        if hasattr(data, 'to_xml'):
+            return data.to_xml()
         result = doc.createElement(nodename)
         if type(data) is list:
             singular = metadata.get('plurals', {}).get(nodename, None)

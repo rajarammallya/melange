@@ -17,6 +17,9 @@
 import json
 import routes
 import urllib
+import urlparse
+from xml.dom import minidom
+
 from webob.exc import (HTTPUnprocessableEntity, HTTPBadRequest,
                        HTTPNotFound, HTTPConflict)
 
@@ -30,36 +33,78 @@ from melange.common.utils import (exclude, stringify_keys, filter_dict,
                                   merge_dicts)
 
 
-class PaginatedCollection(object):
+class AtomLink(object):
+    """An atom link"""
 
-    def __init__(self, request, collection_query):
-        self.request = request
-        self.collection_query = collection_query
+    def __init__(self, rel, href, link_type=None, hreflang=None, title=None):
+        self.rel = rel
+        self.href = href
+        self.link_type = link_type
+        self.hreflang = hreflang
+        self.title = title
 
-    def paginate(self, data_key, link_key, **limit_params):
-        self.data_key = data_key
-        self.link_key = link_key
-        elements, next_marker = self.collection_query.paginated_collection(**limit_params)
-        values = [element.data() for element in elements]
-        links = self._traversal_links(link_key, next_marker)
-        return wsgi.Result(self._data(values, links), status=200)
+    def to_xml(self):
+        ATOM_NAMESPACE = "http://www.w3.org/2005/Atom"
+        doc = minidom.Document()
+        atom_elem = doc.createElementNS(ATOM_NAMESPACE, "link")
+        if self.link_type:
+            atom_elem.setAttribute("link_type", self.link_type)
+        if self.hreflang:
+            atom_elem.setAttribute("hreflang", self.hreflang)
+        if self.title:
+            atom_elem.setAttribute("title", self.title)
+        atom_elem.setAttribute("rel", self.rel)
+        atom_elem.setAttribute("href", self.href)
+        return atom_elem
+
+
+class PaginatedResult(Result):
+
+    def __init__(self, paginated_data_view):
+        super(PaginatedResult, self).__init__(paginated_data_view)
+
+    def serialize_data(self, serializer, serialization_type):
+        data = self.data.data_for_json()
+        if serialization_type == "application/xml":
+            data = self.data.data_for_xml()
+        return serializer.serialize(data, serialization_type)
+
+
+class PaginatedDataView(object):
+
+    def __init__(self, collection_type, collection, current_page_url,
+                 next_page_marker=None):
+        self.collection_type = collection_type
+        self.collection = collection
+        self.current_page_url = current_page_url
+        self.next_page_marker = next_page_marker
+
+    def data_for_json(self):
+        links_dict = {}
+        if self._links():
+            links_key = self.collection_type + "_links"
+            links_dict[links_key] = self._links()
+        return merge_dicts({self.collection_type: self.collection}, links_dict)
+
+    def data_for_xml(self):
+        atom_links = [AtomLink(link['rel'], link['href'])
+                           for link in self._links()]
+        return {self.collection_type: self.collection + atom_links}
 
     def _create_link(self, marker):
-        query_params = dict(self.request.str_GET.items())
+        url = urlparse.urlparse(self.current_page_url)
+        query_params = dict(urlparse.parse_qsl(url.query))
         query_params["marker"] = marker
-        return self.request.path_url + "?" + urllib.urlencode(query_params)
+        query_params = urllib.urlencode(query_params)
+        return urlparse.ParseResult(url.scheme, url.netloc, url.path,
+                           url.params, query_params, url.fragment).geturl()
 
-    def _traversal_links(self, link_key, next_marker=None):
-        if not next_marker:
+    def _links(self):
+        if not self.next_page_marker:
             return []
-        next_link = dict(rel='next', href=self._create_link(next_marker))
+        next_link = dict(rel='next',
+                         href=self._create_link(self.next_page_marker))
         return [next_link]
-
-    def _data(self, values, links):
-        if self.request.best_match_content_type() == "application/xml":
-            return {self.data_key: values + links}
-        return {self.data_key: values,
-                self.link_key: links} if links else {self.data_key: values}
 
 
 class BaseController(wsgi.Controller):
@@ -100,13 +145,16 @@ class BaseController(wsgi.Controller):
     def _traversal_links(self, request, link_key, next_marker=None):
         if not next_marker:
             return {}
-        next_link = dict(rel='next', href=self._create_link(request, next_marker))
+        next_link = dict(rel='next',
+                         href=self._create_link(request, next_marker))
         return {link_key: [next_link]}
 
-    def _paginated_response(self, request, collection_query, data_key, link_key):
+    def _paginated_response(self, request,
+                            collection_query, data_key, link_key):
         elements, next_marker = collection_query.paginated_collection(
             **self._extract_limits(request.params))
-        data = {data_key : [element.data() for element in elements]}
+        data = {data_key: [element.data()
+                           for element in elements]}
         links = self._traversal_links(request, link_key, next_marker)
         return merge_dicts(data, links)
 
@@ -121,8 +169,12 @@ class IpBlockController(BaseController):
     def index(self, request, tenant_id=None):
         type_dict = filter_dict(request.params, 'type')
         all_blocks = IpBlock.find_all(tenant_id=tenant_id, **type_dict)
-        return PaginatedCollection(request, all_blocks).paginate('ip_blocks',
-                                                                 'ip_blocks_links', **self._extract_limits(request.params))
+        blocks, next_page_marker = all_blocks.paginated_collection(
+            **self._extract_limits(request.params))
+        collection = [block.data() for block in blocks]
+        return PaginatedResult(PaginatedDataView('ip_blocks', collection,
+                                                 request.url,
+                                                 next_page_marker))
 
     def create(self, request, tenant_id=None):
         params = self._extract_required_params(request, 'ip_block')

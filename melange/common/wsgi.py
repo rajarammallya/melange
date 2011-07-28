@@ -31,10 +31,12 @@ import webob.exc
 import paste.urlmap
 from webob import Response
 from xml.dom import minidom
-from webob.exc import HTTPBadRequest, HTTPInternalServerError, HTTPError
+from webob.exc import (HTTPBadRequest, HTTPInternalServerError,
+                       HTTPNotFound, HTTPError, HTTPNotAcceptable)
 
 from melange.common.exception import InvalidContentType
 from melange.common.exception import MelangeError
+from melange.common.utils import cached_property
 
 eventlet.patcher.monkey_patch(all=False, socket=True)
 
@@ -48,21 +50,20 @@ def versioned_urlmap(*args, **kwargs):
 
 class VersionedURLMap(object):
 
-    _accept_version = re.compile(".*application/vnd.openstack.melange"
-                                 "(\+xml|\+json)?;"
-                                 "version=(?P<version_no>\d+\.?\d*)")
-
     def __init__(self, urlmap):
         self.urlmap = urlmap
 
     def __call__(self, environ, start_response):
-        req = webob.Request(environ)
-        accept = environ.get('HTTP_ACCEPT', "")
-        match = self._accept_version.search(accept)
-        version = "/v" + match.group("version_no") if match else None
-        if version is not None and version in self.urlmap:
-            return self.urlmap[version](environ, start_response)
-        return self.urlmap(environ, start_response)
+        req = Request(environ)
+
+        if req.url_version is None and req.accept_version is not None:
+            version = "/v" + req.accept_version
+            app = self.urlmap.get(
+                version, Fault(HTTPNotAcceptable("version not supported")))
+        else:
+            app = self.urlmap
+
+        return app(environ, start_response)
 
 
 class WritableLogger(object):
@@ -114,6 +115,22 @@ class Request(webob.Request):
         LOG.debug("Wrong Content-Type: %s" % type)
         raise webob.exc.HTTPUnsupportedMediaType(
         "Content type %s not supported" % type)
+
+    @cached_property
+    def accept_version(self):
+        accept_header = self.headers.get('ACCEPT', "")
+        accept_version_re = re.compile(".*?application/vnd.openstack.melange"
+                                       "(\+.+?)?;"
+                                       "version=(?P<version_no>\d+\.?\d*)")
+
+        match = accept_version_re.search(accept_header)
+        return  match.group("version_no") if match else None
+
+    @cached_property
+    def url_version(self):
+        versioned_url_re = re.compile("/v(?P<version_no>\d+\.?\d*)")
+        match = versioned_url_re.search(self.path)
+        return match.group("version_no") if match else None
 
 
 class Server(object):
@@ -320,7 +337,7 @@ class Controller(object):
         """
         arg_dict = req.environ['wsgiorg.routing_args'][1]
         action = arg_dict['action']
-        method = getattr(self, action)
+        method = getattr(self, action, None)
         del arg_dict['controller']
         del arg_dict['action']
         arg_dict['request'] = req
@@ -338,6 +355,8 @@ class Controller(object):
         return result
 
     def _execute_action(self, method, arg_dict):
+        if method is None:
+            raise HTTPNotFound
         try:
             if self._method_doesnt_expect_format_arg(method):
                 arg_dict.pop('format', None)

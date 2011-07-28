@@ -52,33 +52,43 @@ class VersionedURLMapTest(BaseTest):
                                   '/': self.root_app})
         self.versioned_urlmap = wsgi.VersionedURLMap(self.urlmap)
 
-    def test_chooses_app_based_on_mime_type_version(self):
+    def test_chooses_app_based_on_accept_version(self):
         environ = {'HTTP_ACCEPT': "application/vnd.openstack.melange+xml;"
-                   "version=1.0"}
+                   "version=1.0",
+                   'PATH_INFO': "/resource"}
         self.versioned_urlmap(environ=environ, start_response=None)
 
         self.assertTrue(self.v1_app.called)
 
     def test_delegates_to_urlmapper_when_accept_header_is_absent(self):
-        self.versioned_urlmap(environ={}, start_response=None)
+        self.versioned_urlmap(environ={'PATH_INFO': "/resource"},
+                              start_response=None)
 
         self.assertTrue(self.urlmap.called)
 
-    def test_delegates_to_urlmapper_for_standard_accept_headers(self):
-        environ = {'HTTP_ACCEPT': "application/json"}
+    def test_delegates_to_urlmapper_for_std_accept_headers_with_version(self):
+        environ = {'HTTP_ACCEPT': "application/json;version=1.0",
+                   'PATH_INFO': "/resource"}
+
         self.versioned_urlmap(environ=environ, start_response=None)
 
         self.assertTrue(self.urlmap.called)
 
     def test_delegates_to_urlmapper_for_nonexistant_version_of_app(self):
         environ = {'HTTP_ACCEPT': "application/vnd.openstack.melange+xml;"
-                   "version=9.0"}
-        self.versioned_urlmap(environ=environ, start_response=None)
+                   "version=9.0", 'REQUEST_METHOD': "GET",
+                   'PATH_INFO': "/resource.xml"}
 
-        self.assertTrue(self.urlmap.called)
+        def assert_status(status, *args):
+            self.assertEqual(status, "406 Not Acceptable")
 
-    def test_delegates_to_urlmapper_for_std_accept_headers_with_version(self):
-        environ = {'HTTP_ACCEPT': "application/json;version=1.0"}
+        self.versioned_urlmap(environ=environ, start_response=assert_status)
+
+    def test_delegates_to_urlmapper_when_url_versioned(self):
+        environ = {'HTTP_ACCEPT': "application/vnd.openstack.melange+xml;"
+                   "version=2.0",
+                   'PATH_INFO': "/v1.0/resource"}
+
         self.versioned_urlmap(environ=environ, start_response=None)
 
         self.assertTrue(self.urlmap.called)
@@ -175,6 +185,63 @@ class RequestTest(BaseTest):
         request.headers["CONTENT-TYPE"] = "application/unsupported"
         self.assertRaises(HTTPUnsupportedMediaType,
                         lambda: request.deserialized_params)
+
+    def test_accept_version_for_custom_mime_type(self):
+        environ = {'HTTP_ACCEPT': "application/vnd.openstack.melange+xml;"
+                   "version=1.0"}
+        request = wsgi.Request(environ=environ)
+
+        self.assertEqual(request.accept_version, "1.0")
+
+    def test_accept_version_from_first_custom_mime_type(self):
+        environ = {'HTTP_ACCEPT': "application/json;version=2.0, "
+                   "application/vnd.openstack.melange+xml;version=1.0, "
+                   "application/vnd.openstack.melange+json;version=4.0"}
+        request = wsgi.Request(environ=environ)
+
+        self.assertEqual(request.accept_version, "1.0")
+
+    def test_accept_version_is_none_for_standard_mime_type(self):
+        environ = {'HTTP_ACCEPT': "application/json;"
+                   "version=1.0"}
+        request = wsgi.Request(environ=environ)
+
+        self.assertIsNone(request.accept_version)
+
+    def test_accept_version_is_none_for_invalid_mime_type(self):
+        environ = {'HTTP_ACCEPT': "glibberish;"
+                   "version=1.0"}
+        request = wsgi.Request(environ=environ)
+
+        self.assertIsNone(request.accept_version)
+
+    def test_accept_version_none_when_mime_type_doesnt_specify_version(self):
+        environ = {'HTTP_ACCEPT': "application/vnd.openstack.melange+xml"}
+        request = wsgi.Request(environ=environ)
+
+        self.assertIsNone(request.accept_version)
+
+    def test_accept_version_is_none_when_accept_header_is_absent(self):
+        request = wsgi.Request(environ={})
+
+        self.assertIsNone(request.accept_version)
+
+    def test_accept_version_is_none_for_mime_type_with_invalid_version(self):
+        environ = {'HTTP_ACCEPT': "application/vnd.openstack.melange+xml;"
+                   "version=foo.bar"}
+        request = wsgi.Request(environ=environ)
+
+        self.assertIsNone(request.accept_version)
+
+    def test_url_version_for_versioned_url(self):
+        request = wsgi.Request.blank("/v1.0/resource")
+
+        self.assertEqual(request.url_version, "1.0")
+
+    def test_url_version_for_non_versioned_url_is_none(self):
+        request = wsgi.Request.blank("/resource")
+
+        self.assertIsNone(request.url_version)
 
 
 class DummyApp(wsgi.Router):

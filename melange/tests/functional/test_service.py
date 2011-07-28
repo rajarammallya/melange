@@ -14,15 +14,10 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
-import unittest
-from melange.common.client import Client
-from melange.tests.functional import get_api_port
+from melange.tests.functional import get_api_port, FunctionalTest
 
 
-class TestServiceConf(unittest.TestCase):
-    def setUp(self):
-        self.client = Client(port=get_api_port())
+class TestServiceConf(FunctionalTest):
 
     def test_root_url_returns_versions(self):
         response = self.client.get("/")
@@ -42,19 +37,31 @@ class TestServiceConf(unittest.TestCase):
         self.assertEqual(response.status, 200)
         self.assertTrue("ip_blocks" in response.read())
 
+
+class TestMimeTypeVersioning(FunctionalTest):
+
     def test_ipam_service_can_be_accessed_with_mime_type_versioning(self):
         headers = {'X_ROLE': 'Admin',
                    'Accept': "application/vnd.openstack.melange+xml;"
                    "version=0.1"}
+
         response = self.client.get("/ipam/ip_blocks", headers=headers)
 
         self.assertEqual(response.status, 200)
         self.assertTrue("ip_blocks" in response.read())
 
+    def test_requesting_nonexistent_version_via_mime_type_versioning(self):
+        headers = {'X_ROLE': 'Admin',
+                   'Accept': "application/vnd.openstack.melange+xml;"
+                   "version=99.1"}
 
-class TestAuthMiddleware(unittest.TestCase):
-    def setUp(self):
-        self.client = Client(port=get_api_port())
+        response = self.client.get("/ipam/ip_blocks", headers=headers)
+
+        self.assertEqual(response.status, 406)
+        self.assertTrue("version not supported" in response.read())
+
+
+class TestAuthMiddleware(FunctionalTest):
 
     def test_forbids_tenants_accesing_other_tenants_resource(self):
         response = self.client.get("/v0.1/ipam/tenants/123/ip_blocks",

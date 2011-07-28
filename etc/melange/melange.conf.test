@@ -12,7 +12,7 @@ api_extensions_path = unit/extensions
 bind_host = 0.0.0.0
 
 # Port the bind the API server to
-bind_port = 9696
+bind_port = 9898
 
 # SQLAlchemy connection string for the reference implementation          
 # registry server. Any valid SQLAlchemy connection string is fine. 

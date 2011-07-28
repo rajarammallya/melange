@@ -45,7 +45,7 @@ def create_options(parser):
     :param parser: The option parser
     """
     parser.add_option('-p', '--port', dest="port", metavar="PORT",
-                      type=int, default=9292,
+                      type=int, default=9898,
                       help="Port the Melange API host listens on. "
                       "Default: %default")
     config.add_common_options(parser)

@@ -73,7 +73,7 @@ from melange.common.utils import Method, remove_nones
 
 
 class Resource(object):
-    port = 9292
+    port = 9898
     host = "0.0.0.0"
 
     def __init__(self, path, name):
@@ -273,7 +273,7 @@ def create_options(parser):
                       help="Address of Melange API host. "
                            "Default: %default")
     parser.add_option('-p', '--port', dest="port", metavar="PORT",
-                      type=int, default=9292,
+                      type=int, default=9898,
                       help="Port the Melange API host listens on. "
                            "Default: %default")
     parser.add_option('-t', '--tenant', dest="tenant", metavar="TENANT",

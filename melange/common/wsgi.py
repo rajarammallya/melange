@@ -319,6 +319,18 @@ class Router(object):
         return app
 
 
+class Result(object):
+
+    def __init__(self, data, status=200):
+        self.data = data
+        self.status = status
+
+    def response(self, serializer, serialization_type):
+        serialized_data = serializer.serialize(self.data, serialization_type)
+        return Response(body=serialized_data, content_type=serialization_type,
+                        status=self.status)
+
+
 class Controller(object):
     """
     WSGI app that reads routing information supplied by RoutesMiddleware
@@ -349,13 +361,11 @@ class Controller(object):
         result = self._execute_action(method, arg_dict)
 
         if type(result) is dict:
-            return Response(body=self._serialize(result, req),
-                            content_type=req.best_match_content_type())
+            result = Result(result)
 
-        if type(result) is tuple and type(result[0]) is dict:
-            return Response(body=self._serialize(result[0], req),
-                            content_type=req.best_match_content_type(),
-                            status=result[1])
+        if type(result) is Result:
+            return result.response(self._serializer(),
+                               req.best_match_content_type())
         return result
 
     def _execute_action(self, method, arg_dict):
@@ -382,15 +392,14 @@ class Controller(object):
     def _get_http_error(self, error):
         return self.model_exception_map.get(type(error), HTTPBadRequest)
 
-    def _serialize(self, data, request):
+    def _serializer(self):
         """
         Serialize the given dict to the response type requested in request.
         Uses self._serialization_metadata if it exists, which is a dict mapping
         MIME types to information needed to serialize to that type.
         """
         _metadata = getattr(type(self), "_serialization_metadata", {})
-        serializer = Serializer(_metadata)
-        return serializer.serialize(data, request.best_match_content_type())
+        return Serializer(_metadata)
 
     def _deserialize(self, data, content_type):
         """Deserialize the request body to the specefied content type.

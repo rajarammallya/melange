@@ -21,12 +21,45 @@ from webob.exc import (HTTPUnprocessableEntity, HTTPBadRequest,
                        HTTPNotFound, HTTPConflict)
 
 from melange.common import wsgi
+from melange.common.wsgi import Result
 from melange.common.config import Config
 from melange.ipam import models
 from melange.ipam.models import (IpBlock, IpAddress, Policy, IpRange,
                                  IpOctet, Network)
 from melange.common.utils import (exclude, stringify_keys, filter_dict,
                                   merge_dicts)
+
+
+class PaginatedCollection(object):
+
+    def __init__(self, request, collection_query):
+        self.request = request
+        self.collection_query = collection_query
+
+    def paginate(self, data_key, link_key, **limit_params):
+        self.data_key = data_key
+        self.link_key = link_key
+        elements, next_marker = self.collection_query.paginated_collection(**limit_params)
+        values = [element.data() for element in elements]
+        links = self._traversal_links(link_key, next_marker)
+        return wsgi.Result(self._data(values, links), status=200)
+
+    def _create_link(self, marker):
+        query_params = dict(self.request.str_GET.items())
+        query_params["marker"] = marker
+        return self.request.path_url + "?" + urllib.urlencode(query_params)
+
+    def _traversal_links(self, link_key, next_marker=None):
+        if not next_marker:
+            return []
+        next_link = dict(rel='next', href=self._create_link(next_marker))
+        return [next_link]
+
+    def _data(self, values, links):
+        if self.request.best_match_content_type() == "application/xml":
+            return {self.data_key: values + links}
+        return {self.data_key: values,
+                self.link_key: links} if links else {self.data_key: values}
 
 
 class BaseController(wsgi.Controller):
@@ -88,18 +121,19 @@ class IpBlockController(BaseController):
     def index(self, request, tenant_id=None):
         type_dict = filter_dict(request.params, 'type')
         all_blocks = IpBlock.find_all(tenant_id=tenant_id, **type_dict)
-        return self._paginated_response(request, all_blocks, 'ip_blocks', 'ip_blocks_links')
+        return PaginatedCollection(request, all_blocks).paginate('ip_blocks',
+                                                                 'ip_blocks_links', **self._extract_limits(request.params))
 
     def create(self, request, tenant_id=None):
         params = self._extract_required_params(request, 'ip_block')
         block = IpBlock.create(tenant_id=tenant_id, **params)
-        return dict(ip_block=block.data()), 201
+        return Result(dict(ip_block=block.data()), 201)
 
     def update(self, request, id, tenant_id=None):
         ip_block = self._find_block(id=id, tenant_id=tenant_id)
         params = self._extract_required_params(request, 'ip_block')
         ip_block.update(**exclude(params, 'cidr', 'type'))
-        return dict(ip_block=ip_block.data()), 200
+        return Result(dict(ip_block=ip_block.data()), 200)
 
     def show(self, request, id, tenant_id=None):
         ip_block = self._find_block(id=id, tenant_id=tenant_id)
@@ -123,7 +157,7 @@ class SubnetController(BaseController):
         params = self._extract_required_params(request, 'subnet')
         subnet = ip_block.subnet(**filter_dict(params, 'cidr', 'network_id',
                                                'tenant_id'))
-        return dict(subnet=subnet.data()), 201
+        return Result(dict(subnet=subnet.data()), 201)
 
 
 class IpAddressController(BaseController):
@@ -150,7 +184,7 @@ class IpAddressController(BaseController):
         params = self._extract_required_params(request, 'ip_address')
         params['tenant_id'] = tenant_id or params.get('tenant_id', None)
         ip_address = ip_block.allocate_ip(**params)
-        return dict(ip_address=ip_address.data()), 201
+        return Result(dict(ip_address=ip_address.data()), 201)
 
     def restore(self, request, ip_block_id, address, tenant_id=None):
         ip_address = self._find_block(id=ip_block_id, tenant_id=tenant_id).\
@@ -200,7 +234,7 @@ class UnusableIpRangesController(BaseController):
         policy = Policy.find_by(id=policy_id, tenant_id=tenant_id)
         params = self._extract_required_params(request, 'ip_range')
         ip_range = policy.create_unusable_range(**params)
-        return dict(ip_range=ip_range.data()), 201
+        return Result(dict(ip_range=ip_range.data()), 201)
 
     def show(self, request, policy_id, id, tenant_id=None):
         ip_range = Policy.find_by(id=policy_id,
@@ -239,7 +273,7 @@ class UnusableIpOctetsController(BaseController):
         policy = Policy.find_by(id=policy_id, tenant_id=tenant_id)
         params = self._extract_required_params(request, 'ip_octet')
         ip_octet = policy.create_unusable_ip_octet(**params)
-        return dict(ip_octet=ip_octet.data()), 201
+        return Result(dict(ip_octet=ip_octet.data()), 201)
 
     def show(self, request, policy_id, id, tenant_id=None):
         ip_octet = Policy.find_by(id=policy_id,
@@ -274,7 +308,7 @@ class PoliciesController(BaseController):
     def create(self, request, tenant_id=None):
         params = self._extract_required_params(request, 'policy')
         policy = Policy.create(tenant_id=tenant_id, **params)
-        return dict(policy=policy.data()), 201
+        return Result(dict(policy=policy.data()), 201)
 
     def update(self, request, id, tenant_id=None):
         policy = Policy.find_by(id=id, tenant_id=tenant_id)
@@ -293,8 +327,8 @@ class NetworksController(BaseController):
         [addresses] = self._get_optionals(params, 'addresses')
         ip_addresses = network.allocate_ips(addresses=addresses,
                                             port_id=port_id)
-        return dict(ip_addresses=[ip.data_with_network_info()
-                                  for ip in ip_addresses]), 201
+        return Result(dict(ip_addresses=[ip.data_with_network_info()
+                                  for ip in ip_addresses]), 201)
 
 
 class API(wsgi.Router):

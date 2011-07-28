@@ -1,0 +1,11 @@
+# Running Melange Tests
+Use the run_tests.sh from the root nova folder. It doesnt run Melange tests by default.
+To run melange tests:
+>run_tests.sh melange
+>run_tests.sh melange.tests.unit
+>run_tests.sh melange.tests.functional
+
+# Running Melange App
+>cd <nova_root>
+>cp etc/melange/melange.conf.sample  ~/melange.conf
+>bin/melange

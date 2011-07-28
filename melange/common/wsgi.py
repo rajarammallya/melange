@@ -102,9 +102,13 @@ class Request(webob.Request):
             if format in ['json', 'xml']:
                 return 'application/{0}'.format(parts[1])
 
-        ctypes = ['application/json', 'application/xml']
-        bm = self.accept.best_match(ctypes)
-        return bm or 'application/json'
+        ctypes = {'application/vnd.openstack.melange+json': "application/json",
+                  'application/vnd.openstack.melange+xml': "application/xml",
+                  'application/json': "application/json",
+                  'application/xml': "application/xml"}
+
+        bm = self.accept.best_match(ctypes.keys())
+        return ctypes.get(bm, 'application/json')
 
     def get_content_type(self):
         allowed_types = ("application/xml", "application/json")

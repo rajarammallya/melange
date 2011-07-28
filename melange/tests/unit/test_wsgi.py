@@ -111,7 +111,7 @@ class RequestTest(BaseTest):
         result = request.get_content_type()
         self.assertEqual(result, "application/json")
 
-    def test_content_type_from_accept_xml(self):
+    def test_content_type_from_accept_header(self):
         request = wsgi.Request.blank('/tests/123')
         request.headers["Accept"] = "application/xml"
         result = request.best_match_content_type()
@@ -132,6 +132,19 @@ class RequestTest(BaseTest):
             "application/json; q=0.3, application/xml; q=0.9"
         result = request.best_match_content_type()
         self.assertEqual(result, "application/xml")
+
+    def test_content_type_from_accept_header_with_versioned_mimetype(self):
+        request = wsgi.Request.blank('/tests/123')
+        request.headers["Accept"] = \
+            "application/vnd.openstack.melange+xml;version=66.0"
+        result = request.best_match_content_type()
+        self.assertEqual(result, "application/xml")
+
+        request = wsgi.Request.blank('/tests/123')
+        request.headers["Accept"] = \
+            "application/vnd.openstack.melange+json;version=96.0"
+        result = request.best_match_content_type()
+        self.assertEqual(result, "application/json")
 
     def test_content_type_from_query_extension(self):
         request = wsgi.Request.blank('/tests/123.xml')

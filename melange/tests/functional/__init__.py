@@ -18,20 +18,19 @@ import os
 import socket
 import subprocess
 import shutil
-import unittest
 
 from melange import melange_bin_path, melange_etc_path
 from melange.tests.functional.server import Server
 from melange.common.client import Client
+from melange.tests import BaseTest
 from melange.common import config
 from melange.ipam import models
 from melange.db import session
 
-
 _PORT = None
 
 
-class FunctionalTest(unittest.TestCase):
+class FunctionalTest(BaseTest):
 
     def setUp(self):
         self.client = Client(port=get_api_port())

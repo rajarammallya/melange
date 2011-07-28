@@ -48,6 +48,7 @@ class TestMimeTypeVersioning(FunctionalTest):
         response = self.client.get("/ipam/ip_blocks", headers=headers)
 
         self.assertEqual(response.status, 200)
+        self.assertIn("application/xml", response.getheader('content-type'))
         self.assertTrue("ip_blocks" in response.read())
 
     def test_requesting_nonexistent_version_via_mime_type_versioning(self):

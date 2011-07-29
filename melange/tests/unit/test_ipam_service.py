@@ -191,11 +191,11 @@ class IpBlockControllerBase():
         self.assertItemsEqual(response_blocks, _data(private_blocks))
 
     def test_index_with_pagination(self):
-        blocks = [IpBlockFactory(**self._ip_block_args(cidr="10.1.1.0/32")),
-                  IpBlockFactory(**self._ip_block_args(cidr='10.2.1.0/32')),
-                  IpBlockFactory(**self._ip_block_args(cidr='10.3.1.0/32')),
-                  IpBlockFactory(**self._ip_block_args(cidr='10.4.1.0/32')),
-                  IpBlockFactory(**self._ip_block_args(cidr='10.5.1.0/32'))]
+        blocks = [IpBlockFactory(**self._ip_block_args(cidr="10.1.1.0/28")),
+                  IpBlockFactory(**self._ip_block_args(cidr='10.2.1.0/28')),
+                  IpBlockFactory(**self._ip_block_args(cidr='10.3.1.0/28')),
+                  IpBlockFactory(**self._ip_block_args(cidr='10.4.1.0/28')),
+                  IpBlockFactory(**self._ip_block_args(cidr='10.5.1.0/28'))]
 
         blocks = models.sort(blocks)
 
@@ -214,10 +214,10 @@ class IpBlockControllerBase():
         self.assertUrlEqual(expected_next_link, next_link)
 
     def test_index_with_pagination_for_xml_content_type(self):
-        blocks = [IpBlockFactory(**self._ip_block_args(cidr="10.1.1.0/32")),
-                  IpBlockFactory(**self._ip_block_args(cidr='10.2.1.0/32')),
-                  IpBlockFactory(**self._ip_block_args(cidr='10.3.1.0/32')),
-                  IpBlockFactory(**self._ip_block_args(cidr='10.4.1.0/32'))]
+        blocks = [IpBlockFactory(**self._ip_block_args(cidr="10.1.1.0/28")),
+                  IpBlockFactory(**self._ip_block_args(cidr='10.2.1.0/28')),
+                  IpBlockFactory(**self._ip_block_args(cidr='10.3.1.0/28')),
+                  IpBlockFactory(**self._ip_block_args(cidr='10.4.1.0/28'))]
 
         blocks = models.sort(blocks)
 
@@ -233,9 +233,9 @@ class IpBlockControllerBase():
                         response.xml.find("link").attrib["href"])
 
     def test_index_with_pagination_have_no_next_link_for_last_page(self):
-        blocks = [IpBlockFactory(**self._ip_block_args(cidr="10.1.1.0/32")),
-                  IpBlockFactory(**self._ip_block_args(cidr='10.2.1.0/32')),
-                  IpBlockFactory(**self._ip_block_args(cidr='10.3.1.0/32'))]
+        blocks = [IpBlockFactory(**self._ip_block_args(cidr="10.1.1.0/28")),
+                  IpBlockFactory(**self._ip_block_args(cidr='10.2.1.0/28')),
+                  IpBlockFactory(**self._ip_block_args(cidr='10.3.1.0/28'))]
 
         blocks = models.sort(blocks)
 
@@ -691,8 +691,8 @@ class TestInsideGlobalsController(BaseTestController):
         self.assertErrorResponse(response, HTTPNotFound, "IpAddress Not Found")
 
     def test_create(self):
-        global_block, local_block = _create_blocks('192.1.1.1/32',
-                                                   '10.1.1.1/32')
+        global_block, local_block = _create_blocks('192.1.1.1/24',
+                                                   '10.1.1.1/24')
         global_ip = global_block.allocate_ip()
         local_ip = local_block.allocate_ip()
 
@@ -710,8 +710,8 @@ class TestInsideGlobalsController(BaseTestController):
         self.assertEqual(local_ip.id, global_ip.inside_locals()[0].id)
 
     def test_delete(self):
-        global_block, local_block = _create_blocks('192.1.1.1/32',
-                                                        '10.1.1.1/32')
+        global_block, local_block = _create_blocks('192.1.1.1/24',
+                                                        '10.1.1.1/24')
         global_ip = global_block.allocate_ip()
         local_ip = local_block.allocate_ip()
         local_ip.add_inside_globals([global_ip])
@@ -809,9 +809,9 @@ class TestInsideLocalsController(BaseTestController):
                                      "IpAddress Not Found")
 
     def test_create(self):
-        global_block, = _create_blocks("169.1.1.1/32")
-        local_block1, = _create_blocks("10.1.1.1/32")
-        local_block2, = _create_blocks("10.0.0.1/32")
+        global_block, = _create_blocks("169.1.1.1/28")
+        local_block1, = _create_blocks("10.1.1.1/28")
+        local_block2, = _create_blocks("10.0.0.1/28")
 
         url = "/ipam/ip_blocks/%s/ip_addresses/169.1.1.1/inside_locals"
         json_data = [
@@ -849,8 +849,8 @@ class TestInsideLocalsController(BaseTestController):
                                         local_ips[2].address])
 
     def test_delete(self):
-        global_block, local_block = _create_blocks('192.1.1.1/32',
-                                                        '10.1.1.1/32')
+        global_block, local_block = _create_blocks('192.1.1.1/28',
+                                                        '10.1.1.1/28')
         global_ip = global_block.allocate_ip()
         local_ip = local_block.allocate_ip()
         global_ip.add_inside_locals([local_ip])

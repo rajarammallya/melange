@@ -279,6 +279,14 @@ class IpBlock(ModelBase):
             block.update(is_full=False)
             block.delete_deallocated_ips()
 
+    @property
+    def broadcast(self):
+        return str(IPNetwork(self.cidr).broadcast)
+
+    @property
+    def netmask(self):
+        return str(IPNetwork(self.cidr).netmask)
+
     def is_ipv6(self):
         return IPNetwork(self.cidr).version == 6
 
@@ -498,6 +506,9 @@ class IpBlock(ModelBase):
     def _before_validate(self):
         self._convert_cidr_to_lowest_address()
 
+    def _before_save(self):
+        self.gateway = self.gateway or str(IPNetwork(self.cidr)[1])
+
 
 class IpAddress(ModelBase):
 
@@ -556,9 +567,10 @@ class IpAddress(ModelBase):
 
     def data_with_network_info(self):
         ip_block = self.ip_block()
-        network_info = {'broadcast_address': ip_block.broadcast_address,
-                        'gateway_address': ip_block.gateway_address,
-                        'nameserver': Config.get('nameserver', None)}
+        network_info = {'broadcast': ip_block.broadcast,
+                        'gateway': ip_block.gateway,
+                        'netmask': ip_block.netmask,
+                        'dns': Config.get('nameserver', None)}
         return dict(self.data().items() + network_info.items())
 
 

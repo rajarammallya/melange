@@ -225,6 +225,12 @@ class TestIpBlock(BaseTest):
         self.assertEqual(saved_block.type, "private")
         self.assertEqual(saved_block.tenant_id, "xxxx")
 
+    def test_block_details(self):
+        block = IpBlockFactory.build(cidr="10.0.0.0/24")
+
+        self.assertEqual(block.broadcast, "10.0.0.255")
+        self.assertEqual(block.netmask, "255.255.255.0")
+
     def test_valid_cidr(self):
         block = PrivateIpBlockFactory.build(cidr="10.1.1.1////",
                                             network_id=111)
@@ -426,6 +432,13 @@ class TestIpBlock(BaseTest):
 
         self.assertEqual(block.cidr, "10.0.0.0/31")
 
+    def test_save_sets_the_gateway_ip_when_not_provided(self):
+        block = IpBlockFactory(cidr="10.0.0.0/24", gateway=None)
+        self.assertEqual(block.gateway, "10.0.0.1")
+
+        block = IpBlockFactory(cidr="10.0.0.0/24", gateway="10.0.0.10")
+        self.assertEqual(block.gateway, "10.0.0.10")
+
     def test_update(self):
         block = PublicIpBlockFactory(cidr="10.0.0.0/29", network_id="321")
 
@@ -487,7 +500,7 @@ class TestIpBlock(BaseTest):
                                     expected_msg, parent_block.allocate_ip)
 
     def test_allocate_ip_from_outside_cidr(self):
-        block = PrivateIpBlockFactory(cidr="10.1.1.1/32")
+        block = PrivateIpBlockFactory(cidr="10.1.1.1/28")
 
         self.assertRaises(models.AddressDoesNotBelongError, block.allocate_ip,
                           address="192.1.1.1")
@@ -518,7 +531,8 @@ class TestIpBlock(BaseTest):
                          "10.0.0.1")
 
     def test_ip_block_is_marked_full_when_all_ips_are_allocated(self):
-        ip_block = PrivateIpBlockFactory(cidr="10.0.0.0/32")
+        ip_block = PrivateIpBlockFactory(cidr="10.0.0.0/31")
+        ip_block.allocate_ip()
         ip_block.allocate_ip()
 
         self.assertRaises(models.NoMoreAddressesError, ip_block.allocate_ip)
@@ -530,11 +544,12 @@ class TestIpBlock(BaseTest):
         self.assertRaises(models.NoMoreAddressesError, ip_block.allocate_ip)
 
     def test_ip_block_is_not_full(self):
-        ip_block = PrivateIpBlockFactory(cidr="10.0.0.0/32")
+        ip_block = PrivateIpBlockFactory(cidr="10.0.0.0/28")
         self.assertFalse(ip_block.is_full)
 
     def test_allocate_ip_when_no_more_ips(self):
-        block = PrivateIpBlockFactory(cidr="10.0.0.0/32")
+        block = PrivateIpBlockFactory(cidr="10.0.0.0/31")
+        block.allocate_ip()
         block.allocate_ip()
         self.assertRaises(models.NoMoreAddressesError, block.allocate_ip)
 
@@ -761,8 +776,9 @@ class TestIpBlock(BaseTest):
         self.assertEqual(ip_block.addresses(), [ip2])
 
     def test_is_full_flag_reset_when_addresses_are_deleted(self):
-        ip_block = PrivateIpBlockFactory(cidr="10.0.0.0/32")
-        ip = ip_block.allocate_ip()
+        ip_block = PrivateIpBlockFactory(cidr="10.0.0.0/31")
+        for i in range(0,2):
+            ip = ip_block.allocate_ip()
         ip.deallocate()
         self.assertRaises(NoMoreAddressesError, ip_block.allocate_ip)
         self.assertTrue(ip_block.is_full)
@@ -973,17 +989,17 @@ class TestIpAddress(BaseTest):
         self.assertEqual([actual_ip], found_ips)
 
     def test_data_with_network_info_should_have_extra_network_info(self):
-        block = IpBlockFactory(cidr="10.0.0.0/24", gateway_address="10.0.0.1",
-                               broadcast_address="10.0.0.255")
+        block = IpBlockFactory(cidr="10.0.0.0/24", gateway="10.0.0.1")
 
         ip_address = block.allocate_ip()
 
         with StubConfig(nameserver="ns.example.com"):
             data = ip_address.data_with_network_info()
 
-        self.assertEqual(data['broadcast_address'], "10.0.0.255")
-        self.assertEqual(data['gateway_address'], "10.0.0.1")
-        self.assertEqual(data['nameserver'], "ns.example.com")
+        self.assertEqual(data['broadcast'], "10.0.0.255")
+        self.assertEqual(data['gateway'], "10.0.0.1")
+        self.assertEqual(data['netmask'], "255.255.255.0")
+        self.assertEqual(data['dns'], "ns.example.com")
 
 
 class TestPolicy(BaseTest):
@@ -1290,10 +1306,8 @@ class TestNetwork(BaseTest):
                               [ipv4_block.id, ipv6_block.id])
 
     def test_allocate_ip_from_first_free_ip_block(self):
-        full_ip_block = PublicIpBlockFactory(network_id=1, cidr="10.0.0.0/32",
-                                             is_full=True)
-        free_ip_block = PublicIpBlockFactory(network_id=1, cidr="10.0.1.0/31",
-                                             is_full=False)
+        full_ip_block = PublicIpBlockFactory(network_id=1, is_full=True)
+        free_ip_block = PublicIpBlockFactory(network_id=1, is_full=False)
         network = Network(ip_blocks=[full_ip_block, free_ip_block])
         [allocated_ipv4] = network.allocate_ips()
 
@@ -1301,8 +1315,8 @@ class TestNetwork(BaseTest):
         self.assertEqual(allocated_ipv4, ip_address)
 
     def test_allocate_ip_raises_error_when_all_ip_blocks_are_full(self):
-        full_ip_block = PublicIpBlockFactory(network_id=1, cidr="10.0.0.0/32")
-        IpAddressFactory(ip_block_id=full_ip_block.id)
+        full_ip_block = PublicIpBlockFactory(network_id=1, is_full=True)
+
         network = Network.find_by(id=1)
 
         self.assertRaises(NoMoreAddressesError, network.allocate_ips)

@@ -27,7 +27,7 @@ from melange.tests.unit import test_config_path
 from melange.common import config, wsgi, utils
 from melange.common.config import Config
 from melange.ipam import models
-from melange.ipam.service import BaseController, PaginatedDataView
+from melange.ipam.service import BaseController
 from melange.ipam.models import IpBlock, IpAddress, Policy, IpRange, IpOctet
 from melange.tests.factories.models import (PublicIpBlockFactory,
                                             IpBlockFactory,
@@ -1501,21 +1501,6 @@ class TestTenantNetworksController(NetworksControllerBase,
         self.assertEqual(ip_block.cidr, Config.get('default_cidr'))
         self.assertEqual(ip_block.type, 'private')
         self.assertEqual(ip_block.tenant_id, '123')
-
-
-class TestPaginatedDataView(BaseTestController):
-
-    def test_links_data_for_json(self):
-        collection = [{'id': "resource1"}, {'id': "resource2"}]
-        next_page_marker = "resource2"
-        current_page_url = "http://abc.com/resources?limit=2&marker=resource0"
-        expected_href = "http://abc.com/resources?limit=2&marker=resource2"
-
-        data = PaginatedDataView('ip_blocks', collection, current_page_url,
-                                 next_page_marker).data_for_json()
-
-        self.assertUrlEqual(data['ip_blocks_links'][0]['href'], expected_href)
-        self.assertUrlEqual(data['ip_blocks_links'][0]['rel'], "next")
 
 
 def _allocate_ips(*args):

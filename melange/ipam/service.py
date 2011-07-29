@@ -62,26 +62,13 @@ class BaseController(wsgi.Controller):
     def _get_addresses(self, ips):
         return dict(ip_addresses=[ip_address.data() for ip_address in ips])
 
-    def _create_link(self, request, marker):
-        query_params = dict(request.str_GET.items())
-        query_params["marker"] = marker
-        return request.path_url + "?" + urllib.urlencode(query_params)
-
-    def _traversal_links(self, request, link_key, next_marker=None):
-        if not next_marker:
-            return {}
-        next_link = dict(rel='next',
-                         href=self._create_link(request, next_marker))
-        return {link_key: [next_link]}
-
-    def _paginated_response(self, request,
-                            collection_query, data_key, link_key):
+    def _paginated_response(self, collection_type, collection_query, request):
         elements, next_marker = collection_query.paginated_collection(
             **self._extract_limits(request.params))
-        data = {data_key: [element.data()
-                           for element in elements]}
-        links = self._traversal_links(request, link_key, next_marker)
-        return merge_dicts(data, links)
+        collection = [element.data() for element in elements]
+
+        return PaginatedResult(PaginatedDataView(collection_type, collection,
+                                                 request.url, next_marker))
 
 
 class IpBlockController(BaseController):
@@ -94,12 +81,7 @@ class IpBlockController(BaseController):
     def index(self, request, tenant_id=None):
         type_dict = filter_dict(request.params, 'type')
         all_blocks = IpBlock.find_all(tenant_id=tenant_id, **type_dict)
-        blocks, next_page_marker = all_blocks.paginated_collection(
-            **self._extract_limits(request.params))
-        collection = [block.data() for block in blocks]
-        return PaginatedResult(PaginatedDataView('ip_blocks', collection,
-                                                 request.url,
-                                                 next_page_marker))
+        return self._paginated_response('ip_blocks', all_blocks, request)
 
     def create(self, request, tenant_id=None):
         params = self._extract_required_params(request, 'ip_block')
@@ -145,8 +127,7 @@ class IpAddressController(BaseController):
     def index(self, request, ip_block_id, tenant_id=None):
         ip_block = self._find_block(id=ip_block_id, tenant_id=tenant_id)
         addresses = IpAddress.find_all(ip_block_id=ip_block.id)
-        return self._paginated_response(request, addresses, 'ip_addresses',
-                                        'ip_addresses_links')
+        return self._paginated_response('ip_addresses', addresses, request)
 
     def show(self, request, address, ip_block_id, tenant_id=None):
         ip_block = self._find_block(id=ip_block_id, tenant_id=tenant_id)

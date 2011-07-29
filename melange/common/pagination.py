@@ -82,12 +82,8 @@ class PaginatedDataView(object):
         return {self.collection_type: self.collection + atom_links}
 
     def _create_link(self, marker):
-        url = urlparse.urlparse(self.current_page_url)
-        query_params = dict(urlparse.parse_qsl(url.query))
-        query_params["marker"] = marker
-        query_params = urllib.urlencode(query_params)
-        return urlparse.ParseResult(url.scheme, url.netloc, url.path,
-                           url.params, query_params, url.fragment).geturl()
+        app_url = AppUrl(self.current_page_url)
+        return str(app_url.change_query_params(marker=marker))
 
     def _links(self):
         if not self.next_page_marker:
@@ -95,3 +91,22 @@ class PaginatedDataView(object):
         next_link = dict(rel='next',
                          href=self._create_link(self.next_page_marker))
         return [next_link]
+
+
+class AppUrl(object):
+
+    def __init__(self, url):
+        self.url = url
+
+    def __str__(self):
+        return self.url
+
+    def change_query_params(self, **kwargs):
+        parsed_url = urlparse.urlparse(self.url)
+        query_params = dict(urlparse.parse_qsl(parsed_url.query))
+        new_query_params = urllib.urlencode(merge_dicts(query_params, kwargs))
+        return self.__class__(
+            urlparse.ParseResult(parsed_url.scheme,
+                                 parsed_url.netloc, parsed_url.path,
+                                 parsed_url.params, new_query_params,
+                                 parsed_url.fragment).geturl())

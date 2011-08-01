@@ -25,7 +25,7 @@ from melange.common.client import Client
 from melange.tests import BaseTest
 from melange.common import config
 from melange.ipam import models
-from melange.db import db_session_impl as session
+from melange.db import db_api
 
 _PORT = None
 
@@ -48,7 +48,7 @@ def setup():
 def _setup_db():
     conf_file, conf = config.load_paste_config("melange", {}, None)
     conf["models"] = models.models()
-    session.configure_db(conf)
+    db_api.configure_db(conf)
 
 
 def teardown():

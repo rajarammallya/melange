@@ -16,13 +16,13 @@
 #    under the License.
 import unittest
 from urlparse import parse_qs
-from melange.db import db_session_impl as session
+from melange.db import db_api
 
 
 class BaseTest(unittest.TestCase):
 
     def setUp(self):
-        session.clean_db()
+        db_api.clean_db()
 
     #This is similar to assertRaisesRegexp in python 2.7
     def assertRaisesExcMessage(self, exception, message,

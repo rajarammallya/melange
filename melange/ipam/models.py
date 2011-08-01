@@ -24,7 +24,7 @@ from netaddr import IPNetwork, IPAddress
 
 from datetime import timedelta
 from melange.common.exception import MelangeError
-from melange.db import db_api_impl as db_api
+from melange.db import db_api
 from melange.common import utils
 from melange.common.utils import cached_property, find, exclude
 from melange.common.config import Config

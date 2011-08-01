@@ -17,13 +17,16 @@
 
 import optparse
 from melange.common import utils
+from melange.common.config import Config
 
-db_api_impl = utils.import_class("melange.db.sqlalchemy.api.SqlalchemyApiImpl")
-db_session_impl = __import__('melange.db.sqlalchemy.session', None, None,
-                             "session")
 
-db_migration_impl = __import__("melange.db.sqlalchemy.migration", None, None,
-                               "migration")
+def _db_api_implementation_class():
+    return Config.get("db_api_implementation_class",
+                      "melange.db.sqlalchemy.api.SqlalchemyApiImpl")
+
+
+db_api = utils.import_class(_db_api_implementation_class())
+
 
 def add_options(parser):
     """

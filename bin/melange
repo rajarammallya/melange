@@ -34,8 +34,7 @@ if os.path.exists(os.path.join(possible_topdir, 'melange', '__init__.py')):
 from melange.common import wsgi
 from melange.common import config
 from melange.ipam.models import models
-from melange.db import db_migration_impl as migration
-from melange.db import db_session_impl as session
+from melange.db import db_api
 
 
 def create_options(parser):
@@ -59,10 +58,9 @@ if __name__ == '__main__':
     try:
         conf, app = config.load_paste_app('melange', options, args)
         #TODO move migration to a melange-manage script
-        migration.db_sync(conf)
+        db_api.db_sync(conf)
         conf["models"] = models()
-        session.configure_db(conf)
-        session.configure_sqlalchemy_log(conf)
+        db_api.configure_db(conf)
         server = wsgi.Server()
         server.start(app, options.get('port', conf['bind_port']),
                      conf['bind_host'])

@@ -26,10 +26,9 @@ import urlparse
 import json
 
 from melange import melange_etc_path
-from melange.db import db_session_impl as session
+from melange.db import db_api
 from melange.common import config, utils, wsgi
 from melange.common.config import Config
-from melange.db import db_migration_impl as migration
 from melange.ipam import models
 import webtest
 
@@ -119,7 +118,7 @@ def setup():
     if os.path.isfile(testdb):
         os.unlink(testdb)
 
-    session.drop_db(conf)
-    migration.db_sync(conf)
+    db_api.drop_db(conf)
+    db_api.db_sync(conf)
     conf["models"] = models.models()
-    session.configure_db(conf)
+    db_api.configure_db(conf)

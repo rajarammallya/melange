@@ -18,7 +18,6 @@ from melange.tests import unit
 from melange.tests import BaseTest
 from datetime import datetime, timedelta
 from melange.ipam import models
-from melange.db import db_session_impl as session
 from melange.tests.unit import StubConfig, StubTime
 from melange.common import data_types
 from melange.common.utils import cached_property
@@ -818,9 +817,7 @@ class TestIpAddress(BaseTest):
 
         ip.delete()
 
-        self.assertEqual(IpAddress.get(ip.id), None)
-        deleted_ip = session.raw_query(IpAddress).filter_by(id=ip.id).first()
-        self.assertTrue(deleted_ip.deleted)
+        self.assertIsNone(IpAddress.get(ip.id))
 
     def test_add_inside_locals(self):
         global_block = PrivateIpBlockFactory(cidr="192.0.0.1/8")

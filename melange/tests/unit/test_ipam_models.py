@@ -777,7 +777,7 @@ class TestIpBlock(BaseTest):
 
     def test_is_full_flag_reset_when_addresses_are_deleted(self):
         ip_block = PrivateIpBlockFactory(cidr="10.0.0.0/31")
-        for i in range(0,2):
+        for i in range(0, 2):
             ip = ip_block.allocate_ip()
         ip.deallocate()
         self.assertRaises(NoMoreAddressesError, ip_block.allocate_ip)

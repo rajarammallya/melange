@@ -202,9 +202,8 @@ class UnusableIpRangesController(BaseController):
     def index(self, request, policy_id, tenant_id=None):
         policy = Policy.find_by(id=policy_id,
                                       tenant_id=tenant_id)
-        ip_ranges = IpRange.find_all(policy_id=policy.id).limit(
-            **self._extract_limits(request.params))
-        return dict(ip_ranges=[ip_range.data() for ip_range in ip_ranges])
+        ip_ranges = IpRange.find_all(policy_id=policy.id)
+        return self._paginated_response('ip_ranges', ip_ranges, request)
 
     def update(self, request, policy_id, id, tenant_id=None):
         ip_range = Policy.find_by(id=policy_id,
@@ -223,9 +222,8 @@ class UnusableIpOctetsController(BaseController):
 
     def index(self, request, policy_id, tenant_id=None):
         policy = Policy.find_by(id=policy_id, tenant_id=tenant_id)
-        ip_octets = IpOctet.find_all(policy_id=policy.id).limit(
-            **self._extract_limits(request.params))
-        return dict(ip_octets=[ip_octet.data() for ip_octet in ip_octets])
+        ip_octets = IpOctet.find_all(policy_id=policy.id)
+        return self._paginated_response('ip_octets', ip_octets, request)
 
     def create(self, request, policy_id, tenant_id=None):
         policy = Policy.find_by(id=policy_id, tenant_id=tenant_id)
@@ -256,9 +254,8 @@ class PoliciesController(BaseController):
     exclude_attr = ['tenant_id']
 
     def index(self, request, tenant_id=None):
-        policies = Policy.find_all(tenant_id=tenant_id).limit(
-            **self._extract_limits(request.params))
-        return dict(policies=[policy.data() for policy in policies])
+        policies = Policy.find_all(tenant_id=tenant_id)
+        return self._paginated_response('policies', policies, request)
 
     def show(self, request, id, tenant_id=None):
         return dict(policy=Policy.find_by(id=id, tenant_id=tenant_id).data())

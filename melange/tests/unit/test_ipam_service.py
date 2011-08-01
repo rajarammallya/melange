@@ -978,6 +978,25 @@ class UnusableIpRangesControllerBase():
         self.assertItemsEqual(response_ranges,
                          _data(policy.unusable_ip_ranges))
 
+    def test_index_with_pagination(self):
+        policy = self._policy_factory()
+        ip_ranges = [IpRangeFactory(policy_id=policy.id) for i in range(0, 5)]
+        ip_ranges = models.sort(ip_ranges)
+
+        response = self.app.get("%s/%s/unusable_ip_ranges?limit=2&marker=%s"
+                                 % (self.policy_path, policy.id,
+                                    ip_ranges[0].id))
+
+        next_link = response.json["ip_ranges_links"][0]['href']
+        expected_next_link = string.replace(response.request.url,
+                                        "marker=%s" % ip_ranges[0].id,
+                                        "marker=%s" % ip_ranges[2].id)
+
+        response_ranges = response.json["ip_ranges"]
+        self.assertEqual(len(response_ranges), 2)
+        self.assertItemsEqual(response_ranges, _data(ip_ranges[1:3]))
+        self.assertUrlEqual(next_link, expected_next_link)
+
     def test_delete(self):
         policy = self._policy_factory()
         ip_range = IpRangeFactory(policy_id=policy.id)
@@ -1083,18 +1102,24 @@ class UnusableIpOctetsControllerBase():
         self.assertItemsEqual(response_octets,
                          _data(policy.unusable_ip_octets))
 
-    def test_index_with_limits(self):
+    def test_index_with_pagination(self):
         policy = self._policy_factory()
-        for i in range(0, 3):
-            IpOctetFactory(policy_id=policy.id)
+        ip_octets = [IpOctetFactory(policy_id=policy.id) for i in range(0, 5)]
+        ip_octets = models.sort(ip_octets)
 
-        response = self.app.get("%s/%s/unusable_ip_octets"
-                                 % (self.policy_path, policy.id), {'limit': 2})
+        response = self.app.get("%s/%s/unusable_ip_octets?limit=2&marker=%s"
+                                 % (self.policy_path, policy.id,
+                                    ip_octets[0].id))
+
+        next_link = response.json["ip_octets_links"][0]['href']
+        expected_next_link = string.replace(response.request.url,
+                                        "marker=%s" % ip_octets[0].id,
+                                        "marker=%s" % ip_octets[2].id)
 
         response_octets = response.json["ip_octets"]
         self.assertEqual(len(response_octets), 2)
-        self.assertItemsEqual(response_octets,
-                       _data(models.sort(policy.unusable_ip_octets)[0:2]))
+        self.assertItemsEqual(response_octets, _data(ip_octets[1:3]))
+        self.assertUrlEqual(next_link, expected_next_link)
 
     def test_create(self):
         policy = self._policy_factory()
@@ -1283,6 +1308,23 @@ class TestPoliciesController(BaseTestController):
         policies = Policy.find_all().all()
         self.assertEqual(len(policies), 2)
         self.assertItemsEqual(response_policies, _data(policies))
+
+    def test_index_with_pagination(self):
+        policies = [PolicyFactory() for i in range(0, 5)]
+        policies = models.sort(policies)
+
+        response = self.app.get("/ipam/policies?limit=2&marker=%s"
+                                % policies[0].id)
+
+        next_link = response.json["policies_links"][0]['href']
+        expected_next_link = string.replace(response.request.url,
+                                        "marker=%s" % policies[0].id,
+                                        "marker=%s" % policies[2].id)
+
+        response_policies = response.json["policies"]
+        self.assertEqual(len(response_policies), 2)
+        self.assertItemsEqual(response_policies, _data(policies[1:3]))
+        self.assertUrlEqual(next_link, expected_next_link)
 
     def test_show_when_requested_policy_exists(self):
         policy = PolicyFactory(name="DRAC")

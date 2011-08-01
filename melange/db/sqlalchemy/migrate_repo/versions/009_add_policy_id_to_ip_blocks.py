@@ -14,24 +14,26 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-from sqlalchemy.schema import (Column, MetaData, Table)
+from sqlalchemy.schema import (Column, MetaData, Table,
+                               ForeignKey, ForeignKeyConstraint)
 from melange.ipam import models
-from melange.db.migrate_repo.schema import (
-    Boolean, DateTime, Integer, String, Text, create_tables, drop_tables)
+from melange.db.sqlalchemy.migrate_repo.schema import (
+    Boolean, DateTime, Integer, String, Text, create_tables, drop_tables,
+    from_migration_import)
 import datetime
 
 
 def upgrade(migrate_engine):
     meta = MetaData()
     meta.bind = migrate_engine
-    ip_block_table = Table('ip_blocks', meta, autoload=True)
-    ip_block_table.columns["broadcast_address"].drop()
-    ip_block_table.columns["gateway_address"].alter(name="gateway")
+
+    policy_table = Table('policies', meta, autoload=True)
+    ip_block_table = Table('ip_blocks', meta)
+    Column('policy_id', String(36), nullable=True).create(ip_block_table)
+    ForeignKeyConstraint([ip_block_table.c.policy_id], [policy_table.c.id])
 
 
 def downgrade(migrate_engine):
     meta = MetaData()
     meta.bind = migrate_engine
-    ip_block_table = Table('ip_blocks', meta, autoload=True)
-    Column('broadcast_address', String(255)).create(ip_block_table)
-    ip_block_table.columns["gateway"].alter(name="gateway_address")
+    Table('ip_blocks', meta).columns["policy_id"].drop()

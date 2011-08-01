@@ -16,7 +16,7 @@
 #    under the License.
 from sqlalchemy.schema import (Column, MetaData, Table)
 from melange.ipam import models
-from melange.db.migrate_repo.schema import (
+from melange.db.sqlalchemy.migrate_repo.schema import (
     Boolean, DateTime, Integer, String, Text, create_tables, drop_tables)
 import datetime
 
@@ -24,14 +24,14 @@ import datetime
 def upgrade(migrate_engine):
     meta = MetaData()
     meta.bind = migrate_engine
-    Column('deleted', Boolean()).create(Table('ip_blocks', meta))
-    Column('deleted', Boolean()).create(Table('ip_addresses', meta))
-    Column('deleted', Boolean()).create(Table('ip_nats', meta))
+    ip_block_table = Table('ip_blocks', meta, autoload=True)
+    ip_block_table.columns["broadcast_address"].drop()
+    ip_block_table.columns["gateway_address"].alter(name="gateway")
 
 
 def downgrade(migrate_engine):
     meta = MetaData()
     meta.bind = migrate_engine
-    Table('ip_nats', meta).columns["deleted"].drop()
-    Table('ip_addresses', meta).columns["deleted"].drop()
-    Table('ip_blocks', meta).columns["deleted"].drop()
+    ip_block_table = Table('ip_blocks', meta, autoload=True)
+    Column('broadcast_address', String(255)).create(ip_block_table)
+    ip_block_table.columns["gateway"].alter(name="gateway_address")

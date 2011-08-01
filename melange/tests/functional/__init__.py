@@ -25,7 +25,7 @@ from melange.common.client import Client
 from melange.tests import BaseTest
 from melange.common import config
 from melange.ipam import models
-from melange.db import session
+from melange.db import db_session_impl as session
 
 _PORT = None
 

@@ -18,7 +18,7 @@ from melange.tests import unit
 from melange.tests import BaseTest
 from datetime import datetime, timedelta
 from melange.ipam import models
-from melange.db import session
+from melange.db import db_session_impl as session
 from melange.tests.unit import StubConfig, StubTime
 from melange.common import data_types
 from melange.common.utils import cached_property

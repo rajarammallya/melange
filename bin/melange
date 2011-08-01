@@ -34,8 +34,8 @@ if os.path.exists(os.path.join(possible_topdir, 'melange', '__init__.py')):
 from melange.common import wsgi
 from melange.common import config
 from melange.ipam.models import models
-from melange.db import migration
-from melange.db import session
+from melange.db import db_migration_impl as migration
+from melange.db import db_session_impl as session
 
 
 def create_options(parser):

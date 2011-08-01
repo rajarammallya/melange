@@ -14,26 +14,24 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-from sqlalchemy.schema import (Column, MetaData, Table,
-                               ForeignKey, ForeignKeyConstraint)
+from sqlalchemy.schema import (Column, MetaData, Table)
 from melange.ipam import models
-from melange.db.migrate_repo.schema import (
-    Boolean, DateTime, Integer, String, Text, create_tables, drop_tables,
-    from_migration_import)
+from melange.db.sqlalchemy.migrate_repo.schema import (
+    Boolean, DateTime, Integer, String, Text, create_tables, drop_tables)
 import datetime
 
 
 def upgrade(migrate_engine):
     meta = MetaData()
     meta.bind = migrate_engine
-
-    policy_table = Table('policies', meta, autoload=True)
-    ip_block_table = Table('ip_blocks', meta)
-    Column('policy_id', String(36), nullable=True).create(ip_block_table)
-    ForeignKeyConstraint([ip_block_table.c.policy_id], [policy_table.c.id])
+    Column('deleted', Boolean()).create(Table('ip_blocks', meta))
+    Column('deleted', Boolean()).create(Table('ip_addresses', meta))
+    Column('deleted', Boolean()).create(Table('ip_nats', meta))
 
 
 def downgrade(migrate_engine):
     meta = MetaData()
     meta.bind = migrate_engine
-    Table('ip_blocks', meta).columns["policy_id"].drop()
+    Table('ip_nats', meta).columns["deleted"].drop()
+    Table('ip_addresses', meta).columns["deleted"].drop()
+    Table('ip_blocks', meta).columns["deleted"].drop()

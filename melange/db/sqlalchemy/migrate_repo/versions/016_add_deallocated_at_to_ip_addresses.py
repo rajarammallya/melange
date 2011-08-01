@@ -14,36 +14,21 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-from sqlalchemy.schema import (Column, MetaData, ForeignKey)
+from sqlalchemy.schema import (Column, MetaData, Table)
 from melange.ipam import models
-from melange.db.migrate_repo.schema import (
-    Boolean, DateTime, Integer, String, Text, Table,
-    create_tables, drop_tables, from_migration_import)
+from melange.db.sqlalchemy.migrate_repo.schema import (
+    Boolean, DateTime, Integer, String, Text, create_tables, drop_tables)
 import datetime
-
-
-def define_policy_table(meta):
-
-    policies = Table('policies', meta,
-        Column('id', String(36), primary_key=True, nullable=False),
-        Column('name', String(255), nullable=False),
-        Column('description', String(255), nullable=True),
-        Column('created_at', DateTime(),
-               default=datetime.datetime.utcnow, nullable=True),
-        Column('updated_at', DateTime(), default=datetime.datetime.utcnow),
-        Column('deleted', Boolean(), default=False))
-    return policies
 
 
 def upgrade(migrate_engine):
     meta = MetaData()
     meta.bind = migrate_engine
-    tables = [define_policy_table(meta)]
-    create_tables(tables)
+    Column('deallocated_at', DateTime()).create(\
+                                Table('ip_addresses', meta))
 
 
 def downgrade(migrate_engine):
     meta = MetaData()
     meta.bind = migrate_engine
-    tables = [define_policy_table(meta)]
-    drop_tables(tables)
+    Table('ip_addresses', meta).columns["deallocated_at"].drop()

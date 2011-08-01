@@ -16,7 +16,7 @@
 #    under the License.
 from sqlalchemy.schema import (Column, MetaData, Table)
 from melange.ipam import models
-from melange.db.migrate_repo.schema import (
+from melange.db.sqlalchemy.migrate_repo.schema import (
     Boolean, DateTime, Integer, String, Text, create_tables, drop_tables)
 import datetime
 

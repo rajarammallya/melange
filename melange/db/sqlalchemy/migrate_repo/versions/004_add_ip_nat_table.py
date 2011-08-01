@@ -15,38 +15,40 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 from sqlalchemy.schema import (Column, MetaData, ForeignKey)
+from melange.ipam import models
+from melange.db.sqlalchemy.migrate_repo.schema import (
+    Boolean, DateTime, Integer, String, Text, create_tables, drop_tables,
+    Table, from_migration_import)
+import datetime
 
-from melange.db.migrate_repo.schema import (
-    Boolean, DateTime, Integer, String, Text, Table,
-    create_tables, drop_tables, from_migration_import)
 
+def define_ip_nat_table(meta):
+    (define_ip_addresses_table, ) = from_migration_import(
+        '002_add_ip_addresses_table', ['define_ip_addresses_table'])
 
-def define_ip_addresses_table(meta):
-    (define_ip_blocks_table, ) = from_migration_import(
-        '001_add_ip_blocks_table', ['define_ip_blocks_table'])
+    ip_addresses = define_ip_addresses_table(meta)
 
-    ip_blocks = define_ip_blocks_table(meta)
-
-    ip_addresses = Table('ip_addresses', meta,
+    ip_nats = Table('ip_nats', meta,
         Column('id', String(36), primary_key=True, nullable=False),
-        Column('address', String(255), nullable=False),
-        Column('port_id', String(255), nullable=True),
-        Column('ip_block_id', String(36), ForeignKey('ip_blocks.id'),
-               nullable=True),
-        Column('created_at', DateTime(), nullable=True),
-        Column('updated_at', DateTime()))
-    return ip_addresses
+        Column('inside_local_address_id', String(36),
+               ForeignKey('ip_addresses.id'), nullable=False),
+        Column('inside_global_address_id', String(36),
+               ForeignKey('ip_addresses.id'), nullable=False),
+        Column('created_at', DateTime(),
+               default=datetime.datetime.utcnow, nullable=True),
+        Column('updated_at', DateTime(), default=datetime.datetime.utcnow))
+    return ip_nats
 
 
 def upgrade(migrate_engine):
     meta = MetaData()
     meta.bind = migrate_engine
-    tables = [define_ip_addresses_table(meta)]
+    tables = [define_ip_nat_table(meta)]
     create_tables(tables)
 
 
 def downgrade(migrate_engine):
     meta = MetaData()
     meta.bind = migrate_engine
-    tables = [define_ip_addresses_table(meta)]
+    tables = [define_ip_nat_table(meta)]
     drop_tables(tables)

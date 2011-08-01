@@ -16,7 +16,14 @@
 #    under the License.
 
 import optparse
+from melange.common import utils
 
+db_api_impl = utils.import_class("melange.db.sqlalchemy.api.SqlalchemyApiImpl")
+db_session_impl = __import__('melange.db.sqlalchemy.session', None, None,
+                             "session")
+
+db_migration_impl = __import__("melange.db.sqlalchemy.migration", None, None,
+                               "migration")
 
 def add_options(parser):
     """

@@ -15,8 +15,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 from sqlalchemy.schema import (Column, MetaData, Table)
-from melange.ipam import models
-from melange.db.migrate_repo.schema import (
+from melange.db.sqlalchemy.migrate_repo.schema import (
     Boolean, DateTime, Integer, String, Text, create_tables, drop_tables)
 import datetime
 
@@ -24,11 +23,10 @@ import datetime
 def upgrade(migrate_engine):
     meta = MetaData()
     meta.bind = migrate_engine
-    Column('marked_for_deallocation', Boolean()).create(\
-                                Table('ip_addresses', meta))
+    Column('tenant_id', String(255)).create(Table('policies', meta))
 
 
 def downgrade(migrate_engine):
     meta = MetaData()
     meta.bind = migrate_engine
-    Table('ip_addresses', meta).columns["marked_for_deallocation"].drop()
+    Table('policies', meta).columns["tenant_id"].drop()

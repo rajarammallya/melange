@@ -16,7 +16,7 @@
 #    under the License.
 from sqlalchemy.schema import (Column, MetaData, ForeignKey,
                                ForeignKeyConstraint)
-from melange.db.migrate_repo.schema import String, Table
+from melange.db.sqlalchemy.migrate_repo.schema import String, Table
 
 
 def upgrade(migrate_engine):

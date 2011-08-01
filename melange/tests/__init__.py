@@ -16,7 +16,7 @@
 #    under the License.
 import unittest
 from urlparse import parse_qs
-from melange.db import session
+from melange.db import db_session_impl as session
 
 
 class BaseTest(unittest.TestCase):

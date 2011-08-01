@@ -14,19 +14,24 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-from sqlalchemy.schema import (Column, MetaData, Table)
-from melange.db.migrate_repo.schema import (
-    Boolean, DateTime, Integer, String, Text, create_tables, drop_tables)
+from sqlalchemy.schema import (Column, MetaData, Table,
+                               ForeignKey, ForeignKeyConstraint)
+from melange.ipam import models
+from melange.db.sqlalchemy.migrate_repo.schema import (
+    Boolean, DateTime, Integer, String, Text, create_tables, drop_tables,
+    from_migration_import)
 import datetime
 
 
 def upgrade(migrate_engine):
     meta = MetaData()
     meta.bind = migrate_engine
-    Column('tenant_id', String(255)).create(Table('policies', meta))
+
+    ip_block_table = Table('ip_blocks', meta)
+    Column('is_full', Boolean()).create(ip_block_table)
 
 
 def downgrade(migrate_engine):
     meta = MetaData()
     meta.bind = migrate_engine
-    Table('policies', meta).columns["tenant_id"].drop()
+    Table('ip_blocks', meta).columns["is_full"].drop()

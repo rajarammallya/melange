@@ -50,9 +50,6 @@ class AtomLink(object):
 
 class PaginatedResult(Result):
 
-    def __init__(self, paginated_data_view):
-        super(PaginatedResult, self).__init__(paginated_data_view)
-
     def serialize_data(self, serializer, serialization_type):
         data = self.data.data_for_json()
         if serialization_type == "application/xml":

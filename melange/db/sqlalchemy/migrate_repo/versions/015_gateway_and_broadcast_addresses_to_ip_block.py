@@ -14,40 +14,27 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-from sqlalchemy.schema import (Column, MetaData, ForeignKey)
+from sqlalchemy.schema import (Column, MetaData, Table,
+                               ForeignKey, ForeignKeyConstraint)
 from melange.ipam import models
-from melange.db.migrate_repo.schema import (
+from melange.db.sqlalchemy.migrate_repo.schema import (
     Boolean, DateTime, Integer, String, Text, create_tables, drop_tables,
-    Table, from_migration_import)
+    from_migration_import)
 import datetime
-
-
-def define_ip_octets_table(meta):
-    (define_policy_table, ) = from_migration_import(
-        '007_add_policy_table', ['define_policy_table'])
-
-    policy_table = define_policy_table(meta)
-
-    ip_octets = Table('ip_octets', meta,
-        Column('id', String(36), primary_key=True, nullable=False),
-        Column('octet', Integer(), nullable=False),
-        Column('policy_id', String(36), ForeignKey('policies.id')),
-        Column('created_at', DateTime(),
-               default=datetime.datetime.utcnow, nullable=True),
-        Column('updated_at', DateTime(), default=datetime.datetime.utcnow),
-        Column('deleted', Boolean(), default=False))
-    return ip_octets
 
 
 def upgrade(migrate_engine):
     meta = MetaData()
     meta.bind = migrate_engine
-    tables = [define_ip_octets_table(meta)]
-    create_tables(tables)
+
+    ip_block_table = Table('ip_blocks', meta)
+    Column('broadcast_address', String(255)).create(ip_block_table)
+    Column('gateway_address', String(255)).create(ip_block_table)
 
 
 def downgrade(migrate_engine):
     meta = MetaData()
     meta.bind = migrate_engine
-    tables = [define_ip_octets_table(meta)]
-    drop_tables(tables)
+    ip_block_table = Table('ip_blocks', meta, autoload=True)
+    ip_block_table.columns["broadcast_address"].drop()
+    ip_block_table.columns["gateway_address"].drop()

@@ -26,10 +26,10 @@ import urlparse
 import json
 
 from melange import melange_etc_path
-from melange.db import session
+from melange.db import db_session_impl as session
 from melange.common import config, utils, wsgi
 from melange.common.config import Config
-from melange.db import migration
+from melange.db import db_migration_impl as migration
 from melange.ipam import models
 import webtest
 

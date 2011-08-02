@@ -44,11 +44,6 @@ class BaseTestController(BaseTest):
                 {"config_file": test_config_path()}, None)
         self.app = TestApp(melange_app)
 
-    def assertErrorResponse(self, response, error_type, expected_error):
-        self.assertEqual(response.status_int, error_type().code)
-        self.assertIn(expected_error,
-                        response.json[error_type.__name__[4:]]['detail'])
-
 
 class DummyApp(wsgi.Router):
 

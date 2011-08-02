@@ -58,3 +58,8 @@ class BaseTest(unittest.TestCase):
         self.assertEqual(expected.partition("?")[0], actual.partition("?")[0])
         self.assertEqual(parse_qs(expected.partition("?")[2]),
                          parse_qs(actual.partition("?")[2]))
+
+    def assertErrorResponse(self, response, error_type, expected_error):
+        self.assertEqual(response.status_int, error_type().code)
+        self.assertIn(expected_error,
+                        response.body)

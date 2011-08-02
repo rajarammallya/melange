@@ -33,13 +33,13 @@ class AuthorizationMiddleware(wsgi.Middleware):
 
     def process_request(self, request):
         role = request.headers.get('X_ROLE', None)
-        authorized_tenant_id = request.headers.get('X_TENANT', None)
+        tenant_id = request.headers.get('X_TENANT', None)
         secure_tenant_scope = self.secure_tenant_scope_factory(
                                                  request.path_info,
-                                                 authorized_tenant_id)
+                                                 tenant_id)
         if(secure_tenant_scope.is_unauthorized_for(role)):
-            raise HTTPForbidden("Access was denied to this tenant resource: %s"
-                                % secure_tenant_scope.tenant_id)
+            raise HTTPForbidden("User with tenant id %s cannot access this "
+                                "resource" % tenant_id)
 
         url = self.secure_url_factory(request.path_info)
         if(url.is_unauthorized_for(role)):
@@ -58,21 +58,11 @@ class SecureTenantScope(object):
     mapper = routes.Mapper()
     mapper.connect("{prefix_path:.*}/tenants/{tenant_id}/{suffix_path:.*}")
 
-    def __init__(self, path, authorized_tenant_id):
+    def __init__(self, path, tenant_id):
         self.path = path
-        self.authorized_tenant_id = authorized_tenant_id
-
-    def _tenant_scoped(self):
-        return self.elements != None
-
-    @cached_property
-    def elements(self):
-        return self.mapper.match(self.path)
+        self._tenant_id = tenant_id
 
     def is_unauthorized_for(self, role):
-        return (self._tenant_scoped() and (role != 'Admin' and
-                self.tenant_id != self.authorized_tenant_id))
-
-    @property
-    def tenant_id(self):
-        return self.elements['tenant_id']
+        url_elements = self.mapper.match(self.path)
+        return (url_elements != None and (role != 'Admin' and
+                        self._tenant_id != url_elements['tenant_id']))

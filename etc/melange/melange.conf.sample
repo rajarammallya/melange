@@ -54,10 +54,23 @@ pipeline = authorization extensions melangeapp
 [filter:extensions]
 paste.filter_factory = melange.common.extensions:ExtensionMiddleware.factory
 
-[filter:authorization]
-url_auth_factory = melange.ipam.service.UrlAuthorizationFactory
-paste.filter_factory = melange.common.auth:AuthorizationMiddleware.factory
+[filter:tokenauth]
+paste.filter_factory = keystone.middleware.auth_token:filter_factory
+service_protocol = http
+service_host = 127.0.0.1
+service_port = 808
+auth_host = 127.0.0.1
+auth_port = 5001
+auth_protocol = http
+admin_token = 999888777666
 
+[filter:authorization]
+paste.filter_factory = melange.common.auth:AuthorizationMiddleware.factory
+url_auth_factory = melange.ipam.service.UrlAuthorizationFactory
 
 [app:melangeapp]
 paste.app_factory = melange.ipam.service:app_factory
+
+#Add this filter to log request and response for debugging
+[filter:debug]
+paste.filter_factory = melange.common.wsgi:Debug.factory

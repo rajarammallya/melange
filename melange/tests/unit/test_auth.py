@@ -19,11 +19,13 @@ import routes
 import webob
 import mox
 
+from webtest import TestApp
+from webob.exc import HTTPForbidden
 from melange.common import auth, wsgi
 from melange.ipam.service import SecureUrl
 from melange.common.auth import SecureTenantScope
 from melange.common.utils import cached_property
-from webtest import TestApp
+from melange.tests import BaseTest
 
 
 class MiddlewareTestApp(object):
@@ -36,7 +38,7 @@ class MiddlewareTestApp(object):
         self.was_called = True
 
 
-class TestAuthMiddleware(unittest.TestCase):
+class TestAuthMiddleware(BaseTest):
 
     def setUp(self):
         self.dummy_app = MiddlewareTestApp()
@@ -55,18 +57,17 @@ class TestAuthMiddleware(unittest.TestCase):
 
     def test_scope_unauthorized_gives_forbidden_response(self):
         self.scope_mock_factory.__call__("/dummy_url",
-                               "tenant_id").AndReturn(self.scope_mock)
+                               "foo").AndReturn(self.scope_mock)
         self.scope_mock.is_unauthorized_for('xxxx').AndReturn(True)
 
         self.mocker.ReplayAll()
 
         response = self.app.get("/dummy_url", status="*",
-                                headers={'X_TENANT': "tenant_id",
+                                headers={'X_TENANT': "foo",
                                          'X_ROLE': "xxxx"})
 
-        self.assertEqual(response.status_int, 403)
-        self.assertTrue("Access was denied to this tenant resource: tenant_id"
-                        in response.body)
+        self.assertErrorResponse(response, HTTPForbidden,
+                                 "User with tenant id foo cannot access this resource")
 
     def test_scope_authorized_gives_success_response(self):
         self.scope_mock_factory.__call__("/dummy_url",
@@ -97,9 +98,8 @@ class TestAuthMiddleware(unittest.TestCase):
                                 headers={'X_TENANT': "tenant_id",
                                          'X_ROLE': "xxxx"})
 
-        self.assertEqual(response.status_int, 403)
-        self.assertTrue("Access was denied to this role: xxxx"
-                        in response.body)
+        self.assertErrorResponse(response, HTTPForbidden,
+                                 "Access was denied to this role: xxxx")
 
     def test_url_authorized_gives_success_response(self):
         self.scope_mock_factory.__call__("/dummy_url",
@@ -166,37 +166,33 @@ class TestSecureScope(unittest.TestCase):
 
     def test_authorizes_tenant_accessing_its_own_resources(self):
         secure_tenant_scope = SecureTenantScope("/tenants/1/resources",
-                                                authorized_tenant_id="1")
+                                                tenant_id="1")
 
         self.assertFalse(secure_tenant_scope.is_unauthorized_for("Tenant"))
 
     def test_tenant_accessing_other_tenants_resources_is_unauthorized(self):
         unauthorized_scope = SecureTenantScope("/tenants/1/resources",
-                                                authorized_tenant_id="blah")
+                                                tenant_id="blah")
 
         self.assertTrue(unauthorized_scope.is_unauthorized_for("Tenant"))
 
     def test_authorizes_tenant_accessing_resources_not_scoped_by_tenant(self):
         non_tenant_scope = SecureTenantScope("/xxxx/1/resources",
-                                                authorized_tenant_id=None)
+                                                tenant_id=None)
 
         self.assertFalse(non_tenant_scope.is_unauthorized_for("Tenant"))
 
     def test_authorizes_admin_accessing_tenant_resources(self):
         authorized_scope = SecureTenantScope("/tenants/1/resources",
-                                                authorized_tenant_id="1")
+                                                tenant_id="1")
         unauthorized_scope = SecureTenantScope("/tenants/1/resources",
-                                                authorized_tenant_id="blah")
+                                                tenant_id="blah")
 
         self.assertFalse(authorized_scope.is_unauthorized_for("Admin"))
         self.assertFalse(unauthorized_scope.is_unauthorized_for("Admin"))
 
     def test_authorizes_admin_accessing_resources_not_scoped_by_tenant(self):
         non_tenant_scope = SecureTenantScope("/xxxx/1/resources",
-                                                authorized_tenant_id="1")
+                                                tenant_id="1")
 
         self.assertFalse(non_tenant_scope.is_unauthorized_for("Admin"))
-
-    def test_elements_are_cached(self):
-        self.assertTrue(isinstance(SecureTenantScope.elements,
-                                   cached_property))

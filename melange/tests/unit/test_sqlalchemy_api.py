@@ -21,7 +21,7 @@ from melange.tests.factories.models import IpBlockFactory
 
 from melange.ipam.models import IpBlock
 from melange.db.sqlalchemy import session
-from melange.db.sqlalchemy.api import SqlalchemyApiImpl as db_api
+from melange.db.sqlalchemy import api as db_api
 
 
 class TestSqlalchemyApi(BaseTest):

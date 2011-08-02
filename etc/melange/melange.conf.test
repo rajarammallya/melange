@@ -30,7 +30,7 @@ sql_connection = sqlite:///melange_tests.sqlite
 sql_idle_timeout = 3600
 
 #DB Api Implementation
-db_api_implementation_class = "melange.db.sqlalchemy.api.SqlalchemyApiImpl"
+db_api_implementation = "melange.db.sqlalchemy.api"
 
 # Cidr used for auto creating private ip block in a network
 default_cidr = 10.0.0.0/24

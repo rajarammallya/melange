@@ -26,7 +26,7 @@ sql_connection = sqlite:///melange.sqlite
 sql_idle_timeout = 3600
 
 #DB Api Implementation
-db_api_implementation_class = "melange.db.sqlalchemy.api.SqlalchemyApiImpl"
+db_api_implementation = "melange.db.sqlalchemy.api"
 
 # Path to the extensions
 api_extensions_path = extensions

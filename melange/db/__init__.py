@@ -20,12 +20,8 @@ from melange.common import utils
 from melange.common.config import Config
 
 
-def _db_api_implementation_class():
-    return Config.get("db_api_implementation_class",
-                      "melange.db.sqlalchemy.api.SqlalchemyApiImpl")
-
-
-db_api = utils.import_class(_db_api_implementation_class())
+db_api = utils.import_object(Config.get("db_api_implementation",
+                                        "melange.db.sqlalchemy.api"))
 
 
 def add_options(parser):

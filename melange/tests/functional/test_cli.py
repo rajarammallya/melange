@@ -31,7 +31,7 @@ from melange.tests import BaseTest
 
 
 def run(command):
-    return execute("{0} --port={1} {2}".format(
+    return execute("{0} --port={1} {2} --auth-token=test".format(
             melange_bin_path('melange-manage'),
             get_api_port(), command))
 

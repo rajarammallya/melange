@@ -57,7 +57,8 @@ import os
 import sys
 import json
 import optparse
-
+import httplib2
+from os import environ as env
 # If ../melange/__init__.py exists, add ../ to Python search path, so that
 # it will override what happens to be installed in /usr/(local/)lib/python...
 possible_topdir = os.path.normpath(os.path.join(os.path.abspath(sys.argv[0]),
@@ -73,12 +74,12 @@ from melange.common.utils import Method, remove_nones
 
 
 class Resource(object):
-    port = 9898
-    host = "0.0.0.0"
 
-    def __init__(self, path, name):
+    def __init__(self, path, name, host="0.0.0.0", port=9898):
         self.path = "/v0.1/ipam/" + path
         self.name = name
+        self.host = host
+        self.port = port
 
     def create(self, **kwargs):
         return self.request("POST", self.path,
@@ -102,18 +103,31 @@ class Resource(object):
 
     def request(self, method, path, body_params=None, **kwargs):
         client = Client(host=self.host, port=self.port)
-        #TODO: plug in keystone here
-        kwargs['headers'] = {'X_ROLE': "Admin",
+        kwargs['headers'] = {'X-AUTH-TOKEN': self.auth_client.get_token(),
                              'Content-Type': "application/json"}
         response = client.do_request(method, path, **kwargs)
-        return json.loads(response.read() or "{}")
+        return response.read()
 
 
-class TenantResource(Resource):
+class AuthClient(httplib2.Http):
 
-    def __init__(self, tenant_id, path, *args):
-        super(TenantResource,
-              self).__init__("tenants/{0}/{1}".format(tenant_id, path), *args)
+    def __init__(self, url, username, access_key, auth_token=None):
+        super(AuthClient, self).__init__()
+        self.url = url
+        self.username = username
+        self.access_key = access_key
+        self.auth_token = auth_token
+
+    def get_token(self):
+        if self.auth_token:
+            return self.auth_token
+        headers = {'content-type': 'application/json'}
+        request_body = json.dumps({"passwordCredentials":
+                                       {"username": self.username,
+                                        'password': self.access_key}})
+        res, body = self.request(self.url, "POST", headers=headers,
+                                            body=request_body)
+        return json.loads(body)['auth']['token']['id']
 
 
 class IpBlockCommands(object):
@@ -278,6 +292,19 @@ def create_options(parser):
                            "Default: %default")
     parser.add_option('-t', '--tenant', dest="tenant", metavar="TENANT",
                       type=str, help="tenant id in case of tenant resources")
+    parser.add_option('--auth-token', dest="auth_token", metavar="MELANGE_AUTH_TOKEN",
+                      default=env.get('MELANGE_AUTH_TOKEN', None),
+                      type=str, help="Melange auth token received from keystone")
+    parser.add_option('-u', '--username', dest="username", metavar="MELANGE_USERNAME",
+                      default=env.get('MELANGE_USERNAME', None),
+                      type=str, help="Melange user name")
+    parser.add_option('-k', '--api-key', dest="api_key", metavar="MELANGE_API_KEY",
+                      default=env.get('MELANGE_API_KEY', None),
+                      type=str, help="Melange access key")
+    parser.add_option('-a', '--auth-url', dest="auth_url",
+                      metavar="MELANGE_AUTH_URL", type=str,
+                      default=env.get('MELANGE_AUTH_URL', None),
+                      help="Url of keystone service")
 
 
 def parse_options(parser, cli_args):
@@ -323,14 +350,14 @@ def main():
     create_options(oparser)
     (options, args) = parse_options(oparser, sys.argv[1:])
 
-    Resource.host, Resource.port = options.host, options.port
     script_name = os.path.basename(sys.argv[0])
     category = args.pop(0)
-
-    def resource_factory(*args):
+    Resource.auth_client = AuthClient(options.auth_url, options.username,
+                                      options.api_key, options.auth_token)
+    def resource_factory(path, name):
         if options.tenant:
-            return  TenantResource(options.tenant, *args)
-        return Resource(*args)
+            path = "tenants/{0}/{1}".format(options.tenant, path)
+        return Resource(path, name, host=options.host, port=options.port)
 
     category, command_object = lazy_match(category,
                                           categories(resource_factory))

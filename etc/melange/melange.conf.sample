@@ -49,7 +49,7 @@ use = call:melange.common.wsgi:versioned_urlmap
 paste.app_factory = melange.versions:app_factory
 
 [pipeline:melangeapi]
-pipeline = authorization extensions melangeapp
+pipeline = extensions melangeapp
 
 [filter:extensions]
 paste.filter_factory = melange.common.extensions:ExtensionMiddleware.factory

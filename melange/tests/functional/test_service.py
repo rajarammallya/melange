@@ -76,7 +76,7 @@ class TestAuthMiddleware(FunctionalTest):
         self.assertEqual(response.status, 200)
 
     def test_forbids_tenants_accesing_admin_resources(self):
-        response = self.client.get("/v0.1/ipam/ip_blocks",
+        response = self.client.post("/v0.1/ipam/ip_blocks",
                                    headers={'X_TENANT': "123",
                                             'X_ROLE': "Tenant"})
 

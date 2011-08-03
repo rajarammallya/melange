@@ -45,39 +45,33 @@ class TestAuthMiddleware(BaseTest):
         self.mocker = mox.Mox()
         self.auth_provider1 = self.mocker.CreateMockAnything()
         self.auth_provider2 = self.mocker.CreateMockAnything()
-        auth_middleware = auth.AuthorizationMiddleware(self.dummy_app,
+        self.auth_middleware = auth.AuthorizationMiddleware(self.dummy_app,
                                                        self.auth_provider1,
                                                        self.auth_provider2)
-        self.app = TestApp(auth_middleware)
+        self.request = webob.Request.blank("/dummy_url")
+        self.request.headers = {'X_TENANT': "tenant_id", 'X_ROLE': "Member"}
 
     def tearDown(self):
         self.mocker.VerifyAll()
 
     def test_forbids_based_on_auth_providers(self):
-        self.auth_provider1.authorize("/dummy_url", "foo", ['xxxx']).\
+        self.auth_provider1.authorize(self.request, "tenant_id", ['Member']).\
             AndReturn(True)
-        self.auth_provider2.authorize("/dummy_url", "foo", ['xxxx']).\
+        self.auth_provider2.authorize(self.request, "tenant_id", ['Member']).\
             AndRaise(HTTPForbidden("Auth Failed"))
-
         self.mocker.ReplayAll()
 
-        response = self.app.get("/dummy_url", status="*",
-                                headers={'X_TENANT': "foo",
-                                         'X_ROLE': "xxxx"})
-
-        self.assertErrorResponse(response, HTTPForbidden, "Auth Failed")
+        self.assertRaisesExcMessage(HTTPForbidden, "Auth Failed",
+                                    self.auth_middleware, self.request)
 
     def test_authorizes_based_on_auth_providers(self):
-        self.auth_provider1.authorize("/dummy_url", "tenant_id", ['xxxx']).\
+        self.auth_provider1.authorize(self.request, "tenant_id", ['Member']).\
             AndReturn(True)
-        self.auth_provider2.authorize("/dummy_url", "tenant_id", ['xxxx']).\
+        self.auth_provider2.authorize(self.request, "tenant_id", ['Member']).\
             AndReturn(True)
-
         self.mocker.ReplayAll()
 
-        response = self.app.get("/dummy_url", status="*",
-                                headers={'X_TENANT': "tenant_id",
-                                         'X_ROLE': "xxxx"})
+        response = self.auth_middleware(self.request)
 
         self.assertEqual(response.status_int, 200)
 
@@ -90,12 +84,9 @@ class DecoratorTestApp(wsgi.Router):
 
 def mapper():
     mapper = routes.Mapper()
-    admin_actions = ['admin_action']
+    admin_actions = ['create']
     controller = StubController(admin_actions=admin_actions)
-    mapper.resource("resource", "/resources",
-                    controller=controller,
-                    collection={'unrestricted': 'get',
-                                'admin_action': 'get'})
+    mapper.resource("resource", "/resources", controller=controller)
     return mapper
 
 
@@ -112,30 +103,37 @@ class TestRoleBasedAuth(BaseTest):
 
     def setUp(self):
         self.auth_provider = RoleBasedAuth(mapper())
+        self.request = webob.Request.blank("/resources")
 
     def test_authorizes_admin_accessing_admin_actions(self):
-        self.assertTrue(self.auth_provider.authorize("/resources/admin_action",
+        self.request.method = "POST"
+
+        self.assertTrue(self.auth_provider.authorize(self.request,
                                                      tenant_id='foo',
                                                      roles=['Admin']))
 
     def test_forbids_non_admin_accessing_admin_actions(self):
+        self.request.method = "POST"
+
         self.assertRaises(HTTPForbidden, self.auth_provider.authorize,
-                          "/resources/admin_action", tenant_id='foo', roles=[])
+                          self.request, tenant_id='foo', roles=[])
 
         msg = "User with roles Member, Viewer cannot access admin actions"
         self.assertRaisesExcMessage(HTTPForbidden, msg,
                                     self.auth_provider.authorize,
-                                    "/resources/admin_action", tenant_id='foo',
+                                    self.request, tenant_id='foo',
                                     roles=['Member', 'Viewer'])
 
     def test_authorizes_any_user_accessing_unrestricted_url(self):
-        self.assertTrue(self.auth_provider.authorize("/resources/unrestricted",
+        self.request.method = "GET"
+
+        self.assertTrue(self.auth_provider.authorize(self.request,
                                                      tenant_id='foo',
                                                      roles=['Member']))
-        self.assertTrue(self.auth_provider.authorize("/resources/unrestricted",
+        self.assertTrue(self.auth_provider.authorize(self.request,
                                                      tenant_id='foo',
                                                      roles=['Admin']))
-        self.assertTrue(self.auth_provider.authorize("/resources/unrestricted",
+        self.assertTrue(self.auth_provider.authorize(self.request,
                                                      tenant_id='foo',
                                                      roles=[]))
 
@@ -146,33 +144,40 @@ class TestTenantBasedAuth(BaseTest):
         self.auth_provider = TenantBasedAuth()
 
     def test_authorizes_tenant_accessing_its_own_resources(self):
-        self.assertTrue(self.auth_provider.authorize("/tenants/1/resources",
+        request = webob.Request.blank("/tenants/1/resources")
+        self.assertTrue(self.auth_provider.authorize(request,
                                                      tenant_id="1",
                                                      roles=["Member"]))
 
     def test_tenant_accessing_other_tenants_resources_is_unauthorized(self):
+        request = webob.Request.blank("/tenants/1/resources")
         expected_msg = "User with tenant id blah cannot access this resource"
         self.assertRaisesExcMessage(HTTPForbidden, expected_msg,
                                     self.auth_provider.authorize,
-                                    "/tenants/1/resources", tenant_id="blah",
+                                    request, tenant_id="blah",
                                     roles=["Member"])
 
     def test_authorizes_tenant_accessing_resources_not_scoped_by_tenant(self):
-        self.assertTrue(self.auth_provider.authorize("/xxxx/1/resources",
-                                                     tenant_id=None,
+        request = webob.Request.blank("/xxxx/1/resources")
+        self.assertTrue(self.auth_provider.authorize(request,
+                                                     tenant_id="foo",
                                                      roles=["Member"]))
 
     def test_authorizes_admin_accessing_own_tenant_resources(self):
-        self.assertTrue(self.auth_provider.authorize("/tenants/1/resources",
+        request = webob.Request.blank("/tenants/1/resources")
+        self.assertTrue(self.auth_provider.authorize(request,
                                                      tenant_id="1",
-                                                     roles=["Admin"]))
+                                                     roles=["Admin",
+                                                            "Member"]))
 
     def test_authorizes_admin_accessing_other_tenant_resources(self):
-        self.assertTrue(self.auth_provider.authorize("/tenants/1/resources",
+        request = webob.Request.blank("/tenants/1/resources")
+        self.assertTrue(self.auth_provider.authorize(request,
                                                      tenant_id="blah",
                                                      roles=["Admin"]))
 
     def test_authorizes_admin_accessing_resources_not_scoped_by_tenant(self):
-        self.assertTrue(self.auth_provider.authorize("/xxxx/1/resources",
+        request = webob.Request.blank("/xxxx/1/resources")
+        self.assertTrue(self.auth_provider.authorize(request,
                                                      tenant_id="1",
                                                      roles=["Admin"]))

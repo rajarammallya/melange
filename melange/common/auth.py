@@ -34,7 +34,7 @@ class AuthorizationMiddleware(wsgi.Middleware):
         roles = request.headers.get('X_ROLE', '').split(',')
         tenant_id = request.headers.get('X_TENANT', None)
         for provider in self.auth_providers:
-            provider.authorize(request.path_info, tenant_id, roles)
+            provider.authorize(request, tenant_id, roles)
 
     @classmethod
     def factory(cls, global_config, **local_config):
@@ -48,10 +48,10 @@ class AuthorizationMiddleware(wsgi.Middleware):
 class TenantBasedAuth(object):
     tenant_scoped_url = re.compile(".*/tenants/(?P<tenant_id>.*?)/.*")
 
-    def authorize(self, path, tenant_id, roles):
+    def authorize(self, request, tenant_id, roles):
         if('Admin' in roles):
             return True
-        match = self.tenant_scoped_url.match(path)
+        match = self.tenant_scoped_url.match(request.path_info)
         if match and tenant_id != match.group('tenant_id'):
             raise HTTPForbidden("User with tenant id %s cannot access "
                                 "this resource" % tenant_id)
@@ -63,10 +63,10 @@ class RoleBasedAuth(object):
     def __init__(self, mapper):
         self.mapper = mapper
 
-    def authorize(self, path, tenant_id, roles):
+    def authorize(self, request, tenant_id, roles):
         if('Admin' in roles):
             return True
-        match = self.mapper.match(path)
+        match = self.mapper.match(request.path_info, request.environ)
         if match and match['action'] in match['controller'].admin_actions:
             raise HTTPForbidden("User with roles %s cannot access "
                                 "admin actions" % ', '.join(roles))

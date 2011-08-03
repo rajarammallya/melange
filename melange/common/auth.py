@@ -16,6 +16,7 @@
 #    under the License.
 import wsgi
 import routes
+import re
 
 from webob.exc import HTTPForbidden
 
@@ -24,45 +25,49 @@ from melange.common.utils import import_class, cached_property
 
 class AuthorizationMiddleware(wsgi.Middleware):
 
-    def __init__(self, application, secure_url_factory,
-                 secure_tenant_scope_factory, **local_config):
-        self.secure_url_factory = secure_url_factory
-        self.secure_tenant_scope_factory = secure_tenant_scope_factory
+    def __init__(self, application, *auth_providers, **local_config):
+        self.auth_providers = auth_providers
         super(AuthorizationMiddleware, self).__init__(application,
                                                       **local_config)
 
     def process_request(self, request):
-        role = request.headers.get('X_ROLE', None)
+        roles = request.headers.get('X_ROLE', '').split(',')
         tenant_id = request.headers.get('X_TENANT', None)
-        secure_tenant_scope = self.secure_tenant_scope_factory(
-                                                 request.path_info,
-                                                 tenant_id)
-        if(secure_tenant_scope.is_unauthorized_for(role)):
-            raise HTTPForbidden("User with tenant id %s cannot access this "
-                                "resource" % tenant_id)
-
-        url = self.secure_url_factory(request.path_info)
-        if(url.is_unauthorized_for(role)):
-            raise HTTPForbidden("Access was denied to this role: %s" % role)
+        for provider in self.auth_providers:
+            provider.authorize(request.path_info, tenant_id, roles)
 
     @classmethod
     def factory(cls, global_config, **local_config):
         def _factory(app):
-            secure_url_factory = import_class(local_config['url_auth_factory'])
-            return cls(app, secure_url_factory, SecureTenantScope,
+            url_auth_factory = import_class(local_config['url_auth_factory'])
+            return cls(app, url_auth_factory(), TenantBasedAuth(),
                        **local_config)
         return _factory
 
 
-class SecureTenantScope(object):
-    mapper = routes.Mapper()
-    mapper.connect("{prefix_path:.*}/tenants/{tenant_id}/{suffix_path:.*}")
+class TenantBasedAuth(object):
+    tenant_scoped_url = re.compile(".*/tenants/(?P<tenant_id>.*?)/.*")
 
-    def __init__(self, path, tenant_id):
-        self.path = path
-        self._tenant_id = tenant_id
+    def authorize(self, path, tenant_id, roles):
+        if('Admin' in roles):
+            return True
+        match = self.tenant_scoped_url.match(path)
+        if match and tenant_id != match.group('tenant_id'):
+            raise HTTPForbidden("User with tenant id %s cannot access "
+                                "this resource" % tenant_id)
+        return True
 
-    def is_unauthorized_for(self, role):
-        url_elements = self.mapper.match(self.path)
-        return (url_elements != None and (role != 'Admin' and
-                        self._tenant_id != url_elements['tenant_id']))
+
+class RoleBasedAuth(object):
+
+    def __init__(self, mapper):
+        self.mapper = mapper
+
+    def authorize(self, path, tenant_id, roles):
+        if('Admin' in roles):
+            return True
+        match = self.mapper.match(path)
+        if match and match['action'] in match['controller'].admin_actions:
+            raise HTTPForbidden("User with roles %s cannot access "
+                                "admin actions" % ', '.join(roles))
+        return True

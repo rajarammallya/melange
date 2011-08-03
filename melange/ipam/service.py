@@ -30,6 +30,7 @@ from melange.ipam.models import (IpBlock, IpAddress, Policy, IpRange,
 from melange.common.utils import (exclude, stringify_keys, filter_dict,
                                   merge_dicts)
 from melange.common.pagination import PaginatedResult, PaginatedDataView
+from melange.common.auth import RoleBasedAuth
 
 
 class BaseController(wsgi.Controller):
@@ -388,29 +389,8 @@ class API(wsgi.Router):
                               *args, **kwargs)
 
 
-def UrlAuthorizationFactory(path):
-    return SecureUrl(path, API().map)
-
-
-class SecureUrl(object):
-
-    @classmethod
-    def factory(cls):
-        return cls
-
-    def __init__(self, path, mapper):
-        self.path = path
-        self.mapper = mapper
-
-    def is_unauthorized_for(self, role):
-        if(role == 'Admin'):
-            return False
-        match = self.mapper.match(self.path)
-        if match is None:
-            return False
-        controller = match['controller']
-        action = match['action']
-        return action in controller.admin_actions
+def UrlAuthorizationFactory():
+    return RoleBasedAuth(API().map)
 
 
 def app_factory(global_conf, **local_conf):

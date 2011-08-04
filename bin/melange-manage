@@ -71,7 +71,7 @@ from melange import version
 from gettext import gettext as _
 from melange.common.client import Client
 from melange.common.utils import Method, remove_nones
-
+from melange.common.auth import KeystoneClient
 
 class Resource(object):
 
@@ -107,27 +107,6 @@ class Resource(object):
                              'Content-Type': "application/json"}
         response = client.do_request(method, path, **kwargs)
         return response.read()
-
-
-class AuthClient(httplib2.Http):
-
-    def __init__(self, url, username, access_key, auth_token=None):
-        super(AuthClient, self).__init__()
-        self.url = url
-        self.username = username
-        self.access_key = access_key
-        self.auth_token = auth_token
-
-    def get_token(self):
-        if self.auth_token:
-            return self.auth_token
-        headers = {'content-type': 'application/json'}
-        request_body = json.dumps({"passwordCredentials":
-                                       {"username": self.username,
-                                        'password': self.access_key}})
-        res, body = self.request(self.url, "POST", headers=headers,
-                                            body=request_body)
-        return json.loads(body)['auth']['token']['id']
 
 
 class IpBlockCommands(object):
@@ -352,7 +331,7 @@ def main():
 
     script_name = os.path.basename(sys.argv[0])
     category = args.pop(0)
-    Resource.auth_client = AuthClient(options.auth_url, options.username,
+    Resource.auth_client = KeystoneClient(options.auth_url, options.username,
                                       options.api_key, options.auth_token)
     def resource_factory(path, name):
         if options.tenant:

@@ -55,4 +55,4 @@ class Client(object):
             return response
         except (socket.error, IOError), e:
             raise Exception(_("Unable to connect to "
-                            "server. Got error: %s" % e))
+                            "server. Got error: %s") % e)

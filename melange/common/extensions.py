@@ -398,8 +398,8 @@ class ExtensionManager(object):
         self._check_extension(ext)
 
         if alias in self.extensions:
-            raise exception.MelangeError(_("Found duplicate extension: %s"
-                                         % alias))
+            raise exception.MelangeError(_("Found duplicate extension: %s")
+                                         % alias)
         self.extensions[alias] = ext
 
 

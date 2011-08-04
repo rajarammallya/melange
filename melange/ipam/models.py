@@ -95,8 +95,8 @@ class ModelBase(object):
             except (TypeError, ValueError):
                 type_name = column_type.__name__
                 self._add_error(column_name,
-                       _("%(column_name)s should be of type %(type_name)s"
-                         % locals()))
+                       _("%(column_name)s should be of type %(type_name)s")
+                         % locals())
 
     def _validate(self):
         pass
@@ -121,8 +121,8 @@ class ModelBase(object):
     def _validate_presence_of(self, attribute_name):
         if (self[attribute_name] in [None, ""]):
             self._add_error(attribute_name,
-                            _("%(attribute_name)s should be present"
-                              % locals()))
+                            _("%(attribute_name)s should be present")
+                              % locals())
 
     def _validate_existence_of(self, attribute, model_class, **conditions):
         model_id = self[attribute]
@@ -133,7 +133,7 @@ class ModelBase(object):
             model_class_name = model_class.__name__
             self._add_error(attribute,
                             _("%(model_class_name)s with %(conditions_str)s"
-                              " doesn't exist" % locals()))
+                              " doesn't exist") % locals())
 
     @classmethod
     def find(cls, id):
@@ -147,7 +147,7 @@ class ModelBase(object):
     def find_by(cls, **conditions):
         model = cls.get_by(**conditions)
         if model == None:
-            raise ModelNotFoundError(_("%s Not Found" % cls.__name__))
+            raise ModelNotFoundError(_("%s Not Found") % cls.__name__)
         return model
 
     @classmethod
@@ -217,8 +217,8 @@ class ModelBase(object):
     def _validate_positive_integer(self, attribute_name):
         if(utils.parse_int(self[attribute_name]) < 0):
             self._add_error(attribute_name,
-                            _("%s should be a positive integer"
-                              % attribute_name))
+                            _("%s should be a positive integer")
+                              % attribute_name)
 
     def _add_error(self, attribute_name, error_message):
         self.errors[attribute_name] = self.errors.get(attribute_name, [])
@@ -237,8 +237,8 @@ def ipv6_address_generator_factory(cidr, **kwargs):
         if hasattr(ip_generator, "required_params") else []
     missing_params = set(required_params) - set(kwargs.keys())
     if missing_params:
-        raise DataMissingError(_("Required params are missing: %s"
-                                 % (', '.join(missing_params))))
+        raise DataMissingError(_("Required params are missing: %s")
+                                 % (', '.join(missing_params)))
     return ip_generator(cidr, **kwargs)
 
 
@@ -426,8 +426,8 @@ class IpBlock(ModelBase):
 
     def _validate_type(self):
         if not (self.type in self._allowed_types):
-            self._add_error('type', _("type should be one among %s" %
-                                      (", ".join(self._allowed_types))))
+            self._add_error('type', _("type should be one among %s") %
+                            ", ".join(self._allowed_types))
 
     def _validate_cidr(self):
         self._validate_cidr_format()
@@ -444,14 +444,14 @@ class IpBlock(ModelBase):
             return
         for block in IpBlock.find_all(type='public', parent_id=None):
             if  self != block and self._overlaps(block):
-                msg = _("cidr overlaps with public block %s" % block.cidr)
+                msg = _("cidr overlaps with public block %s") % block.cidr
                 self._add_error('cidr', msg)
                 break
 
     def _validate_cidr_does_not_overlap_with_siblings(self):
         for sibling in self.siblings():
             if self._overlaps(sibling):
-                msg = _("cidr overlaps with sibling %s" % sibling.cidr)
+                msg = _("cidr overlaps with sibling %s") % sibling.cidr
                 self._add_error('cidr', msg)
                 break
 
@@ -469,7 +469,7 @@ class IpBlock(ModelBase):
         for block in self.networked_top_level_blocks():
             if self._overlaps(block):
                 self._add_error('cidr', _("cidr overlaps with block %s"
-                                " in same network" % block.cidr))
+                                          " in same network") % block.cidr)
                 break
 
     def _validate_belongs_to_supernet_network(self):
@@ -658,7 +658,7 @@ class Network(ModelBase):
     def find_by(cls, id, tenant_id=None):
         ip_blocks = IpBlock.find_all(network_id=id, tenant_id=tenant_id).all()
         if(len(ip_blocks) == 0):
-            raise ModelNotFoundError(_("Network %s not found" % id))
+            raise ModelNotFoundError(_("Network %s not found") % id)
         return cls(id=id, ip_blocks=ip_blocks)
 
     @classmethod
@@ -767,7 +767,7 @@ class InvalidModelError(MelangeError):
         super(InvalidModelError, self).__init__(message)
 
     def __str__(self):
-        return _("The following values are invalid: %s" % str(self.errors))
+        return _("The following values are invalid: %s") % str(self.errors)
 
     def _error_message(self):
         return str(self)

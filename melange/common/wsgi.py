@@ -119,7 +119,7 @@ class Request(webob.Request):
             return type
         LOG.debug("Wrong Content-Type: %s" % type)
         raise webob.exc.HTTPUnsupportedMediaType(
-        _("Content type %s not supported" % type))
+        _("Content type %s not supported") % type)
 
     @cached_property
     def accept_version(self):

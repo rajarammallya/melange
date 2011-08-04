@@ -129,7 +129,7 @@ def setup_logging(options, conf):
             return
         else:
             raise RuntimeError(_("Unable to locate specified logging "
-                               "config file: %s" % options['log_config']))
+                                 "config file: %s") % options['log_config'])
 
     # If either the CLI option or the conf value
     # is True, we set to True
@@ -240,13 +240,13 @@ def load_paste_config(app_name, options, args):
     conf_file = find_config_file(options, args)
     if not conf_file:
         raise RuntimeError(_("Unable to locate any configuration file. "
-                            "Cannot load application %s" % app_name))
+                             "Cannot load application %s") % app_name)
     try:
         conf = deploy.appconfig("config:%s" % conf_file, name=app_name)
         return conf_file, conf
     except Exception, error:
         raise RuntimeError(_("Error trying to load config %(conf_file)s:"
-                             " %(error)s" % locals()))
+                             " %(error)s") % locals())
 
 
 def load_paste_app(app_name, options, args):
@@ -301,8 +301,8 @@ def load_paste_app(app_name, options, args):
         app = deploy.loadapp("config:%s" % conf_file, name=app_name)
     except (LookupError, ImportError), e:
         raise RuntimeError(_("Unable to load %(app_name)s from "
-                           "configuration file %(conf_file)s."
-                           "\nGot: %(e)r" % locals()))
+                             "configuration file %(conf_file)s."
+                             "\nGot: %(e)r") % locals())
     return conf, app
 
 
@@ -324,7 +324,7 @@ def get_option(options, option, **kwargs):
     elif 'default' in kwargs:
         return kwargs['default']
     else:
-        raise KeyError(_("option '%s' not found" % option))
+        raise KeyError(_("option '%s' not found") % option)
 
 
 class Config(object):

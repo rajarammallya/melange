@@ -56,7 +56,7 @@ class TenantBasedAuth(object):
         match = self.tenant_scoped_url.match(request.path_info)
         if match and tenant_id != match.group('tenant_id'):
             raise HTTPForbidden(_("User with tenant id %s cannot access "
-                                "this resource" % tenant_id))
+                                  "this resource") % tenant_id)
         return True
 
 
@@ -71,7 +71,7 @@ class RoleBasedAuth(object):
         match = self.mapper.match(request.path_info, request.environ)
         if match and match['action'] in match['controller'].admin_actions:
             raise HTTPForbidden(_("User with roles %s cannot access "
-                                "admin actions" % ', '.join(roles)))
+                                "admin actions") % ', '.join(roles))
         return True
 
 
@@ -94,6 +94,6 @@ class KeystoneClient(httplib2.Http):
         res, body = self.request(self.url, "POST", headers=headers,
                                  body=request_body)
         if int(res.status) >= 400:
-            raise Exception(_("Error occured while retrieving token : %s"
-                              % body))
+            raise Exception(_("Error occured while retrieving token : %s")
+                              % body)
         return json.loads(body)['auth']['token']['id']

@@ -219,5 +219,6 @@ class TestKeyStoneClient(BaseTest):
                        body=IgnoreArg()).AndReturn((res, response_body))
 
         self.mock.ReplayAll()
+
         self.assertRaisesExcMessage(Exception , "Error occured while retrieving token :"
                                     " Failed to get token", client.get_token)

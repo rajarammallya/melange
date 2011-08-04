@@ -15,6 +15,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 import unittest
+import mox
 from urlparse import parse_qs
 from melange.db import db_api
 
@@ -22,7 +23,14 @@ from melange.db import db_api
 class BaseTest(unittest.TestCase):
 
     def setUp(self):
+        self.mock = mox.Mox()
         db_api.clean_db()
+        super(BaseTest, self).setUp()
+
+    def tearDown(self):
+        self.mock.UnsetStubs()
+        self.mock.VerifyAll()
+        super(BaseTest, self).tearDown()
 
     #This is similar to assertRaisesRegexp in python 2.7
     def assertRaisesExcMessage(self, exception, message,

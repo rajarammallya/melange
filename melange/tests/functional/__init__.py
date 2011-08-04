@@ -33,6 +33,7 @@ _PORT = None
 class FunctionalTest(BaseTest):
 
     def setUp(self):
+        super(FunctionalTest, self).setUp()
         self.client = Client(port=get_api_port())
 
 

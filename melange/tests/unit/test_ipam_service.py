@@ -17,12 +17,12 @@
 import json
 import routes
 import unittest
-import mox
 import string
 from melange.tests.unit import TestApp, sanitize
 from webob.exc import (HTTPUnprocessableEntity, HTTPBadRequest,
                        HTTPNotFound)
 from melange.tests import BaseTest
+from melange.tests.unit.mock_generator import MockIpV6Generator
 from melange.tests.unit import test_config_path
 from melange.common import config, wsgi, utils
 from melange.common.config import Config
@@ -414,15 +414,6 @@ class TestTenantBasedSubnetController(BaseTestController,
 
 class IpAddressControllerBase(object):
 
-    def setUp(self):
-        self.mocker = mox.Mox()
-        super(IpAddressControllerBase, self).setUp()
-
-    def tearDown(self):
-        self.mocker.UnsetStubs()
-        self.mocker.VerifyAll()
-        super(IpAddressControllerBase, self).tearDown()
-
     def test_create(self):
         block = self.ip_block_factory(cidr="10.1.1.0/28")
         response = self.app.post(self.address_path(block))
@@ -467,11 +458,11 @@ class IpAddressControllerBase(object):
                                  'mac_address': "10:23:56:78:90:01",
                                  'tenant_id': "111"}}
 
-        self.mocker.StubOutWithMock(IpBlock, "allocate_ip")
+        self.mock.StubOutWithMock(IpBlock, "allocate_ip")
         IpBlock.allocate_ip(port_id="123", mac_address="10:23:56:78:90:01",
                             tenant_id="111").AndReturn(IpAddress())
 
-        self.mocker.ReplayAll()
+        self.mock.ReplayAll()
         response = self.app.post_json(self.address_path(block), params)
 
         self.assertEqual(response.status_int, 201)
@@ -1480,16 +1471,33 @@ class NetworksControllerBase(object):
                          response.json['ip_addresses'])
 
     def test_allocate_ip_with_given_address(self):
-        ip_block = self._ip_block_factory(network_id=1, cidr='10.0.0.0/31')
+        ip_block = self._ip_block_factory(network_id=1, cidr="10.0.0.0/31")
 
         response = self.app.post_json("{0}/networks/1/ports/123"
                                  "/ip_allocations".format(self.network_path),
                                  {'network': {'addresses': ['10.0.0.1']}})
 
         ip_address = IpAddress.find_by(ip_block_id=ip_block.id,
-                                       address='10.0.0.1')
+                                       address="10.0.0.1")
         self.assertEqual(response.status_int, 201)
         self.assertEqual([_data(ip_address, self.data_method)],
+                         response.json['ip_addresses'])
+
+    def test_allocate_ip_allocates_v6_address_with_given_mac_address(self):
+        mac_address = "11:22:33:44:55:66"
+        ipv6_block = self._ip_block_factory(network_id=1, cidr="fe::/96")
+        self.mock.StubOutWithMock(models, "ipv6_address_generator_factory")
+        models.ipv6_address_generator_factory("fe::/96",
+               mac_address=mac_address).AndReturn(MockIpV6Generator("fe::/96"))
+
+        self.mock.ReplayAll()
+
+        response = self.app.post_json("{0}/networks/1/ports/123"
+                                   "/ip_allocations".format(self.network_path),
+                                    {'network': {'mac_address': mac_address}})
+
+        ipv6_address = IpAddress.find_by(ip_block_id=ipv6_block.id)
+        self.assertEqual([_data(ipv6_address, self.data_method)],
                          response.json['ip_addresses'])
 
 

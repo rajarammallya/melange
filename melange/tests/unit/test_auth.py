@@ -14,21 +14,18 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-import unittest
+
 import json
 import routes
 import webob
-import mox
 import httplib2
 from mox import IgnoreArg
 
-from webtest import TestApp
+from melange.tests import BaseTest
 from webob.exc import HTTPForbidden
 from melange.common import auth, wsgi
 from melange.ipam.service import RoleBasedAuth
 from melange.common.auth import TenantBasedAuth
-from melange.common.utils import cached_property
-from melange.tests import BaseTest
 from melange.common.auth import KeystoneClient
 
 
@@ -45,25 +42,22 @@ class MiddlewareTestApp(object):
 class TestAuthMiddleware(BaseTest):
 
     def setUp(self):
+        super(TestAuthMiddleware, self).setUp()
         self.dummy_app = MiddlewareTestApp()
-        self.mocker = mox.Mox()
-        self.auth_provider1 = self.mocker.CreateMockAnything()
-        self.auth_provider2 = self.mocker.CreateMockAnything()
+        self.auth_provider1 = self.mock.CreateMockAnything()
+        self.auth_provider2 = self.mock.CreateMockAnything()
         self.auth_middleware = auth.AuthorizationMiddleware(self.dummy_app,
                                                        self.auth_provider1,
                                                        self.auth_provider2)
         self.request = webob.Request.blank("/dummy_url")
         self.request.headers = {'X_TENANT': "tenant_id", 'X_ROLE': "Member"}
 
-    def tearDown(self):
-        self.mocker.VerifyAll()
-
     def test_forbids_based_on_auth_providers(self):
         self.auth_provider1.authorize(self.request, "tenant_id", ['Member']).\
             AndReturn(True)
         self.auth_provider2.authorize(self.request, "tenant_id", ['Member']).\
             AndRaise(HTTPForbidden("Auth Failed"))
-        self.mocker.ReplayAll()
+        self.mock.ReplayAll()
 
         self.assertRaisesExcMessage(HTTPForbidden, "Auth Failed",
                                     self.auth_middleware, self.request)
@@ -73,7 +67,7 @@ class TestAuthMiddleware(BaseTest):
             AndReturn(True)
         self.auth_provider2.authorize(self.request, "tenant_id", ['Member']).\
             AndReturn(True)
-        self.mocker.ReplayAll()
+        self.mock.ReplayAll()
 
         response = self.auth_middleware(self.request)
 
@@ -106,6 +100,7 @@ class StubController(wsgi.Controller):
 class TestRoleBasedAuth(BaseTest):
 
     def setUp(self):
+        super(TestRoleBasedAuth, self).setUp()
         self.auth_provider = RoleBasedAuth(mapper())
         self.request = webob.Request.blank("/resources")
 
@@ -145,6 +140,7 @@ class TestRoleBasedAuth(BaseTest):
 class TestTenantBasedAuth(BaseTest):
 
     def setUp(self):
+        super(TestTenantBasedAuth, self).setUp()
         self.auth_provider = TenantBasedAuth()
 
     def test_authorizes_tenant_accessing_its_own_resources(self):
@@ -189,16 +185,10 @@ class TestTenantBasedAuth(BaseTest):
 
 class TestKeyStoneClient(BaseTest):
 
-    def setUp(self):
-        self.mocker = mox.Mox()
-
-    def tearDown(self):
-        self.mocker.VerifyAll()
-
     def test_get_token_doesnot_call_auth_service_when_token_is_given(self):
         url = "http://localhost:5001"
         client = KeystoneClient(url, "username", "access_key", "auth_token")
-        self.mocker.StubOutWithMock(client, "request")
+        self.mock.StubOutWithMock(client, "request")
 
         self.assertEqual(client.get_token(), "auth_token")
 
@@ -206,7 +196,7 @@ class TestKeyStoneClient(BaseTest):
         url = "http://localhost:5001"
         client = KeystoneClient(url, "username", "access_key", auth_token=None)
 
-        self.mocker.StubOutWithMock(client, "request")
+        self.mock.StubOutWithMock(client, "request")
         request_body = json.dumps({"passwordCredentials":
                                        {"username": "username",
                                         'password': "access_key"}})
@@ -216,19 +206,18 @@ class TestKeyStoneClient(BaseTest):
         client.request(url + "/v2.0/tokens", "POST", headers=IgnoreArg(),
                        body=request_body).AndReturn((res, response_body))
 
-        self.mocker.ReplayAll()
+        self.mock.ReplayAll()
         self.assertEqual(client.get_token(), "auth_token")
 
     def test_raises_error_when_retreiveing_token_fails(self):
         url = "http://localhost:5001"
         client = KeystoneClient(url, None, "access_key", auth_token=None)
-        self.mocker.StubOutWithMock(client, "request")
+        self.mock.StubOutWithMock(client, "request")
         res = httplib2.Response(dict(status='401'))
         response_body = "Failed to get token"
         client.request(url + "/v2.0/tokens", "POST", headers=IgnoreArg(),
                        body=IgnoreArg()).AndReturn((res, response_body))
 
-        self.mocker.ReplayAll()
+        self.mock.ReplayAll()
         self.assertRaisesExcMessage(Exception , "Error occured while retrieving token :"
                                     " Failed to get token", client.get_token)
-

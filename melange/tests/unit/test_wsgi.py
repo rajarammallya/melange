@@ -51,6 +51,7 @@ class VersionedURLMapTest(BaseTest):
                                   '/v1.0': self.v1_app,
                                   '/': self.root_app})
         self.versioned_urlmap = wsgi.VersionedURLMap(self.urlmap)
+        super(VersionedURLMapTest, self).setUp()
 
     def test_chooses_app_based_on_accept_version(self):
         environ = {'HTTP_ACCEPT': "application/vnd.openstack.melange+xml;"

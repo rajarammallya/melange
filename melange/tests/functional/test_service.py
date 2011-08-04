@@ -14,7 +14,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-from melange.tests.functional import get_api_port, FunctionalTest
+from melange.tests.functional import FunctionalTest
 
 
 class TestServiceConf(FunctionalTest):

@@ -19,6 +19,7 @@ from melange.tests import BaseTest
 from datetime import datetime, timedelta
 from melange.ipam import models
 from melange.tests.unit import StubConfig, StubTime
+from melange.tests.unit.mock_generator import MockIpV6Generator
 from melange.common import data_types
 from melange.common.utils import cached_property
 from melange.ipam.models import (ModelBase, IpBlock, IpAddress, Policy,
@@ -159,23 +160,11 @@ class TestQuery(BaseTest):
         self.assertIsNotNone(IpBlock.get(noise_block.id))
 
 
-class MockIpV6Generator(object):
-
-    ip_list = ["ff::0001", "ff::0002"]
-
-    def __init__(self, cidr, **kwargs):
-        self.kwargs = kwargs
-        self.ips = iter(self.ip_list)
-
-    def next_ip(self):
-        return self.ips.next()
-
-
 class TestIpv6AddressGeneratorFactory(BaseTest):
 
     def setUp(self):
         self.mock_generatore_name = \
-            "melange.tests.unit.test_ipam_models.MockIpV6Generator"
+            "melange.tests.unit.mock_generator.MockIpV6Generator"
         super(TestIpv6AddressGeneratorFactory, self).setUp()
 
     def test_loads_ipv6_generator_factory_from_config_file(self):
@@ -186,7 +175,7 @@ class TestIpv6AddressGeneratorFactory(BaseTest):
 
         self.assertEqual(ip_generator.kwargs, args)
         self.assertTrue(isinstance(ip_generator,
-                                   unit.test_ipam_models.MockIpV6Generator))
+                                   unit.mock_generator.MockIpV6Generator))
 
     def test_loads_default_ipv6_generator_when_not_configured(self):
         expected_ip_block = PublicIpBlockFactory()

@@ -280,11 +280,12 @@ class NetworksController(BaseController):
     def allocate_ips(self, request, network_id, port_id, tenant_id=None):
         network = Network.find_or_create_by(id=network_id, tenant_id=tenant_id)
         params = self._extract_required_params(request, 'network')
-        [addresses] = self._get_optionals(params, 'addresses')
-        ip_addresses = network.allocate_ips(addresses=addresses,
-                                            port_id=port_id)
+        [addresses, mac_address] = self._get_optionals(params,
+                                                    'addresses', 'mac_address')
+        ips = network.allocate_ips(addresses=addresses, port_id=port_id,
+                                            mac_address=mac_address)
         return Result(dict(ip_addresses=[ip.data_with_network_info()
-                                  for ip in ip_addresses]), 201)
+                                  for ip in ips]), 201)
 
 
 class API(wsgi.Router):

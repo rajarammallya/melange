@@ -73,6 +73,7 @@ from melange.common.client import Client
 from melange.common.utils import Method, remove_nones
 from melange.common.auth import KeystoneClient
 
+
 class Resource(object):
 
     def __init__(self, path, name, host="0.0.0.0", port=9898):
@@ -271,13 +272,16 @@ def create_options(parser):
                            "Default: %default")
     parser.add_option('-t', '--tenant', dest="tenant", metavar="TENANT",
                       type=str, help="tenant id in case of tenant resources")
-    parser.add_option('--auth-token', dest="auth_token", metavar="MELANGE_AUTH_TOKEN",
+    parser.add_option('--auth-token', dest="auth_token",
+                      metavar="MELANGE_AUTH_TOKEN",
                       default=env.get('MELANGE_AUTH_TOKEN', None),
-                      type=str, help="Melange auth token received from keystone")
-    parser.add_option('-u', '--username', dest="username", metavar="MELANGE_USERNAME",
+                      type=str, help="Auth token received from keystone")
+    parser.add_option('-u', '--username', dest="username",
+                      metavar="MELANGE_USERNAME",
                       default=env.get('MELANGE_USERNAME', None),
                       type=str, help="Melange user name")
-    parser.add_option('-k', '--api-key', dest="api_key", metavar="MELANGE_API_KEY",
+    parser.add_option('-k', '--api-key', dest="api_key",
+                      metavar="MELANGE_API_KEY",
                       default=env.get('MELANGE_API_KEY', None),
                       type=str, help="Melange access key")
     parser.add_option('-a', '--auth-url', dest="auth_url",
@@ -333,6 +337,7 @@ def main():
     category = args.pop(0)
     Resource.auth_client = KeystoneClient(options.auth_url, options.username,
                                       options.api_key, options.auth_token)
+
     def resource_factory(path, name):
         if options.tenant:
             path = "tenants/{0}/{1}".format(options.tenant, path)

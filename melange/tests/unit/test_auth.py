@@ -219,6 +219,7 @@ class TestKeyStoneClient(BaseTest):
                        body=IgnoreArg()).AndReturn((res, response_body))
 
         self.mock.ReplayAll()
-
-        self.assertRaisesExcMessage(Exception , "Error occured while retrieving token :"
-                                    " Failed to get token", client.get_token)
+        expected_error_msg = ("Error occured while retrieving token :"
+                              " Failed to get token")
+        self.assertRaisesExcMessage(Exception, expected_error_msg,
+                                    client.get_token)

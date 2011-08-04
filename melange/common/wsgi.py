@@ -33,6 +33,7 @@ from webob import Response
 from xml.dom import minidom
 from webob.exc import (HTTPBadRequest, HTTPInternalServerError,
                        HTTPNotFound, HTTPError, HTTPNotAcceptable)
+from gettext import gettext as _
 
 from melange.common.exception import InvalidContentType
 from melange.common.exception import MelangeError
@@ -59,7 +60,7 @@ class VersionedURLMap(object):
         if req.url_version is None and req.accept_version is not None:
             version = "/v" + req.accept_version
             app = self.urlmap.get(
-                version, Fault(HTTPNotAcceptable("version not supported")))
+                version, Fault(HTTPNotAcceptable(_("version not supported"))))
         else:
             app = self.urlmap
 
@@ -118,7 +119,7 @@ class Request(webob.Request):
             return type
         LOG.debug("Wrong Content-Type: %s" % type)
         raise webob.exc.HTTPUnsupportedMediaType(
-        "Content type %s not supported" % type)
+        _("Content type %s not supported" % type))
 
     @cached_property
     def accept_version(self):

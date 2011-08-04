@@ -21,13 +21,14 @@ Nova-type exceptions. SHOULD include dedicated exception logging.
 """
 
 import logging
+from gettext import gettext as _
 
 
 class ProcessExecutionError(IOError):
     def __init__(self, stdout=None, stderr=None, exit_code=None, cmd=None,
                  description=None):
         if description is None:
-            description = "Unexpected error while running command."
+            description = _("Unexpected error while running command.")
         if exit_code is None:
             exit_code = '-'
         message = "%s\nCommand: %s\nExit code: %s\nStdout: %r\nStderr: %r" % (
@@ -69,6 +70,10 @@ class NotEmpty(MelangeError):
 
 class Invalid(MelangeError):
     pass
+
+
+class InvalidContentType(Invalid):
+    message = _("Invalid content type %(content_type)s.")
 
 
 class BadInputError(Exception):

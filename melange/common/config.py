@@ -27,6 +27,7 @@ import optparse
 import os
 import sys
 
+from gettext import gettext as _
 from paste import deploy
 
 
@@ -64,22 +65,22 @@ def add_common_options(parser):
 
     :param parser: optparse.OptionParser
     """
-    help_text = "The following configuration options are common to "\
-                "all melange programs."
+    help_text = _("The following configuration options are common to "
+                "all melange programs.")
 
     group = optparse.OptionGroup(parser, "Common Options", help_text)
     group.add_option('-v', '--verbose', default=False, dest="verbose",
                      action="store_true",
-                     help="Print more verbose output")
+                     help=_("Print more verbose output"))
     group.add_option('-d', '--debug', default=False, dest="debug",
                      action="store_true",
-                     help="Print debugging output")
+                     help=_("Print debugging output"))
     group.add_option('--config-file', default=None, metavar="PATH",
-                     help="Path to the config file to use. When not specified "
-                          "(the default), we generally look at the first "
-                          "argument specified to be a config file, and if "
-                          "that is also missing, we search standard "
-                          "directories for a config file.")
+                     help=_("Path to the config file to use. When not "
+                            "specified (the default), we generally look at the"
+                            " first argument specified to be a config file,"
+                            " and if that is also missing, we search standard "
+                            "directories for a config file."))
     parser.add_option_group(group)
 
 
@@ -90,26 +91,26 @@ def add_log_options(parser):
 
     :param parser: optparse.OptionParser
     """
-    help_text = "The following configuration options are specific to logging "\
-                "functionality for this program."
+    help_text = _("The following configuration options are specific to "
+                  "logging functionality for this program.")
 
     group = optparse.OptionGroup(parser, "Logging Options", help_text)
     group.add_option('--log-config', default=None, metavar="PATH",
-                     help="If this option is specified, the logging "
+                     help=_("If this option is specified, the logging "
                           "configuration file specified is used and overrides "
                           "any other logging options specified. Please see "
                           "the Python logging module documentation for "
-                          "details on logging configuration files.")
+                          "details on logging configuration files."))
     group.add_option('--log-date-format', metavar="FORMAT",
                       default=DEFAULT_LOG_DATE_FORMAT,
-                      help="Format string for %(asctime)s in log records. "
-                           "Default: %default")
+                      help=_("Format string for %(asctime)s in log records. "
+                             "Default: %default"))
     group.add_option('--log-file', default=None, metavar="PATH",
-                      help="(Optional) Name of log file to output to. "
-                           "If not set, logging will go to stdout.")
+                      help=_("(Optional) Name of log file to output to. "
+                             "If not set, logging will go to stdout."))
     group.add_option("--log-dir", default=None,
-                      help="(Optional) The directory to keep log files in "
-                           "(will be prepended to --logfile)")
+                      help=_("(Optional) The directory to keep log files in "
+                             "(will be prepended to --logfile)"))
     parser.add_option_group(group)
 
 
@@ -127,8 +128,8 @@ def setup_logging(options, conf):
             logging.config.fileConfig(options['log_config'])
             return
         else:
-            raise RuntimeError("Unable to locate specified logging "
-                               "config file: %s" % options['log_config'])
+            raise RuntimeError(_("Unable to locate specified logging "
+                               "config file: %s" % options['log_config']))
 
     # If either the CLI option or the conf value
     # is True, we set to True
@@ -238,14 +239,14 @@ def load_paste_config(app_name, options, args):
     """
     conf_file = find_config_file(options, args)
     if not conf_file:
-        raise RuntimeError("Unable to locate any configuration file. "
-                            "Cannot load application %s" % app_name)
+        raise RuntimeError(_("Unable to locate any configuration file. "
+                            "Cannot load application %s" % app_name))
     try:
         conf = deploy.appconfig("config:%s" % conf_file, name=app_name)
         return conf_file, conf
-    except Exception, e:
-        raise RuntimeError("Error trying to load config %s: %s"
-                           % (conf_file, e))
+    except Exception, error:
+        raise RuntimeError(_("Error trying to load config %(conf_file)s:"
+                             " %(error)s" % locals()))
 
 
 def load_paste_app(app_name, options, args):
@@ -299,9 +300,9 @@ def load_paste_app(app_name, options, args):
             logger.debug("*" * 80)
         app = deploy.loadapp("config:%s" % conf_file, name=app_name)
     except (LookupError, ImportError), e:
-        raise RuntimeError("Unable to load %(app_name)s from "
+        raise RuntimeError(_("Unable to load %(app_name)s from "
                            "configuration file %(conf_file)s."
-                           "\nGot: %(e)r" % locals())
+                           "\nGot: %(e)r" % locals()))
     return conf, app
 
 
@@ -323,7 +324,7 @@ def get_option(options, option, **kwargs):
     elif 'default' in kwargs:
         return kwargs['default']
     else:
-        raise KeyError("option '%s' not found" % option)
+        raise KeyError(_("option '%s' not found" % option))
 
 
 class Config(object):

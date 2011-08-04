@@ -22,10 +22,10 @@ import routes
 import logging
 import webob.dec
 import webob.exc
+from gettext import gettext as _
 
 from melange.common import exception
 from melange.common import wsgi
-from gettext import gettext as _
 
 LOG = logging.getLogger('melange.common.extensions')
 
@@ -398,8 +398,8 @@ class ExtensionManager(object):
         self._check_extension(ext)
 
         if alias in self.extensions:
-            raise exception.MelangeError("Found duplicate extension: %s"
-                                         % alias)
+            raise exception.MelangeError(_("Found duplicate extension: %s"
+                                         % alias))
         self.extensions[alias] = ext
 
 

@@ -1171,7 +1171,7 @@ class TestIpRange(BaseTest):
         ip_range = IpRange(offset='spdoe', length=10)
 
         self.assertFalse(ip_range.is_valid())
-        self.assertTrue('offset should be of type integer' in
+        self.assertIn('offset should be of type integer',
                         ip_range.errors['offset'])
 
     def test_ip_range_length_is_an_integer(self):

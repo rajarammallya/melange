@@ -19,6 +19,8 @@ import httplib
 import socket
 import urllib
 
+from gettext import gettext as _
+
 
 class Client(object):
 
@@ -52,5 +54,5 @@ class Client(object):
             response = connection.getresponse()
             return response
         except (socket.error, IOError), e:
-            raise Exception("Unable to connect to "
-                            "server. Got error: %s" % e)
+            raise Exception(_("Unable to connect to "
+                            "server. Got error: %s" % e))

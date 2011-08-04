@@ -21,6 +21,7 @@ SQLAlchemy models for Melange data
 import netaddr
 from netaddr.strategy.ipv6 import ipv6_verbose
 from netaddr import IPNetwork, IPAddress
+from gettext import gettext as _
 
 from datetime import timedelta
 from melange.common.exception import MelangeError
@@ -92,9 +93,10 @@ class ModelBase(object):
             try:
                 column_type(self[column_name])
             except (TypeError, ValueError):
+                type_name = column_type.__name__
                 self._add_error(column_name,
-                       "{0} should be of type {1}".format(
-                        column_name, column_type.__name__))
+                       _("%(column_name)s should be of type %(type_name)s"
+                         % locals()))
 
     def _validate(self):
         pass
@@ -119,7 +121,8 @@ class ModelBase(object):
     def _validate_presence_of(self, attribute_name):
         if (self[attribute_name] in [None, ""]):
             self._add_error(attribute_name,
-                            "{0} should be present".format(attribute_name))
+                            _("%(attribute_name)s should be present"
+                              % locals()))
 
     def _validate_existence_of(self, attribute, model_class, **conditions):
         model_id = self[attribute]
@@ -127,8 +130,10 @@ class ModelBase(object):
         if model_id is not None and model_class.get_by(**conditions) is None:
             conditions_str = ", ".join(["{0} = {1}".format(key, repr(value))
                                      for key, value in conditions.iteritems()])
-            self._add_error(attribute, "{0} with {1} doesn't "
-                          "exist".format(model_class.__name__, conditions_str))
+            model_class_name = model_class.__name__
+            self._add_error(attribute,
+                            _("%(model_class_name)s with %(conditions_str)s"
+                              " doesn't exist" % locals()))
 
     @classmethod
     def find(cls, id):
@@ -142,7 +147,7 @@ class ModelBase(object):
     def find_by(cls, **conditions):
         model = cls.get_by(**conditions)
         if model == None:
-            raise ModelNotFoundError("%s Not Found" % cls.__name__)
+            raise ModelNotFoundError(_("%s Not Found" % cls.__name__))
         return model
 
     @classmethod
@@ -212,8 +217,8 @@ class ModelBase(object):
     def _validate_positive_integer(self, attribute_name):
         if(utils.parse_int(self[attribute_name]) < 0):
             self._add_error(attribute_name,
-                            "{0} should be a positive "
-                            "integer".format(attribute_name))
+                            _("%s should be a positive integer"
+                              % attribute_name))
 
     def _add_error(self, attribute_name, error_message):
         self.errors[attribute_name] = self.errors.get(attribute_name, [])
@@ -232,8 +237,8 @@ def ipv6_address_generator_factory(cidr, **kwargs):
         if hasattr(ip_generator, "required_params") else []
     missing_params = set(required_params) - set(kwargs.keys())
     if missing_params:
-        raise DataMissingError("Required params are missing: {0}".\
-                                   format(', '.join(missing_params)))
+        raise DataMissingError(_("Required params are missing: %s"
+                                 % (', '.join(missing_params))))
     return ip_generator(cidr, **kwargs)
 
 
@@ -320,9 +325,9 @@ class IpBlock(ModelBase):
     def allocate_ip(self, port_id=None, address=None, **kwargs):
         if self.subnets():
             raise IpAllocationNotAllowedError(
-                "Non Leaf block can not allocate IPAddress")
+                _("Non Leaf block can not allocate IPAddress"))
         if self.is_full:
-            raise NoMoreAddressesError("IpBlock is full")
+            raise NoMoreAddressesError(_("IpBlock is full"))
 
         if address is None:
             address = self._generate_ip_address(**kwargs)
@@ -331,7 +336,7 @@ class IpBlock(ModelBase):
 
         if not address:
             self.update(is_full=True)
-            raise NoMoreAddressesError("IpBlock is full")
+            raise NoMoreAddressesError(_("IpBlock is full"))
 
         return IpAddress.create(address=address, port_id=port_id,
                                 ip_block_id=self.id)
@@ -361,12 +366,12 @@ class IpBlock(ModelBase):
 
         if not self.contains(address):
             raise AddressDoesNotBelongError(
-                "Address does not belong to IpBlock")
+                _("Address does not belong to IpBlock"))
 
         policy = self.policy()
         if not IpBlock.allowed_by_policy(self, policy, address):
             raise AddressDisallowedByPolicyError(
-                "Block policy does not allow this address")
+                _("Block policy does not allow this address"))
 
     def contains(self, address):
         return netaddr.IPAddress(address) in IPNetwork(self.cidr)
@@ -379,7 +384,7 @@ class IpBlock(ModelBase):
     def find_allocated_ip(self, address):
         ip_address = IpAddress.find_by(ip_block_id=self.id, address=address)
         if ip_address == None:
-            raise ModelNotFoundError("IpAddress Not Found")
+            raise ModelNotFoundError(_("IpAddress Not Found"))
         return ip_address
 
     def deallocate_ip(self, address):
@@ -404,7 +409,7 @@ class IpBlock(ModelBase):
 
     def _validate_cidr_format(self):
         if not self._has_valid_cidr():
-            self._add_error('cidr', "cidr is invalid")
+            self._add_error('cidr', _("cidr is invalid"))
 
     def _has_valid_cidr(self):
         try:
@@ -417,12 +422,12 @@ class IpBlock(ModelBase):
         parent = self.parent
         if parent and IPNetwork(self.cidr) not in IPNetwork(parent.cidr):
             self._add_error('cidr',
-                            "cidr should be within parent block's cidr")
+                            _("cidr should be within parent block's cidr"))
 
     def _validate_type(self):
         if not (self.type in self._allowed_types):
-            self._add_error('type', "type should be one among {0}".format(
-                    ", ".join(self._allowed_types)))
+            self._add_error('type', _("type should be one among %s" %
+                                      (", ".join(self._allowed_types))))
 
     def _validate_cidr(self):
         self._validate_cidr_format()
@@ -439,14 +444,14 @@ class IpBlock(ModelBase):
             return
         for block in IpBlock.find_all(type='public', parent_id=None):
             if  self != block and self._overlaps(block):
-                msg = "cidr overlaps with public block {0}".format(block.cidr)
+                msg = _("cidr overlaps with public block %s" % block.cidr)
                 self._add_error('cidr', msg)
                 break
 
     def _validate_cidr_does_not_overlap_with_siblings(self):
         for sibling in self.siblings():
             if self._overlaps(sibling):
-                msg = "cidr overlaps with sibling {0}".format(sibling.cidr)
+                msg = _("cidr overlaps with sibling %s" % sibling.cidr)
                 self._add_error('cidr', msg)
                 break
 
@@ -463,31 +468,31 @@ class IpBlock(ModelBase):
     def _validate_cidr_doesnt_overlap_with_networked_toplevel_blocks(self):
         for block in self.networked_top_level_blocks():
             if self._overlaps(block):
-                self._add_error('cidr', "cidr overlaps with block {0}"
-                                " in same network".format(block.cidr))
+                self._add_error('cidr', _("cidr overlaps with block %s"
+                                " in same network" % block.cidr))
                 break
 
     def _validate_belongs_to_supernet_network(self):
         if(self.parent and self.parent.network_id and
            self.parent.network_id != self.network_id):
             self._add_error('network_id',
-                            "network_id should be same as that of parent")
+                            _("network_id should be same as that of parent"))
 
     def _validate_belongs_to_supernet_tenant(self):
         if(self.parent and self.parent.tenant_id and
            self.parent.tenant_id != self.tenant_id):
             self._add_error('tenant_id',
-                            "tenant_id should be same as that of parent")
+                            _("tenant_id should be same as that of parent"))
 
     def _validate_parent_is_subnettable(self):
         if (self.parent and self.parent.addresses()):
-            msg = "parent is not subnettable since it has allocated ips"
+            msg = _("parent is not subnettable since it has allocated ips")
             self._add_error('parent_id', msg)
 
     def _validate_type_is_same_within_network(self):
         block = IpBlock.get_by(network_id=self.network_id)
         if(block and block.type != self.type):
-            self._add_error('type', "type should be same within a network")
+            self._add_error('type', _("type should be same within a network"))
 
     def _validate(self):
         self._validate_type()
@@ -533,8 +538,8 @@ class IpAddress(ModelBase):
 
     def add_inside_locals(self, ip_addresses):
         db_api.save_nat_relationships([
-            {"inside_global_address_id": self.id,
-             "inside_local_address_id": local_address.id}
+            {'inside_global_address_id': self.id,
+             'inside_local_address_id': local_address.id}
             for local_address in ip_addresses])
 
     def deallocate(self):
@@ -549,8 +554,8 @@ class IpAddress(ModelBase):
 
     def add_inside_globals(self, ip_addresses):
         return db_api.save_nat_relationships([
-            {"inside_global_address_id": global_address.id,
-             "inside_local_address_id": self.id}
+            {'inside_global_address_id': global_address.id,
+             'inside_local_address_id': self.id}
             for global_address in ip_addresses])
 
     def inside_locals(self, **kwargs):
@@ -653,7 +658,7 @@ class Network(ModelBase):
     def find_by(cls, id, tenant_id=None):
         ip_blocks = IpBlock.find_all(network_id=id, tenant_id=tenant_id).all()
         if(len(ip_blocks) == 0):
-            raise ModelNotFoundError("Network {0} not found".format(id))
+            raise ModelNotFoundError(_("Network %s not found" % id))
         return cls(id=id, ip_blocks=ip_blocks)
 
     @classmethod
@@ -675,7 +680,7 @@ class Network(ModelBase):
                for blocks in self._block_partitions()]
 
         if not any(ips):
-            raise NoMoreAddressesError("ip blocks in this network are full")
+            raise NoMoreAddressesError(_("ip blocks in this network are full"))
 
         return filter(None, ips)
 
@@ -710,49 +715,49 @@ def models():
 class NoMoreAddressesError(MelangeError):
 
     def _error_message(self):
-        return "no more addresses"
+        return _("no more addresses")
 
 
 class DuplicateAddressError(MelangeError):
 
     def _error_message(self):
-        return "Address is already allocated"
+        return _("Address is already allocated")
 
 
 class AddressDoesNotBelongError(MelangeError):
 
     def _error_message(self):
-        return "Address does not belong here"
+        return _("Address does not belong here")
 
 
 class AddressLockedError(MelangeError):
 
     def _error_message(self):
-        return "Address is locked"
+        return _("Address is locked")
 
 
 class ModelNotFoundError(MelangeError):
 
     def _error_message(self):
-        return "Not Found"
+        return _("Not Found")
 
 
 class DataMissingError(MelangeError):
 
     def _error_message(self):
-        return "Data Missing"
+        return _("Data Missing")
 
 
 class AddressDisallowedByPolicyError(MelangeError):
 
     def _error_message(self):
-        return "Policy does not allow this address"
+        return _("Policy does not allow this address")
 
 
 class IpAllocationNotAllowedError(MelangeError):
 
     def _error_message(self):
-        return "Ip Block can not allocate address"
+        return _("Ip Block can not allocate address")
 
 
 class InvalidModelError(MelangeError):
@@ -762,7 +767,7 @@ class InvalidModelError(MelangeError):
         super(InvalidModelError, self).__init__(message)
 
     def __str__(self):
-        return "The following values are invalid: %s" % str(self.errors)
+        return _("The following values are invalid: %s" % str(self.errors))
 
     def _error_message(self):
         return str(self)

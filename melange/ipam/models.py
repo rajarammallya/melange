@@ -209,7 +209,7 @@ class ModelBase(object):
     def to_dict(self):
         return self.__dict__()
 
-    def data(self):
+    def data(self, **options):
         data_fields = self._data_fields + self._auto_generated_attrs
         return dict([(field, self[field])
                     for field in data_fields])
@@ -257,8 +257,8 @@ class IpAddressIterator(object):
 class IpBlock(ModelBase):
 
     _allowed_types = ["private", "public"]
-    _data_fields = ['cidr', 'network_id', 'policy_id', 'tenant_id',
-                    'parent_id', 'type']
+    _data_fields = ['cidr', 'network_id', 'policy_id', 'tenant_id', 'gateway',
+                    'parent_id', 'type', 'dns', 'broadcast', 'netmask']
 
     @classmethod
     def find_or_allocate_ip(cls, ip_block_id, address):
@@ -283,7 +283,6 @@ class IpBlock(ModelBase):
         for block in db_api.find_all_blocks_with_deallocated_ips():
             block.update(is_full=False)
             block.delete_deallocated_ips()
-
     @property
     def broadcast(self):
         return str(IPNetwork(self.cidr).broadcast)
@@ -291,6 +290,10 @@ class IpBlock(ModelBase):
     @property
     def netmask(self):
         return str(IPNetwork(self.cidr).netmask)
+
+    @property
+    def dns(self):
+        return Config.get('nameserver', None)
 
     def is_ipv6(self):
         return IPNetwork(self.cidr).version == 6
@@ -570,14 +573,11 @@ class IpAddress(ModelBase):
     def locked(self):
         return self.marked_for_deallocation
 
-    def data_with_network_info(self):
-        ip_block = self.ip_block()
-        network_info = {'broadcast': ip_block.broadcast,
-                        'gateway': ip_block.gateway,
-                        'netmask': ip_block.netmask,
-                        'dns': Config.get('nameserver', None)}
-        return dict(self.data().items() + network_info.items())
-
+    def data(self, **options):
+        data = super(IpAddress, self).data(**options)
+        if options.get('with_ip_block', False):
+            data['ip_block'] = self.ip_block().data()
+        return data
 
 class Policy(ModelBase):
 

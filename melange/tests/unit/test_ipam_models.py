@@ -608,14 +608,15 @@ class TestIpBlock(BaseTest):
         self.assertRaises(models.DuplicateAddressError, block.allocate_ip,
                           address=ip.address)
 
-    def test_ip_block_data(self):
+    def test_ipv4_block_data(self):
         policy = PolicyFactory()
         parent_block = PrivateIpBlockFactory(cidr="10.0.0.0/24")
         ip_block = PrivateIpBlockFactory(cidr="10.0.0.0/29",
                                          policy_id=policy.id,
                                          parent_id=parent_block.id)
 
-        data = ip_block.data()
+        with StubConfig(nameserver="ns.example.com"):
+            data = ip_block.data()
 
         self.assertEqual(data['id'], ip_block.id)
         self.assertEqual(data['cidr'], ip_block.cidr)
@@ -625,6 +626,31 @@ class TestIpBlock(BaseTest):
         self.assertEqual(data['parent_id'], ip_block.parent_id)
         self.assertEqual(data['created_at'], ip_block.created_at)
         self.assertEqual(data['updated_at'], ip_block.updated_at)
+        self.assertEqual(data['broadcast'], "10.0.0.7")
+        self.assertEqual(data['gateway'], "10.0.0.1")
+        self.assertEqual(data['netmask'], "255.255.255.248")
+        self.assertEqual(data['dns'], "ns.example.com")
+
+    def test_ipv6_block_data(self):
+        policy = PolicyFactory()
+        ip_block = IpV6IpBlockFactory(cidr="fe::/96",
+                                    policy_id=policy.id)
+
+        with StubConfig(nameserver="ns.example.com"):
+            data = ip_block.data()
+
+        self.assertEqual(data['id'], ip_block.id)
+        self.assertEqual(data['cidr'], ip_block.cidr)
+        self.assertEqual(data['network_id'], ip_block.network_id)
+        self.assertEqual(data['tenant_id'], ip_block.tenant_id)
+        self.assertEqual(data['policy_id'], ip_block.policy_id)
+        self.assertEqual(data['parent_id'], ip_block.parent_id)
+        self.assertEqual(data['created_at'], ip_block.created_at)
+        self.assertEqual(data['updated_at'], ip_block.updated_at)
+        self.assertEqual(data['broadcast'], "fe::ffff:ffff")
+        self.assertEqual(data['gateway'], "fe::1")
+        self.assertEqual(data['netmask'], "ffff:ffff:ffff:ffff:ffff:ffff::")
+        self.assertEqual(data['dns'], "ns.example.com")
 
     def test_find_all_ip_blocks(self):
         PrivateIpBlockFactory(cidr="10.2.0.0/28")
@@ -929,6 +955,15 @@ class TestIpAddress(BaseTest):
         self.assertEqual(data['created_at'], ip.created_at)
         self.assertEqual(data['updated_at'], ip.updated_at)
 
+    def test_ip_address_data_with_ip_block(self):
+        ip_block = PrivateIpBlockFactory(cidr="10.0.0.1/8")
+        ip = IpAddressFactory(ip_block_id=ip_block.id)
+
+        data = ip.data(with_ip_block=True)
+
+        self.assertEqual(data['id'], ip.id)
+        self.assertEqual(data['ip_block']['id'], ip_block.id)
+
     def test_deallocate(self):
         ip_block = PrivateIpBlockFactory(cidr="10.0.0.1/8")
         ip_address = ip_block.allocate_ip()
@@ -973,19 +1008,6 @@ class TestIpAddress(BaseTest):
         found_ips = IpAddress.find_all(address="fe:0:1::2").all()
 
         self.assertEqual([actual_ip], found_ips)
-
-    def test_data_with_network_info_should_have_extra_network_info(self):
-        block = IpBlockFactory(cidr="10.0.0.0/24", gateway="10.0.0.1")
-
-        ip_address = block.allocate_ip()
-
-        with StubConfig(nameserver="ns.example.com"):
-            data = ip_address.data_with_network_info()
-
-        self.assertEqual(data['broadcast'], "10.0.0.255")
-        self.assertEqual(data['gateway'], "10.0.0.1")
-        self.assertEqual(data['netmask'], "255.255.255.0")
-        self.assertEqual(data['dns'], "ns.example.com")
 
 
 class TestPolicy(BaseTest):

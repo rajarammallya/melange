@@ -284,7 +284,7 @@ class NetworksController(BaseController):
                                                     'addresses', 'mac_address')
         ips = network.allocate_ips(addresses=addresses, port_id=port_id,
                                             mac_address=mac_address)
-        return Result(dict(ip_addresses=[ip.data_with_network_info()
+        return Result(dict(ip_addresses=[ip.data(with_ip_block=True)
                                   for ip in ips]), 201)
 
 

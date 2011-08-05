@@ -23,6 +23,7 @@ import inspect
 import json
 import logging
 import sys
+import traceback
 import re
 import eventlet.wsgi
 import routes.middleware
@@ -379,14 +380,15 @@ class Controller(object):
             if self._method_doesnt_expect_format_arg(method):
                 arg_dict.pop('format', None)
             return method(**arg_dict)
-
         except MelangeError as e:
+            LOG.debug(traceback.format_exc())
             httpError = self._get_http_error(e)
-            return Fault(httpError(e.message, request=arg_dict['request']))
+            return Fault(httpError(str(e), request=arg_dict['request']))
         except HTTPError as e:
+            LOG.debug(traceback.format_exc())
             return Fault(e)
         except Exception as e:
-            logging.getLogger('eventlet.wsgi.server').exception(e)
+            LOG.exception(e)
             return Fault(HTTPInternalServerError(e.message,
                               request=arg_dict['request']))
 

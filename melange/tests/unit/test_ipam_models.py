@@ -978,6 +978,7 @@ class TestIpAddress(BaseTest):
         self.assertEqual(data['port_id'], ip.port_id)
         self.assertEqual(data['ip_block_id'], ip.ip_block_id)
         self.assertEqual(data['address'], ip.address)
+        self.assertEqual(data['version'], ip.version)
         self.assertEqual(data['created_at'], ip.created_at)
         self.assertEqual(data['updated_at'], ip.updated_at)
 
@@ -1034,6 +1035,10 @@ class TestIpAddress(BaseTest):
         found_ips = IpAddress.find_all(address="fe:0:1::2").all()
 
         self.assertEqual([actual_ip], found_ips)
+
+    def test_version_of_ip(self):
+        self.assertEqual(IpAddressFactory(address="10.1.1.1").version, 4)
+        self.assertEqual(IpAddressFactory(address="fe::1").version, 6)
 
 
 class TestPolicy(BaseTest):

@@ -457,10 +457,10 @@ class IpAddressControllerBase(object):
         params = {'ip_address': {"port_id": "123",
                                  'mac_address': "10:23:56:78:90:01",
                                  'tenant_id': "111"}}
-
+        generated_ip = IpAddressFactory(address="ff::1", ip_block_id=block.id)
         self.mock.StubOutWithMock(IpBlock, "allocate_ip")
         IpBlock.allocate_ip(port_id="123", mac_address="10:23:56:78:90:01",
-                            tenant_id="111").AndReturn(IpAddress())
+                            tenant_id="111").AndReturn(generated_ip)
 
         self.mock.ReplayAll()
         response = self.app.post_json(self.address_path(block), params)

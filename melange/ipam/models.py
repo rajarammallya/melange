@@ -523,7 +523,7 @@ class IpBlock(ModelBase):
 
 class IpAddress(ModelBase):
 
-    _data_fields = ['ip_block_id', 'address', 'port_id']
+    _data_fields = ['ip_block_id', 'address', 'port_id', 'version']
 
     @classmethod
     def _get_conditions(cls, raw_conditions):
@@ -576,11 +576,16 @@ class IpAddress(ModelBase):
     def locked(self):
         return self.marked_for_deallocation
 
+    @property
+    def version(self):
+        return IPAddress(self.address).version
+
     def data(self, **options):
         data = super(IpAddress, self).data(**options)
         if options.get('with_ip_block', False):
             data['ip_block'] = self.ip_block().data()
         return data
+
 
 class Policy(ModelBase):
 

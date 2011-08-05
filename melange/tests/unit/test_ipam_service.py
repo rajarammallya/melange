@@ -795,28 +795,28 @@ class TestInsideLocalsController(BaseTestController):
                                      "IpAddress Not Found")
 
     def test_create(self):
-        global_block, = _create_blocks("169.1.1.1/28")
-        local_block1, = _create_blocks("10.1.1.1/28")
-        local_block2, = _create_blocks("10.0.0.1/28")
+        global_block, = _create_blocks("169.1.1.0/28")
+        local_block1, = _create_blocks("10.1.1.0/28")
+        local_block2, = _create_blocks("10.0.0.0/28")
 
-        url = "/ipam/ip_blocks/%s/ip_addresses/169.1.1.1/inside_locals"
+        url = "/ipam/ip_blocks/%s/ip_addresses/169.1.1.0/inside_locals"
         json_data = [
-            {'ip_block_id': local_block1.id, 'ip_address': "10.1.1.1"},
-            {'ip_block_id': local_block2.id, 'ip_address': "10.0.0.1"},
+            {'ip_block_id': local_block1.id, 'ip_address': "10.1.1.2"},
+            {'ip_block_id': local_block2.id, 'ip_address': "10.0.0.2"},
         ]
         request_data = {'ip_addresses': json.dumps(json_data)}
         response = self.app.post(url % global_block.id, request_data)
 
         self.assertEqual(response.status, "200 OK")
-        ips = global_block.find_allocated_ip("169.1.1.1").inside_locals()
+        ips = global_block.find_allocated_ip("169.1.1.0").inside_locals()
         inside_locals = [ip.address for ip in ips]
 
         self.assertEqual(len(inside_locals), 2)
-        self.assertTrue("10.1.1.1" in inside_locals)
-        self.assertTrue("10.0.0.1" in inside_locals)
+        self.assertTrue("10.1.1.2" in inside_locals)
+        self.assertTrue("10.0.0.2" in inside_locals)
         local_ip = IpAddress.find_by(ip_block_id=local_block1.id,
-                                     address="10.1.1.1")
-        self.assertEqual(local_ip.inside_globals()[0].address, "169.1.1.1")
+                                     address="10.1.1.2")
+        self.assertEqual(local_ip.inside_globals()[0].address, "169.1.1.0")
 
     def test_delete_for_specific_address(self):
         global_block, local_block = _create_blocks('192.1.1.1/28',
@@ -1471,14 +1471,14 @@ class NetworksControllerBase(object):
                          response.json['ip_addresses'])
 
     def test_allocate_ip_with_given_address(self):
-        ip_block = self._ip_block_factory(network_id=1, cidr="10.0.0.0/31")
+        ip_block = self._ip_block_factory(network_id=1, cidr="10.0.0.0/24")
 
         response = self.app.post_json("{0}/networks/1/ports/123"
                                  "/ip_allocations".format(self.network_path),
-                                 {'network': {'addresses': ['10.0.0.1']}})
+                                 {'network': {'addresses': ['10.0.0.2']}})
 
         ip_address = IpAddress.find_by(ip_block_id=ip_block.id,
-                                       address="10.0.0.1")
+                                       address="10.0.0.2")
         self.assertEqual(response.status_int, 201)
         self.assertEqual([_data(ip_address, with_ip_block=True)],
                          response.json['ip_addresses'])

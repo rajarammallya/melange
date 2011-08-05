@@ -355,16 +355,19 @@ class IpBlock(ModelBase):
             #TODO: very inefficient way to generate ips,
             #will look at better algos for this
             allocated_addresses = [ip.address for ip in self.addresses()]
+            unavailable_addresses = allocated_addresses + [self.gateway,
+                                                           self.broadcast]
             policy = self.policy()
             for ip in IPNetwork(self.cidr):
                 if (IpBlock.allowed_by_policy(self, policy, str(ip))
-                    and (str(ip) not in allocated_addresses)):
+                    and (str(ip) not in unavailable_addresses)):
                     return str(ip)
             return None
 
     def _validate_address(self, address):
 
-        if self.get_address(address) is not None:
+        if (address in [self.broadcast, self.gateway]
+            or (self.get_address(address) is not None)):
             raise DuplicateAddressError()
 
         if not self.contains(address):

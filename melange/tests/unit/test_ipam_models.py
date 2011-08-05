@@ -493,12 +493,39 @@ class TestIpBlock(BaseTest):
         self.assertRaises(models.AddressDoesNotBelongError, block.allocate_ip,
                           address="192.1.1.1")
 
-    def test_allocating_duplicate_address(self):
+    def test_allocating_duplicate_address_fails(self):
         block = PrivateIpBlockFactory(cidr="10.0.0.0/29")
         block.allocate_ip(address='10.0.0.0')
 
         self.assertRaises(models.DuplicateAddressError, block.allocate_ip,
                           address="10.0.0.0")
+
+    def test_allocate_ips_skips_gateway_address(self):
+        block = PrivateIpBlockFactory(cidr="10.0.0.0/29", gateway="10.0.0.0")
+        ip_address = block.allocate_ip()
+
+        self.assertEqual(ip_address.address, "10.0.0.1")
+
+    def test_allocate_ips_skips_broadcast_address(self):
+        block = PrivateIpBlockFactory(cidr="10.0.0.0/30")
+
+        #allocate all ips except last ip(broadcast)
+        for i in range(0, 2):
+            block.allocate_ip()
+
+        self.assertRaises(models.NoMoreAddressesError, block.allocate_ip)
+
+    def test_allocating_gateway_address_fails(self):
+        block = PrivateIpBlockFactory(cidr="10.0.0.0/29", gateway="10.0.0.0")
+
+        self.assertRaises(models.DuplicateAddressError, block.allocate_ip,
+                          address=block.gateway)
+
+    def test_allocating_broadcast_address_fails(self):
+        block = PrivateIpBlockFactory(cidr="10.0.0.0/24")
+
+        self.assertRaises(models.DuplicateAddressError, block.allocate_ip,
+                          address=block.broadcast)
 
     def test_allocate_ip_skips_ips_disallowed_by_policy(self):
         policy = PolicyFactory(name="blah")
@@ -515,13 +542,12 @@ class TestIpBlock(BaseTest):
 
         self.assertRaises(models.AddressDisallowedByPolicyError,
                           block.allocate_ip, address="10.0.0.0")
-        self.assertEqual(block.allocate_ip(address="10.0.0.1").address,
-                         "10.0.0.1")
 
     def test_ip_block_is_marked_full_when_all_ips_are_allocated(self):
-        ip_block = PrivateIpBlockFactory(cidr="10.0.0.0/31")
-        ip_block.allocate_ip()
-        ip_block.allocate_ip()
+        ip_block = PrivateIpBlockFactory(cidr="10.0.0.0/30")
+
+        for i in range(0, 2):
+            ip_block.allocate_ip()
 
         self.assertRaises(models.NoMoreAddressesError, ip_block.allocate_ip)
         self.assertTrue(ip_block.is_full)
@@ -536,18 +562,18 @@ class TestIpBlock(BaseTest):
         self.assertFalse(ip_block.is_full)
 
     def test_allocate_ip_when_no_more_ips(self):
-        block = PrivateIpBlockFactory(cidr="10.0.0.0/31")
-        block.allocate_ip()
-        block.allocate_ip()
+        block = PrivateIpBlockFactory(cidr="10.0.0.0/30")
+        
+        for i in range(0, 2):
+            block.allocate_ip()
+
         self.assertRaises(models.NoMoreAddressesError, block.allocate_ip)
 
     def test_allocate_ip_is_not_duplicated(self):
         block = PrivateIpBlockFactory(cidr="10.0.0.0/30")
+
         self.assertEqual(block.allocate_ip().address, "10.0.0.0")
-        self.assertEqual(
-            IpAddress.find_by(ip_block_id=block.id).address,
-            "10.0.0.0")
-        self.assertEqual(block.allocate_ip().address, "10.0.0.1")
+        self.assertEqual(block.allocate_ip().address, "10.0.0.2")
 
     def test_allocate_ip_for_ipv6_block_uses_pluggable_algo(self):
         block = IpV6IpBlockFactory(cidr="ff::/120")
@@ -591,9 +617,9 @@ class TestIpBlock(BaseTest):
     def test_find_or_allocate_ip(self):
         block = PrivateIpBlockFactory(cidr="10.0.0.0/30")
 
-        IpBlock.find_or_allocate_ip(block.id, '10.0.0.1')
+        IpBlock.find_or_allocate_ip(block.id, '10.0.0.2')
 
-        address = IpAddress.find_by(ip_block_id=block.id, address='10.0.0.1')
+        address = IpAddress.find_by(ip_block_id=block.id, address='10.0.0.2')
         self.assertTrue(address is not None)
 
     def test_deallocate_ip(self):
@@ -790,7 +816,7 @@ class TestIpBlock(BaseTest):
         self.assertEqual(ip_block.addresses(), [ip2])
 
     def test_is_full_flag_reset_when_addresses_are_deleted(self):
-        ip_block = PrivateIpBlockFactory(cidr="10.0.0.0/31")
+        ip_block = PrivateIpBlockFactory(cidr="10.0.0.0/30")
         for i in range(0, 2):
             ip = ip_block.allocate_ip()
         ip.deallocate()
@@ -1341,13 +1367,13 @@ class TestNetwork(BaseTest):
         [self.assertEqual(ip.port_id, 123) for ip in allocated_ips]
 
     def test_allocate_ip_assigns_given_address_from_its_block(self):
-        ip_block1 = PublicIpBlockFactory(network_id=1, cidr="10.0.0.0/31")
-        ip_block2 = PublicIpBlockFactory(network_id=1, cidr="20.0.0.0/31")
+        ip_block1 = PublicIpBlockFactory(network_id=1, cidr="10.0.0.0/24")
+        ip_block2 = PublicIpBlockFactory(network_id=1, cidr="20.0.0.0/24")
         network = Network(ip_blocks=[ip_block1, ip_block2])
 
-        allocated_ip = network.allocate_ips(addresses=["20.0.0.1"])[0]
+        allocated_ip = network.allocate_ips(addresses=["20.0.0.4"])[0]
 
-        self.assertEqual(allocated_ip.address, "20.0.0.1")
+        self.assertEqual(allocated_ip.address, "20.0.0.4")
         self.assertEqual(allocated_ip.ip_block_id, ip_block2.id)
 
     def test_allocate_ip_ignores_already_allocated_addresses(self):

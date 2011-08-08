@@ -283,6 +283,7 @@ class IpBlock(ModelBase):
         for block in db_api.find_all_blocks_with_deallocated_ips():
             block.update(is_full=False)
             block.delete_deallocated_ips()
+
     @property
     def broadcast(self):
         return str(IPNetwork(self.cidr).broadcast)

@@ -1511,6 +1511,12 @@ class NetworksControllerBase(object):
         self.assertEqual(response.status_int, 200)
         self.assertTrue(ip_address.marked_for_deallocation)
 
+    def test_deallocate_ip_when_network_does_not_exist(self):
+        response = self.app.delete("{0}/networks/1/ports/123/ip_allocations"\
+                                 .format(self.network_path), status="*")
+
+        self.assertErrorResponse(response, HTTPNotFound, "Network 1 not found")
+
 
 class TestGlobalNetworksController(BaseTestController,
                              NetworksControllerBase):

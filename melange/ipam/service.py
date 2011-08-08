@@ -313,9 +313,10 @@ class API(wsgi.Router):
         self._policy_and_rules_mapper(mapper, "/ipam/policies")
         self._policy_and_rules_mapper(mapper,
                                       "/ipam/tenants/{tenant_id}/policies")
-        self._network_mapper(mapper, "/ipam/networks/{network_id}/ports/{port_id}")
-        self._network_mapper(mapper, "/ipam/tenants/{tenant_id}/networks/{network_id}/ports/{port_id}")
-
+        self._network_mapper(mapper,
+                             "/ipam/networks/{network_id}/ports/{port_id}")
+        self._network_mapper(mapper, "/ipam/tenants/{tenant_id}/networks"
+                             "/{network_id}/ports/{port_id}")
 
     def _network_mapper(self, mapper, resource_path):
 

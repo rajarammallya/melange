@@ -563,7 +563,7 @@ class TestIpBlock(BaseTest):
 
     def test_allocate_ip_when_no_more_ips(self):
         block = PrivateIpBlockFactory(cidr="10.0.0.0/30")
-        
+
         for i in range(0, 2):
             block.allocate_ip()
 
@@ -848,7 +848,7 @@ class TestIpAddress(BaseTest):
         ips = [block.allocate_ip() for block in [ip_block1, ip_block2]]
 
         self.assertModelsEqual(IpAddress.find_all_by_network("1"), ips)
-        
+
     def test_ipv6_address_is_expanded_before_save(self):
         ip_address = IpAddressFactory(address="fe:0:1::2")
 

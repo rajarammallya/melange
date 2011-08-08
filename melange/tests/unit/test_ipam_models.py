@@ -830,6 +830,9 @@ class TestIpBlock(BaseTest):
 
 class TestIpAddress(BaseTest):
 
+    def test_str(self):
+        self.assertEqual(str(IpAddress(address="10.0.1.1")), "10.0.1.1")
+
     def test_find_ip_address(self):
         block = PrivateIpBlockFactory(cidr="10.0.0.1/8")
         ip_address = IpAddressFactory(ip_block_id=block.id,
@@ -837,6 +840,15 @@ class TestIpAddress(BaseTest):
 
         self.assertNotEqual(IpAddress.find(ip_address.id), None)
 
+    def test_find_ips_in_network(self):
+        ip_block1 = IpBlockFactory(network_id="1")
+        ip_block2 = IpBlockFactory(network_id="1")
+        noise_block = IpBlockFactory(network_id="999")
+        noise_ip = noise_block.allocate_ip()
+        ips = [block.allocate_ip() for block in [ip_block1, ip_block2]]
+
+        self.assertModelsEqual(IpAddress.find_all_by_network("1"), ips)
+        
     def test_ipv6_address_is_expanded_before_save(self):
         ip_address = IpAddressFactory(address="fe:0:1::2")
 
@@ -1391,3 +1403,15 @@ class TestNetwork(BaseTest):
                                                          "20.0.0.0"])
         self.assertTrue(len(allocated_ips) is 1)
         self.assertEqual(allocated_ips[0].address, "20.0.0.0")
+
+    def test_deallocate_ips(self):
+        ip_block1 = IpBlockFactory(network_id=1, cidr="10.0.0.0/24")
+        ip_block2 = IpBlockFactory(network_id=1, cidr="fe80::/64")
+        network = Network(id=1, ip_blocks=[ip_block1, ip_block2])
+        ips = network.allocate_ips(port_id="123", tenant_id="111",
+                                   mac_address="00:22:11:77:88:22")
+
+        network.deallocate_ips(port_id="123")
+
+        for ip in ips:
+            self.assertTrue(IpAddress.get(ip.id).marked_for_deallocation)

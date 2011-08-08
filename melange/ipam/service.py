@@ -287,6 +287,10 @@ class NetworksController(BaseController):
         return Result(dict(ip_addresses=[ip.data(with_ip_block=True)
                                   for ip in ips]), 201)
 
+    def deallocate_ips(self, request, network_id, port_id, tenant_id=None):
+        network = Network.find_by(id=network_id, tenant_id=tenant_id)
+        network.deallocate_ips(port_id)
+
 
 class API(wsgi.Router):
     def __init__(self, options={}):
@@ -309,13 +313,18 @@ class API(wsgi.Router):
         self._policy_and_rules_mapper(mapper, "/ipam/policies")
         self._policy_and_rules_mapper(mapper,
                                       "/ipam/tenants/{tenant_id}/policies")
-        self._connect(mapper, "/ipam/networks/{network_id}/ports/{port_id}/"
-                      "ip_allocations", controller=NetworksController(),
-                       action='allocate_ips', conditions=dict(method=['POST']))
-        self._connect(mapper, "/ipam/tenants/{tenant_id}/networks/{network_id}"
-                      "/ports/{port_id}/ip_allocations",
-                      controller=NetworksController(), action='allocate_ips',
-                      conditions=dict(method=['POST']))
+        self._network_mapper(mapper, "/ipam/networks/{network_id}/ports/{port_id}")
+        self._network_mapper(mapper, "/ipam/tenants/{tenant_id}/networks/{network_id}/ports/{port_id}")
+
+
+    def _network_mapper(self, mapper, resource_path):
+
+        with mapper.submapper(controller=NetworksController(),
+                              path_prefix=resource_path) as submap:
+            self._connect(submap, "/ip_allocations", action='allocate_ips',
+                          conditions=dict(method=['POST']))
+            self._connect(submap, "/ip_allocations", action='deallocate_ips',
+                          conditions=dict(method=['DELETE']))
 
     def _policy_and_rules_mapper(self, mapper, policy_path):
         mapper.resource("policy", policy_path,

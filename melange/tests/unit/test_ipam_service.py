@@ -1500,13 +1500,24 @@ class NetworksControllerBase(object):
         self.assertEqual([_data(ipv6_address, with_ip_block=True)],
                          response.json['ip_addresses'])
 
+    def test_deallocate_ips(self):
+        ip_block = self._ip_block_factory(network_id=1)
+        ip = ip_block.allocate_ip(port_id=123)
 
-class TestNetworksController(BaseTestController,
+        response = self.app.delete("{0}/networks/1/ports/123/ip_allocations"\
+                                 .format(self.network_path))
+
+        ip_address = IpAddress.get(ip.id)
+        self.assertEqual(response.status_int, 200)
+        self.assertTrue(ip_address.marked_for_deallocation)
+
+
+class TestGlobalNetworksController(BaseTestController,
                              NetworksControllerBase):
 
     def setUp(self):
         self.network_path = "/ipam"
-        super(TestNetworksController, self).setUp()
+        super(TestGlobalNetworksController, self).setUp()
 
     def _ip_block_factory(self, **kwargs):
         return PublicIpBlockFactory(**kwargs)

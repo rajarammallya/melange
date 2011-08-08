@@ -155,6 +155,12 @@ def find_all_top_level_blocks_in_network(network_id):
         filter(parent_block.id == None)
 
 
+def find_all_ips_in_network(network_id, **conditions):
+    return _query_by(_ip_address(), **conditions).\
+        join(_ip_block()).\
+        filter(_ip_block().network_id == network_id)
+
+
 def configure_db(options):
     session.configure_db(options)
 

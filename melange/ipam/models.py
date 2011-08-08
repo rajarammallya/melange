@@ -536,6 +536,10 @@ class IpAddress(ModelBase):
     def _formatted(cls, address):
         return IPAddress(address).format(dialect=ipv6_verbose)
 
+    @classmethod
+    def find_all_by_network(cls, network_id, **conditions):
+        return db_api.find_all_ips_in_network(network_id, **conditions)
+
     def _before_save(self):
         self.address = self._formatted(self.address)
 
@@ -585,6 +589,9 @@ class IpAddress(ModelBase):
         if options.get('with_ip_block', False):
             data['ip_block'] = self.ip_block().data()
         return data
+
+    def __str__(self):
+        return self.address
 
 
 class Policy(ModelBase):
@@ -691,6 +698,11 @@ class Network(ModelBase):
             raise NoMoreAddressesError(_("ip blocks in this network are full"))
 
         return filter(None, ips)
+
+    def deallocate_ips(self, port_id):
+        ips = IpAddress.find_all_by_network(self.id, port_id=port_id)
+        for ip in ips:
+            ip.deallocate()
 
     def _block_partitions(self):
         return [[block for block in self.ip_blocks

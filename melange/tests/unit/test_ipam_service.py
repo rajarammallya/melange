@@ -1517,6 +1517,22 @@ class NetworksControllerBase(object):
 
         self.assertErrorResponse(response, HTTPNotFound, "Network 1 not found")
 
+    def test_get_allocated_ips(self):
+        ipv4_block = self._ip_block_factory(cidr="10.0.0.0/24", network_id=1)
+        ipv6_block = self._ip_block_factory(cidr="fe::/96", network_id=1)
+        ip_1 = ipv4_block.allocate_ip(port_id="123")
+        ip_2 = ipv4_block.allocate_ip(port_id="123")
+        ip_3 = ipv6_block.allocate_ip(port_id="123",
+                                      mac_address="aa:bb:cc:dd:ee:ff",
+                                      tenant_id="321")
+
+        response = self.app.get("{0}/networks/1/ports/123/ip_allocations"\
+                                 .format(self.network_path))
+
+        self.assertEqual(response.status_int, 200)
+        self.assertEqual(_data([ip_1, ip_2, ip_3]),
+                         response.json["ip_addresses"])
+
 
 class TestGlobalNetworksController(BaseTestController,
                              NetworksControllerBase):

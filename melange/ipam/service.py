@@ -16,7 +16,6 @@
 #    under the License.
 import json
 import routes
-import urllib
 
 from webob.exc import (HTTPUnprocessableEntity, HTTPBadRequest,
                        HTTPNotFound, HTTPConflict)
@@ -27,8 +26,7 @@ from melange.common.config import Config
 from melange.ipam import models
 from melange.ipam.models import (IpBlock, IpAddress, Policy, IpRange,
                                  IpOctet, Network)
-from melange.common.utils import (exclude, stringify_keys, filter_dict,
-                                  merge_dicts)
+from melange.common.utils import (exclude, stringify_keys, filter_dict)
 from melange.common.pagination import PaginatedResult, PaginatedDataView
 from melange.common.auth import RoleBasedAuth
 
@@ -291,6 +289,15 @@ class NetworksController(BaseController):
         network = Network.find_by(id=network_id, tenant_id=tenant_id)
         network.deallocate_ips(port_id)
 
+    def get_allocated_ips(self, request, network_id, port_id, tenant_id=None):
+        ip_blocks = IpBlock.find_all(network_id=network_id,
+                                     tenant_id=tenant_id)
+        addresses = [IpAddress.find_all(port_id=port_id,
+                                       ip_block_id=ip_block.id)
+                     for ip_block in ip_blocks]
+        return dict(ip_addresses=[item.data() for sublist in addresses
+                                   for item in sublist])
+
 
 class API(wsgi.Router):
     def __init__(self, options={}):
@@ -324,6 +331,9 @@ class API(wsgi.Router):
                               path_prefix=resource_path) as submap:
             self._connect(submap, "/ip_allocations", action='allocate_ips',
                           conditions=dict(method=['POST']))
+            self._connect(submap, "/ip_allocations",
+                          action='get_allocated_ips',
+                          conditions=dict(method=['GET']))
             self._connect(submap, "/ip_allocations", action='deallocate_ips',
                           conditions=dict(method=['DELETE']))
 

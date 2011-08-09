@@ -1528,9 +1528,8 @@ class NetworksControllerBase(object):
 
         response = self.app.get("{0}/networks/1/ports/123/ip_allocations"\
                                  .format(self.network_path))
-
         self.assertEqual(response.status_int, 200)
-        self.assertEqual(_data([ip_1, ip_2, ip_3]),
+        self.assertEqual(_data([ip_1, ip_2, ip_3], with_ip_block=True),
                          response.json["ip_addresses"])
 
 
@@ -1591,4 +1590,4 @@ def _create_blocks(*args):
 def _data(resource, **options):
     if isinstance(resource, models.ModelBase):
         return sanitize(resource.data(**options))
-    return [_data(model) for model in resource]
+    return [_data(model, **options) for model in resource]

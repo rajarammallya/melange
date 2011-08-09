@@ -295,8 +295,9 @@ class NetworksController(BaseController):
         addresses = [IpAddress.find_all(port_id=port_id,
                                        ip_block_id=ip_block.id)
                      for ip_block in ip_blocks]
-        return dict(ip_addresses=[item.data() for sublist in addresses
-                                   for item in sublist])
+        return dict(ip_addresses=[item.data(with_ip_block=True)
+                                  for sublist in addresses
+                                  for item in sublist])
 
 
 class API(wsgi.Router):

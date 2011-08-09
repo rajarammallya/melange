@@ -258,7 +258,8 @@ class IpBlock(ModelBase):
 
     _allowed_types = ["private", "public"]
     _data_fields = ['cidr', 'network_id', 'policy_id', 'tenant_id', 'gateway',
-                    'parent_id', 'type', 'dns', 'broadcast', 'netmask']
+                    'parent_id', 'type', 'dns1', 'dns2',
+                    'broadcast', 'netmask']
 
     @classmethod
     def find_or_allocate_ip(cls, ip_block_id, address):
@@ -291,10 +292,6 @@ class IpBlock(ModelBase):
     @property
     def netmask(self):
         return str(IPNetwork(self.cidr).netmask)
-
-    @property
-    def dns(self):
-        return Config.get('nameserver', None)
 
     def is_ipv6(self):
         return IPNetwork(self.cidr).version == 6
@@ -520,6 +517,8 @@ class IpBlock(ModelBase):
 
     def _before_save(self):
         self.gateway = self.gateway or str(IPNetwork(self.cidr)[1])
+        self.dns1 = self.dns1 or Config.get("dns1")
+        self.dns2 = self.dns2 or Config.get("dns2")
 
 
 class IpAddress(ModelBase):

@@ -24,6 +24,8 @@ class IpBlockFactory(factory.Factory):
     FACTORY_FOR = IpBlock
     cidr = factory.Sequence(lambda n: "192.168.{0}.0/24".format(int(n) % 255))
     type = "private"
+    dns1 = "ns1.example.com"
+    dns2 = "ns2.example.com"
 
 
 class PublicIpBlockFactory(IpBlockFactory):

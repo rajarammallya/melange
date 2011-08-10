@@ -257,13 +257,17 @@ class TestGlobalIpBlockController(IpBlockControllerBase, BaseTestController):
         response = self.app.post_json("/ipam/ip_blocks.json",
                                  {'ip_block': {'network_id': "300",
                                                'cidr': "10.1.1.0/24",
-                                               'type': "private"}})
+                                               'type': "private",
+                                               'dns1': "12.34.56.67",
+                                               'dns2': "65.76.87.98"}})
 
         self.assertEqual(response.status, "201 Created")
         saved_block = IpBlock.find_by(network_id="300")
         self.assertEqual(saved_block.cidr, "10.1.1.0/24")
         self.assertEqual(saved_block.type, "private")
         self.assertEqual(saved_block.tenant_id, None)
+        self.assertEqual(saved_block.dns1, "12.34.56.67")
+        self.assertEqual(saved_block.dns2, "65.76.87.98")
         self.assertEqual(response.json, dict(ip_block=_data(saved_block)))
 
 
@@ -282,13 +286,17 @@ class TestTenantBasedIpBlockController(IpBlockControllerBase,
         response = self.app.post_json(
                      "/ipam/tenants/111/ip_blocks.json",
                      {'ip_block': {'network_id': "3", 'cidr': "10.1.1.0/24",
-                                   'type': "public"}})
+                                   'type': "public",
+                                   'dns1': "12.34.56.67",
+                                   'dns2': "65.76.87.98"}})
 
         self.assertEqual(response.status, "201 Created")
         saved_block = IpBlock.find_by(network_id="3")
         self.assertEqual(saved_block.cidr, "10.1.1.0/24")
         self.assertEqual(saved_block.type, "public")
         self.assertEqual(saved_block.tenant_id, "111")
+        self.assertEqual(saved_block.dns1, "12.34.56.67")
+        self.assertEqual(saved_block.dns2, "65.76.87.98")
         self.assertEqual(response.json, dict(ip_block=_data(saved_block)))
 
     def test_create_ignores_tenant_id_passed_in_post_body(self):

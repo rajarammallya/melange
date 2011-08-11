@@ -74,14 +74,14 @@ def models():
 
 
 def get_session(autocommit=True, expire_on_commit=False):
-        """Helper method to grab session"""
-        global _MAKER, _ENGINE
-        if not _MAKER:
-            assert _ENGINE
-            _MAKER = sessionmaker(bind=_ENGINE,
-                                  autocommit=autocommit,
-                                  expire_on_commit=expire_on_commit)
-        return _MAKER()
+    """Helper method to grab session"""
+    global _MAKER, _ENGINE
+    if not _MAKER:
+        assert _ENGINE
+        _MAKER = sessionmaker(bind=_ENGINE,
+                              autocommit=autocommit,
+                              expire_on_commit=expire_on_commit)
+    return _MAKER()
 
 
 def raw_query(model, autocommit=True, expire_on_commit=False):

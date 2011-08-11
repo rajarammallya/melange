@@ -35,6 +35,7 @@ from xml.dom import minidom
 from webob.exc import (HTTPBadRequest, HTTPInternalServerError,
                        HTTPNotFound, HTTPError, HTTPNotAcceptable)
 from gettext import gettext as _
+from datetime import timedelta
 
 from melange.common.exception import InvalidContentType
 from melange.common.exception import MelangeError
@@ -457,7 +458,7 @@ class Serializer(object):
     def _to_json(self, data):
         def sanitizer(obj):
             if isinstance(obj, datetime.datetime):
-                return obj.isoformat()
+                return (obj - timedelta(microseconds=obj.microsecond)).isoformat()
             return obj
 
         return json.dumps(data, default=sanitizer)

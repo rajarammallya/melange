@@ -112,11 +112,6 @@ class TestApp(webtest.TestApp):
 def setup():
     conf_file, conf = config.load_paste_config("melange",
                         {"config_file": test_config_path()}, None)
-    conn_string = conf["sql_connection"]
-    conn_pieces = urlparse.urlparse(conn_string)
-    testdb = conn_pieces.path.strip('/')
-    if os.path.isfile(testdb):
-        os.unlink(testdb)
 
     db_api.drop_db(conf)
     db_api.db_sync(conf)

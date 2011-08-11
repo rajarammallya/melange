@@ -349,7 +349,8 @@ class SubnetControllerBase(object):
         response = self.app.get(self._subnets_path(parent))
 
         self.assertEqual(response.status_int, 200)
-        self.assertEqual(response.json['subnets'], _data([subnet1, subnet2]))
+        self.assertItemsEqual(response.json['subnets'],
+                              _data([subnet1, subnet2]))
 
     def test_create(self):
         parent = self._ip_block_factory(cidr="10.0.0.0/28")
@@ -441,20 +442,20 @@ class IpAddressControllerBase(object):
         self.assertNotEqual(IpAddress.find_by(ip_block_id=block.id,
                                               address="10.1.1.2"), None)
 
-    def test_create_with_port(self):
+    def test_create_with_interface(self):
         block = self.ip_block_factory()
 
         self.app.post_json(self.address_path(block),
-                           {'ip_address': {"port_id": "1111"}})
+                           {'ip_address': {"interface_id": "1111"}})
 
         allocated_address = IpAddress.find_by(ip_block_id=block.id)
-        self.assertEqual(allocated_address.port_id, "1111")
+        self.assertEqual(allocated_address.interface_id, "1111")
 
     def test_create_ipv6_address_fails_when_mac_address_not_given(self):
         block = self.ip_block_factory(cidr="ff::/64")
 
         response = self.app.post_json(self.address_path(block),
-                                      {'ip_address': {"port_id": "1111"}},
+                                      {'ip_address': {"interface_id": "1111"}},
                                       status="*")
 
         self.assertErrorResponse(response, HTTPBadRequest,
@@ -462,12 +463,13 @@ class IpAddressControllerBase(object):
 
     def test_create_passes_request_params_to_ipv6_allocation_algorithm(self):
         block = self.ip_block_factory(cidr="ff::/64")
-        params = {'ip_address': {"port_id": "123",
+        params = {'ip_address': {"interface_id": "123",
                                  'mac_address': "10:23:56:78:90:01",
                                  'tenant_id': "111"}}
         generated_ip = IpAddressFactory(address="ff::1", ip_block_id=block.id)
         self.mock.StubOutWithMock(IpBlock, "allocate_ip")
-        IpBlock.allocate_ip(port_id="123", mac_address="10:23:56:78:90:01",
+        IpBlock.allocate_ip(interface_id="123",
+                            mac_address="10:23:56:78:90:01",
                             tenant_id="111").AndReturn(generated_ip)
 
         self.mock.ReplayAll()
@@ -477,7 +479,7 @@ class IpAddressControllerBase(object):
 
     def test_show(self):
         block = self.ip_block_factory(cidr='10.1.1.1/30')
-        ip = block.allocate_ip(port_id="3333")
+        ip = block.allocate_ip(interface_id="3333")
 
         response = self.app.get("{0}/{1}.json".format(self.address_path(block),
                                                       ip.address))
@@ -1458,22 +1460,23 @@ class NetworksControllerBase(object):
     def test_allocate_ip_address(self):
         ip_block = self._ip_block_factory(network_id=1)
 
-        response = self.app.post("{0}/networks/1/ports/123/ip_allocations"\
-                                 .format(self.network_path))
+        response = self.app.post("{0}/networks/1/interfaces/123/"
+                                 "ip_allocations".format(self.network_path))
 
         ip_address = IpAddress.find_by(ip_block_id=ip_block.id)
         self.assertEqual(response.status_int, 201)
         self.assertEqual([_data(ip_address, with_ip_block=True)],
                          response.json['ip_addresses'])
-        self.assertEqual(ip_address.port_id, "123")
+        self.assertEqual(ip_address.interface_id, "123")
 
-    def test_allocate_ip_address_for_a_port(self):
+    def test_allocate_ip_address_for_a_interface(self):
         ip_block = self._ip_block_factory(network_id=1)
 
-        response = self.app.post("{0}/networks/1/ports/123/ip_allocations"\
-                                 .format(self.network_path))
+        response = self.app.post("{0}/networks/1/interfaces/123/"
+                                 "ip_allocations".format(self.network_path))
 
-        ip_address = IpAddress.find_by(ip_block_id=ip_block.id, port_id=123)
+        ip_address = IpAddress.find_by(ip_block_id=ip_block.id,
+                                       interface_id=123)
         self.assertEqual(response.status_int, 201)
         self.assertEqual([_data(ip_address, with_ip_block=True)],
                          response.json['ip_addresses'])
@@ -1481,7 +1484,7 @@ class NetworksControllerBase(object):
     def test_allocate_ip_with_given_address(self):
         ip_block = self._ip_block_factory(network_id=1, cidr="10.0.0.0/24")
 
-        response = self.app.post_json("{0}/networks/1/ports/123"
+        response = self.app.post_json("{0}/networks/1/interfaces/123"
                                  "/ip_allocations".format(self.network_path),
                                  {'network': {'addresses': ['10.0.0.2']}})
 
@@ -1500,7 +1503,7 @@ class NetworksControllerBase(object):
 
         self.mock.ReplayAll()
 
-        response = self.app.post_json("{0}/networks/1/ports/123"
+        response = self.app.post_json("{0}/networks/1/interfaces/123"
                                    "/ip_allocations".format(self.network_path),
                                     {'network': {'mac_address': mac_address}})
 
@@ -1510,35 +1513,36 @@ class NetworksControllerBase(object):
 
     def test_deallocate_ips(self):
         ip_block = self._ip_block_factory(network_id=1)
-        ip = ip_block.allocate_ip(port_id=123)
+        ip = ip_block.allocate_ip(interface_id=123)
 
-        response = self.app.delete("{0}/networks/1/ports/123/ip_allocations"\
-                                 .format(self.network_path))
+        response = self.app.delete("{0}/networks/1/interfaces/123/"
+                                   "ip_allocations".format(self.network_path))
 
         ip_address = IpAddress.get(ip.id)
         self.assertEqual(response.status_int, 200)
         self.assertTrue(ip_address.marked_for_deallocation)
 
     def test_deallocate_ip_when_network_does_not_exist(self):
-        response = self.app.delete("{0}/networks/1/ports/123/ip_allocations"\
-                                 .format(self.network_path), status="*")
+        response = self.app.delete("{0}/networks/1/interfaces/123/"
+                                   "ip_allocations".format(self.network_path),
+                                   status="*")
 
         self.assertErrorResponse(response, HTTPNotFound, "Network 1 not found")
 
     def test_get_allocated_ips(self):
         ipv4_block = self._ip_block_factory(cidr="10.0.0.0/24", network_id=1)
         ipv6_block = self._ip_block_factory(cidr="fe::/96", network_id=1)
-        ip_1 = ipv4_block.allocate_ip(port_id="123")
-        ip_2 = ipv4_block.allocate_ip(port_id="123")
-        ip_3 = ipv6_block.allocate_ip(port_id="123",
+        ip_1 = ipv4_block.allocate_ip(interface_id="123")
+        ip_2 = ipv4_block.allocate_ip(interface_id="123")
+        ip_3 = ipv6_block.allocate_ip(interface_id="123",
                                       mac_address="aa:bb:cc:dd:ee:ff",
                                       tenant_id="321")
 
-        response = self.app.get("{0}/networks/1/ports/123/ip_allocations"\
+        response = self.app.get("{0}/networks/1/interfaces/123/ip_allocations"\
                                  .format(self.network_path))
         self.assertEqual(response.status_int, 200)
-        self.assertEqual(_data([ip_1, ip_2, ip_3], with_ip_block=True),
-                         response.json["ip_addresses"])
+        self.assertItemsEqual(_data([ip_1, ip_2, ip_3], with_ip_block=True),
+                              response.json["ip_addresses"])
 
 
 class TestGlobalNetworksController(BaseTestController,
@@ -1552,7 +1556,8 @@ class TestGlobalNetworksController(BaseTestController,
         return PublicIpBlockFactory(**kwargs)
 
     def test_allocate_ip_creates_network_if_network_not_found(self):
-        response = self.app.post("/ipam/networks/1/ports/123/ip_allocations")
+        response = self.app.post("/ipam/networks/1/interfaces/123/"
+                                 "ip_allocations")
 
         self.assertEqual(response.status_int, 201)
         ip_address_json = response.json['ip_addresses'][0]
@@ -1575,7 +1580,7 @@ class TestTenantNetworksController(NetworksControllerBase,
 
     def test_allocate_ip_creates_network_if_network_not_found(self):
         response = self.app.post("/ipam/tenants/123/networks/1"
-                                 "/ports/123/ip_allocations")
+                                 "/interfaces/123/ip_allocations")
 
         self.assertEqual(response.status_int, 201)
         ip_address_json = response.json['ip_addresses'][0]

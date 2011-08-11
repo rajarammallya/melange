@@ -323,7 +323,7 @@ class IpBlock(ModelBase):
     def parent(self):
         return IpBlock.get(self.parent_id)
 
-    def allocate_ip(self, port_id=None, address=None, **kwargs):
+    def allocate_ip(self, interface_id=None, address=None, **kwargs):
         if self.subnets():
             raise IpAllocationNotAllowedError(
                 _("Non Leaf block can not allocate IPAddress"))
@@ -339,7 +339,7 @@ class IpBlock(ModelBase):
             self.update(is_full=True)
             raise NoMoreAddressesError(_("IpBlock is full"))
 
-        return IpAddress.create(address=address, port_id=port_id,
+        return IpAddress.create(address=address, interface_id=interface_id,
                                 ip_block_id=self.id)
 
     def _generate_ip_address(self, **kwargs):
@@ -523,7 +523,7 @@ class IpBlock(ModelBase):
 
 class IpAddress(ModelBase):
 
-    _data_fields = ['ip_block_id', 'address', 'port_id', 'version']
+    _data_fields = ['ip_block_id', 'address', 'interface_id', 'version']
 
     @classmethod
     def _get_conditions(cls, raw_conditions):
@@ -699,8 +699,8 @@ class Network(ModelBase):
 
         return filter(None, ips)
 
-    def deallocate_ips(self, port_id):
-        ips = IpAddress.find_all_by_network(self.id, port_id=port_id)
+    def deallocate_ips(self, interface_id):
+        ips = IpAddress.find_all_by_network(self.id, interface_id=interface_id)
         for ip in ips:
             ip.deallocate()
 

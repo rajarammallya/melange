@@ -17,8 +17,7 @@ bind_port = 9898
 # SQLAlchemy connection string for the reference implementation          
 # registry server. Any valid SQLAlchemy connection string is fine. 
 # See: http://www.sqlalchemy.org/docs/05/reference/sqlalchemy/connections.html#sqlalchemy.create_engine
-sql_connection = sqlite:///melange_tests.sqlite
-#sql_connection = mysql+mysqldb://root@localhost/melange
+sql_connection = mysql://root@localhost/melange_test
 
 # Period in seconds after which SQLAlchemy should reestablish its connection
 # to the database.

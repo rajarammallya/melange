@@ -457,7 +457,7 @@ class TestIpBlock(BaseTest):
 
     def test_find_allocated_ip(self):
         block = PrivateIpBlockFactory(cidr="10.0.0.1/8")
-        ip = block.allocate_ip(port_id="111")
+        ip = block.allocate_ip(interface_id="111")
         self.assertEqual(block.find_allocated_ip(ip.address).id,
                          ip.id)
 
@@ -484,11 +484,11 @@ class TestIpBlock(BaseTest):
     def test_allocate_ip(self):
         block = PrivateIpBlockFactory(cidr="10.0.0.0/31")
         block = IpBlock.find(block.id)
-        ip = block.allocate_ip(port_id="1234")
+        ip = block.allocate_ip(interface_id="1234")
 
         saved_ip = IpAddress.find(ip.id)
         self.assertEqual(ip.address, saved_ip.address)
-        self.assertEqual(ip.port_id, "1234")
+        self.assertEqual(ip.interface_id, "1234")
 
     def test_allocate_ip_from_non_leaf_block_fails(self):
         parent_block = IpBlockFactory(cidr="10.0.0.0/28")
@@ -634,7 +634,7 @@ class TestIpBlock(BaseTest):
 
     def test_deallocate_ip(self):
         block = PrivateIpBlockFactory(cidr="10.0.0.0/31")
-        ip = block.allocate_ip(port_id="1234")
+        ip = block.allocate_ip(interface_id="1234")
 
         block.deallocate_ip(ip.address)
 
@@ -976,7 +976,7 @@ class TestIpAddress(BaseTest):
         data = ip.data()
 
         self.assertEqual(data['id'], ip.id)
-        self.assertEqual(data['port_id'], ip.port_id)
+        self.assertEqual(data['interface_id'], ip.interface_id)
         self.assertEqual(data['ip_block_id'], ip.ip_block_id)
         self.assertEqual(data['address'], ip.address)
         self.assertEqual(data['version'], ip.version)
@@ -1128,16 +1128,14 @@ class TestPolicy(BaseTest):
         ip_range = policy.create_unusable_range(offset=10, length=1)
         noise_ip_range = IpRangeFactory(offset=1, length=22)
 
-        self.assertEqual(policy.find_ip_range(ip_range.id).data(),
-                         ip_range.data())
+        self.assertEqual(policy.find_ip_range(ip_range.id), ip_range)
 
     def test_find_ip_octet(self):
         policy = PolicyFactory()
         ip_octet = IpOctetFactory(octet=10, policy_id=policy.id)
         noise_ip_octet = IpOctetFactory()
 
-        self.assertEqual(policy.find_ip_octet(ip_octet.id).data(),
-                         ip_octet.data())
+        self.assertEqual(policy.find_ip_octet(ip_octet.id), ip_octet)
 
     def test_find_invalid_ip_range(self):
         policy = PolicyFactory(name='infra')
@@ -1361,16 +1359,17 @@ class TestNetwork(BaseTest):
 
         self.assertRaises(NoMoreAddressesError, network.allocate_ips)
 
-    def test_allocate_ip_assigns_given_port_and_addresses(self):
+    def test_allocate_ip_assigns_given_interface_and_addresses(self):
         PublicIpBlockFactory(network_id=1, cidr="10.0.0.0/24")
         PublicIpBlockFactory(network_id=1, cidr="169.0.0.0/24")
         addresses = ["10.0.0.7", "169.0.0.2", "10.0.0.3"]
         network = Network.find_by(id=1)
 
-        allocated_ips = network.allocate_ips(addresses=addresses, port_id=123)
+        allocated_ips = network.allocate_ips(addresses=addresses,
+                                             interface_id=123)
 
         self.assertItemsEqual([ip.address for ip in allocated_ips], addresses)
-        [self.assertEqual(ip.port_id, 123) for ip in allocated_ips]
+        [self.assertEqual(ip.interface_id, 123) for ip in allocated_ips]
 
     def test_allocate_ip_assigns_given_address_from_its_block(self):
         ip_block1 = PublicIpBlockFactory(network_id=1, cidr="10.0.0.0/24")
@@ -1397,10 +1396,10 @@ class TestNetwork(BaseTest):
         ip_block1 = IpBlockFactory(network_id=1, cidr="10.0.0.0/24")
         ip_block2 = IpBlockFactory(network_id=1, cidr="fe80::/64")
         network = Network(id=1, ip_blocks=[ip_block1, ip_block2])
-        ips = network.allocate_ips(port_id="123", tenant_id="111",
+        ips = network.allocate_ips(interface_id="123", tenant_id="111",
                                    mac_address="00:22:11:77:88:22")
 
-        network.deallocate_ips(port_id="123")
+        network.deallocate_ips(interface_id="123")
 
         for ip in ips:
             self.assertTrue(IpAddress.get(ip.id).marked_for_deallocation)

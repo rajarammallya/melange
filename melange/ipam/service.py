@@ -275,24 +275,27 @@ class PoliciesController(BaseController):
 
 
 class NetworksController(BaseController):
-    def allocate_ips(self, request, network_id, port_id, tenant_id=None):
+    def allocate_ips(self, request, network_id, interface_id, tenant_id=None):
         network = Network.find_or_create_by(id=network_id, tenant_id=tenant_id)
         params = self._extract_required_params(request, 'network')
         [addresses, mac_address] = self._get_optionals(params,
                                                     'addresses', 'mac_address')
-        ips = network.allocate_ips(addresses=addresses, port_id=port_id,
-                                            mac_address=mac_address)
+        ips = network.allocate_ips(addresses=addresses,
+                                   interface_id=interface_id,
+                                   mac_address=mac_address)
         return Result(dict(ip_addresses=[ip.data(with_ip_block=True)
                                   for ip in ips]), 201)
 
-    def deallocate_ips(self, request, network_id, port_id, tenant_id=None):
+    def deallocate_ips(self, request, network_id, interface_id,
+                       tenant_id=None):
         network = Network.find_by(id=network_id, tenant_id=tenant_id)
-        network.deallocate_ips(port_id)
+        network.deallocate_ips(interface_id)
 
-    def get_allocated_ips(self, request, network_id, port_id, tenant_id=None):
+    def get_allocated_ips(self, request, network_id, interface_id,
+                          tenant_id=None):
         ip_blocks = IpBlock.find_all(network_id=network_id,
                                      tenant_id=tenant_id)
-        addresses = [IpAddress.find_all(port_id=port_id,
+        addresses = [IpAddress.find_all(interface_id=interface_id,
                                        ip_block_id=ip_block.id)
                      for ip_block in ip_blocks]
         return dict(ip_addresses=[item.data(with_ip_block=True)
@@ -321,10 +324,10 @@ class API(wsgi.Router):
         self._policy_and_rules_mapper(mapper, "/ipam/policies")
         self._policy_and_rules_mapper(mapper,
                                       "/ipam/tenants/{tenant_id}/policies")
-        self._network_mapper(mapper,
-                             "/ipam/networks/{network_id}/ports/{port_id}")
+        self._network_mapper(mapper, "/ipam/networks/{network_id}/"
+                             "interfaces/{interface_id}")
         self._network_mapper(mapper, "/ipam/tenants/{tenant_id}/networks"
-                             "/{network_id}/ports/{port_id}")
+                             "/{network_id}/interfaces/{interface_id}")
 
     def _network_mapper(self, mapper, resource_path):
 

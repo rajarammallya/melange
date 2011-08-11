@@ -115,10 +115,9 @@ class IpBlockCommands(object):
     def __init__(self, block):
         self.block = block
 
-    def create(self, type, cidr, network_id=None,
-               policy_id=None, parent_id=None):
+    def create(self, type, cidr, network_id=None, policy_id=None):
         print self.block.create(type=type, cidr=cidr, network_id=network_id,
-                                policy_id=policy_id, parent_id=parent_id)
+                                policy_id=policy_id)
 
     def list(self):
         print self.block.all()

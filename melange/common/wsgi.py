@@ -458,7 +458,8 @@ class Serializer(object):
     def _to_json(self, data):
         def sanitizer(obj):
             if isinstance(obj, datetime.datetime):
-                return (obj - timedelta(microseconds=obj.microsecond)).isoformat()
+                _dtime = obj - timedelta(microseconds=obj.microsecond)
+                return _dtime.isoformat()
             return obj
 
         return json.dumps(data, default=sanitizer)

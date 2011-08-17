@@ -14,8 +14,8 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
 import optparse
+
 from melange.common import utils
 from melange.common.config import Config
 

@@ -14,10 +14,11 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+from netaddr import IPAddress
+from netaddr import IPNetwork
 
-from melange.tests import BaseTest
-from netaddr import IPNetwork, IPAddress
 from melange.ipv6.rfc2462_generator import RFC2462IpV6Generator
+from melange.tests import BaseTest
 
 
 class TestRFC2462IpV6Generator(BaseTest):

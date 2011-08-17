@@ -19,27 +19,31 @@
 Utility methods for working with WSGI servers
 """
 import datetime
+from datetime import timedelta
+import eventlet.wsgi
+from gettext import gettext as _
 import inspect
 import json
 import logging
+import paste.urlmap
+import re
+import routes.middleware
 import sys
 import traceback
-import re
-import eventlet.wsgi
-import routes.middleware
+from webob import Response
 import webob.dec
 import webob.exc
-import paste.urlmap
-from webob import Response
+from webob.exc import HTTPBadRequest
+from webob.exc import HTTPError
+from webob.exc import HTTPInternalServerError
+from webob.exc import HTTPNotAcceptable
+from webob.exc import HTTPNotFound
 from xml.dom import minidom
-from webob.exc import (HTTPBadRequest, HTTPInternalServerError,
-                       HTTPNotFound, HTTPError, HTTPNotAcceptable)
-from gettext import gettext as _
-from datetime import timedelta
 
 from melange.common.exception import InvalidContentType
 from melange.common.exception import MelangeError
 from melange.common.utils import cached_property
+
 
 eventlet.patcher.monkey_patch(all=False, socket=True)
 

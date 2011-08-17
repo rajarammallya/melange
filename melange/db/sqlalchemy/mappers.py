@@ -14,13 +14,27 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
-from sqlalchemy.orm import (relationship, backref, lazyload, joinedload,
-                            exc, object_mapper, validates, mapper, relation)
-from sqlalchemy import Table, Column, Integer, String, BigInteger
-from sqlalchemy import ForeignKey, DateTime, Boolean, Text
-from sqlalchemy import UniqueConstraint, MetaData
+from sqlalchemy import BigInteger
+from sqlalchemy import Boolean
+from sqlalchemy import Column
+from sqlalchemy import DateTime
+from sqlalchemy import ForeignKey
+from sqlalchemy import Integer
+from sqlalchemy import MetaData
+from sqlalchemy import String
+from sqlalchemy import Table
+from sqlalchemy import Text
+from sqlalchemy import UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import backref
+from sqlalchemy.orm import exc
+from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import lazyload
+from sqlalchemy.orm import mapper
+from sqlalchemy.orm import object_mapper
+from sqlalchemy.orm import relation
+from sqlalchemy.orm import relationship
+from sqlalchemy.orm import validates
 
 
 def map(engine, models):

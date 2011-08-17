@@ -15,17 +15,19 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 import os
+import shutil
 import socket
 import subprocess
-import shutil
 
-from melange import melange_bin_path, melange_etc_path
-from melange.tests.functional.server import Server
-from melange.common.client import Client
-from melange.tests import BaseTest
+from melange import melange_bin_path
+from melange import melange_etc_path
 from melange.common import config
-from melange.ipam import models
+from melange.common.client import Client
 from melange.db import db_api
+from melange.ipam import models
+from melange.tests import BaseTest
+from melange.tests.functional.server import Server
+
 
 _PORT = None
 

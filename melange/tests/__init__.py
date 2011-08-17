@@ -14,9 +14,10 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-import unittest
 import mox
+import unittest
 from urlparse import parse_qs
+
 from melange.db import db_api
 
 

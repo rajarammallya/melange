@@ -52,13 +52,15 @@
 """
   CLI interface for IPAM.
 """
-import logging
-import os
-import sys
-import json
-import optparse
+from gettext import gettext as _
 import httplib2
+import json
+import logging
+import optparse
+import os
 from os import environ as env
+import sys
+
 # If ../melange/__init__.py exists, add ../ to Python search path, so that
 # it will override what happens to be installed in /usr/(local/)lib/python...
 possible_topdir = os.path.normpath(os.path.join(os.path.abspath(sys.argv[0]),
@@ -68,10 +70,10 @@ if os.path.exists(os.path.join(possible_topdir, 'melange', '__init__.py')):
     sys.path.insert(0, possible_topdir)
 
 from melange import version
-from gettext import gettext as _
-from melange.common.client import Client
-from melange.common.utils import Method, remove_nones
 from melange.common.auth import KeystoneClient
+from melange.common.client import Client
+from melange.common.utils import Method
+from melange.common.utils import remove_nones
 
 
 class Resource(object):

@@ -14,14 +14,12 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
-from melange.tests import unit
-from melange.tests import BaseTest
-from melange.tests.factories.models import IpBlockFactory
-
-from melange.ipam.models import IpBlock
-from melange.db.sqlalchemy import session
 from melange.db.sqlalchemy import api as db_api
+from melange.db.sqlalchemy import session
+from melange.ipam.models import IpBlock
+from melange.tests import BaseTest
+from melange.tests import unit
+from melange.tests.factories.models import IpBlockFactory
 
 
 class TestSqlalchemyApi(BaseTest):

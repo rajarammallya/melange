@@ -14,14 +14,16 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-import webob
-import routes
 import json
-from melange.tests import BaseTest
+import routes
+import webob
+from webob.exc import HTTPBadRequest
+from webob.exc import HTTPNotFound
+from webob.exc import HTTPUnsupportedMediaType
 from webtest import TestApp
-from webob.exc import (HTTPNotFound, HTTPBadRequest,
-                       HTTPUnsupportedMediaType)
+
 from melange.common import wsgi
+from melange.tests import BaseTest
 
 
 class StubApp(object):

@@ -16,19 +16,27 @@
 #    under the License.
 import json
 import routes
-
-from webob.exc import (HTTPUnprocessableEntity, HTTPBadRequest,
-                       HTTPNotFound, HTTPConflict)
+from webob.exc import HTTPBadRequest
+from webob.exc import HTTPConflict
+from webob.exc import HTTPNotFound
+from webob.exc import HTTPUnprocessableEntity
 
 from melange.common import wsgi
-from melange.common.wsgi import Result
-from melange.common.config import Config
-from melange.ipam import models
-from melange.ipam.models import (IpBlock, IpAddress, Policy, IpRange,
-                                 IpOctet, Network)
-from melange.common.utils import (exclude, stringify_keys, filter_dict)
-from melange.common.pagination import PaginatedResult, PaginatedDataView
 from melange.common.auth import RoleBasedAuth
+from melange.common.config import Config
+from melange.common.pagination import PaginatedDataView
+from melange.common.pagination import PaginatedResult
+from melange.common.utils import exclude
+from melange.common.utils import filter_dict
+from melange.common.utils import stringify_keys
+from melange.common.wsgi import Result
+from melange.ipam import models
+from melange.ipam.models import IpAddress
+from melange.ipam.models import IpBlock
+from melange.ipam.models import IpOctet
+from melange.ipam.models import IpRange
+from melange.ipam.models import Network
+from melange.ipam.models import Policy
 
 
 class BaseController(wsgi.Controller):

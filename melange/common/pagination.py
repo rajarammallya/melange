@@ -14,13 +14,12 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
-import urlparse
 import urllib
-
+import urlparse
 from xml.dom import minidom
-from melange.common.wsgi import Result
+
 from melange.common.utils import merge_dicts
+from melange.common.wsgi import Result
 
 
 class AtomLink(object):

@@ -20,8 +20,8 @@ Nova base exception handling, including decorator for re-raising
 Nova-type exceptions. SHOULD include dedicated exception logging.
 """
 
-import logging
 from gettext import gettext as _
+import logging
 
 
 class ProcessExecutionError(IOError):

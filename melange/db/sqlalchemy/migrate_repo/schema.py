@@ -20,9 +20,8 @@ Various conveniences used for migration scripts
 """
 
 import logging
-
-import sqlalchemy.types
 from sqlalchemy.schema import MetaData
+import sqlalchemy.types
 
 
 logger = logging.getLogger('melange.db.migrate_repo.schema')

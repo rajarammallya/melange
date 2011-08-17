@@ -14,9 +14,11 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-from melange.tests import BaseTest
-from melange.common.pagination import PaginatedDataView, AtomLink, AppUrl
+from melange.common.pagination import AppUrl
+from melange.common.pagination import AtomLink
+from melange.common.pagination import PaginatedDataView
 from melange.common.utils import find
+from melange.tests import BaseTest
 
 
 class TestPaginatedDataView(BaseTest):

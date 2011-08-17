@@ -14,14 +14,14 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 import json
-import unittest
 import routes
-
-from melange.tests.unit import test_config_path
+import unittest
 from webtest import TestApp
+
+from melange.common import config
 from melange.common import extensions
 from melange.common import wsgi
-from melange.common import config
+from melange.tests.unit import test_config_path
 
 
 response_body = "Try to say this Mr. Knox, sir..."

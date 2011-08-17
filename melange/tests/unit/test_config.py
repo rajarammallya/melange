@@ -15,6 +15,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 import unittest
+
 from melange.common.config import Config
 from melange.tests.unit import StubConfig
 

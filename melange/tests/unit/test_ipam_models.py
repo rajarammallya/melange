@@ -14,28 +14,39 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-from melange.tests import unit
-from melange.tests import BaseTest
-from datetime import datetime, timedelta
-from melange.ipam import models
-from melange.tests.unit import StubConfig, StubTime
-from melange.tests.unit.mock_generator import MockIpV6Generator
+from datetime import datetime
+from datetime import timedelta
+
 from melange.common import data_types
 from melange.common.utils import cached_property
-from melange.ipam.models import (ModelBase, IpBlock, IpAddress, Policy,
-                                 IpRange, IpOctet, Network, Query)
-from melange.ipam.models import (ModelNotFoundError, NoMoreAddressesError,
-                                 AddressDoesNotBelongError,
-                                 DuplicateAddressError,
-                                 DataMissingError)
-from melange.tests.factories.models import (PublicIpBlockFactory,
-                                            PrivateIpBlockFactory,
-                                            IpAddressFactory,
-                                            PolicyFactory,
-                                            IpRangeFactory, IpOctetFactory,
-                                            IpV6IpBlockFactory,
-                                            IpBlockFactory)
+from melange.ipam import models
+from melange.ipam.models import AddressDoesNotBelongError
+from melange.ipam.models import DataMissingError
+from melange.ipam.models import DuplicateAddressError
+from melange.ipam.models import IpAddress
+from melange.ipam.models import IpBlock
+from melange.ipam.models import IpOctet
+from melange.ipam.models import IpRange
+from melange.ipam.models import ModelBase
+from melange.ipam.models import ModelNotFoundError
+from melange.ipam.models import Network
+from melange.ipam.models import NoMoreAddressesError
+from melange.ipam.models import Policy
+from melange.ipam.models import Query
 from melange.ipv6.tenant_based_generator import TenantBasedIpV6Generator
+from melange.tests import BaseTest
+from melange.tests import unit
+from melange.tests.factories.models import IpAddressFactory
+from melange.tests.factories.models import IpBlockFactory
+from melange.tests.factories.models import IpOctetFactory
+from melange.tests.factories.models import IpRangeFactory
+from melange.tests.factories.models import IpV6IpBlockFactory
+from melange.tests.factories.models import PolicyFactory
+from melange.tests.factories.models import PrivateIpBlockFactory
+from melange.tests.factories.models import PublicIpBlockFactory
+from melange.tests.unit import StubConfig
+from melange.tests.unit import StubTime
+from melange.tests.unit.mock_generator import MockIpV6Generator
 
 
 class TestModelBase(BaseTest):

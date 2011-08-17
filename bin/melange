@@ -31,10 +31,10 @@ if os.path.exists(os.path.join(possible_topdir, 'melange', '__init__.py')):
     sys.path.insert(0, possible_topdir)
 
 
-from melange.common import wsgi
 from melange.common import config
-from melange.ipam.models import models
+from melange.common import wsgi
 from melange.db import db_api
+from melange.ipam.models import models
 
 
 def create_options(parser):

@@ -17,9 +17,11 @@
 #    under the License.
 import logging
 import optparse
+
 from melange.common import config
-from melange.ipam.models import IpBlock, models
 from melange.db import session
+from melange.ipam.models import IpBlock
+from melange.ipam.models import models
 
 
 def _configure_db_session(conf):

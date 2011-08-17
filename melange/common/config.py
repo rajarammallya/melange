@@ -20,15 +20,14 @@
 Routines for configuring Melange
 """
 
+from gettext import gettext as _
 import logging
 import logging.config
 import logging.handlers
 import optparse
 import os
-import sys
-
-from gettext import gettext as _
 from paste import deploy
+import sys
 
 
 DEFAULT_LOG_FORMAT = "%(asctime)s %(levelname)8s [%(name)s] %(message)s"

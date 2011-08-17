@@ -18,18 +18,22 @@
 """
 SQLAlchemy models for Melange data
 """
-import netaddr
-from netaddr.strategy.ipv6 import ipv6_verbose
-from netaddr import IPNetwork, IPAddress
-from gettext import gettext as _
 
 from datetime import timedelta
-from melange.common.exception import MelangeError
-from melange.db import db_api
-from melange.common import utils
-from melange.common.utils import cached_property, find, exclude
-from melange.common.config import Config
+from gettext import gettext as _
+import netaddr
+from netaddr import IPAddress
+from netaddr import IPNetwork
+from netaddr.strategy.ipv6 import ipv6_verbose
+
 from melange.common import data_types
+from melange.common import utils
+from melange.common.config import Config
+from melange.common.exception import MelangeError
+from melange.common.utils import cached_property
+from melange.common.utils import exclude
+from melange.common.utils import find
+from melange.db import db_api
 
 
 class Query(object):

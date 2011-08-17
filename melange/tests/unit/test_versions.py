@@ -14,12 +14,11 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
 from webtest import TestApp
 
-from melange.tests import BaseTest
-from melange.tests.unit import  test_config_path
 from melange.common import config
+from melange.tests import BaseTest
+from melange.tests.unit import test_config_path
 
 
 class TestVersionsController(BaseTest):

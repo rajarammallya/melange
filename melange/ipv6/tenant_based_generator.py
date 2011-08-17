@@ -15,7 +15,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 import hashlib
-from netaddr import IPNetwork, IPAddress, EUI
+from netaddr import EUI
+from netaddr import IPAddress
+from netaddr import IPNetwork
 
 
 class TenantBasedIpV6Generator(object):

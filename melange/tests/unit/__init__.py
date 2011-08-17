@@ -20,45 +20,18 @@
 import __builtin__
 setattr(__builtin__, '_', lambda x: x)
 
-import unittest
+import json
 import os
 import urlparse
-import json
-
-from melange import melange_etc_path
-from melange.db import db_api
-from melange.common import config, utils, wsgi
-from melange.common.config import Config
-from melange.ipam import models
 import webtest
 
-
-class BaseTest(unittest.TestCase):
-
-    def setUp(self):
-        session.clean_db()
-
-    #This is similar to assertRaisesRegexp in python 2.7
-    def assertRaisesExcMessage(self, exception, message,
-                               func, *args, **kwargs):
-        try:
-            func(*args, **kwargs)
-            self.fail("Expected {0} to raise {1}".\
-                      format(func, repr(exception)))
-        except exception as e:
-            self.assertIn(message, e.message)
-
-    #This is similar to assertIn in python 2.7
-    def assertIn(self, expected, actual):
-        self.assertTrue(expected in actual,
-            "{0} does not contain {1}".format(repr(actual), repr(expected)))
-
-    def assertItemsEqual(self, expected, actual):
-        self.assertEqual(sorted(expected), sorted(actual))
-
-    def assertModelsEqual(self, expected, actual):
-        self.assertEqual(sorted(expected, key=lambda model: model.id),
-                         sorted(actual, key=lambda model: model.id))
+from melange import melange_etc_path
+from melange.common import config
+from melange.common import utils
+from melange.common import wsgi
+from melange.common.config import Config
+from melange.db import db_api
+from melange.ipam import models
 
 
 def test_config_path():

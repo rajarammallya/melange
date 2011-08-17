@@ -15,17 +15,17 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
+from gettext import gettext as _
 import imp
+import logging
 import os
 import routes
-import logging
 import webob.dec
 import webob.exc
-from gettext import gettext as _
 
 from melange.common import exception
 from melange.common import wsgi
+
 
 LOG = logging.getLogger('melange.common.extensions')
 

@@ -14,13 +14,12 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-import wsgi
-import re
+from gettext import gettext as _
 import httplib2
 import json
-
+import re
 from webob.exc import HTTPForbidden
-from gettext import gettext as _
+import wsgi
 
 from melange.common.utils import import_class
 

@@ -19,15 +19,20 @@
 # If ../melange/__init__.py exists, add ../ to Python search path, so that
 # it will override what happens to be installed in /usr/(local/)lib/python...
 import os
-from melange.ipam.models import IpBlock, Policy, IpRange, IpOctet
 from melange import melange_bin_path
+from melange.ipam.models import IpBlock
+from melange.ipam.models import IpOctet
+from melange.ipam.models import IpRange
+from melange.ipam.models import Policy
+from melange.tests import BaseTest
+from melange.tests.factories.models import IpBlockFactory
+from melange.tests.factories.models import IpOctetFactory
+from melange.tests.factories.models import IpRangeFactory
+from melange.tests.factories.models import PolicyFactory
+from melange.tests.factories.models import PrivateIpBlockFactory
+from melange.tests.factories.models import PublicIpBlockFactory
 from melange.tests.functional import execute
 from melange.tests.functional import get_api_port
-from melange.tests.factories.models import (PublicIpBlockFactory,
-                                    PrivateIpBlockFactory, PolicyFactory,
-                                    IpRangeFactory, IpOctetFactory,
-                                    IpBlockFactory)
-from melange.tests import BaseTest
 
 
 def run(command):

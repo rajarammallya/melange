@@ -14,9 +14,13 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-from sqlalchemy.schema import (Column, MetaData, ForeignKey,
-                               ForeignKeyConstraint)
-from melange.db.sqlalchemy.migrate_repo.schema import String, Table
+from sqlalchemy.schema import Column
+from sqlalchemy.schema import ForeignKey
+from sqlalchemy.schema import ForeignKeyConstraint
+from sqlalchemy.schema import MetaData
+
+from melange.db.sqlalchemy.migrate_repo.schema import String
+from melange.db.sqlalchemy.migrate_repo.schema import Table
 
 
 def upgrade(migrate_engine):

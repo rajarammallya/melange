@@ -14,11 +14,13 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-from sqlalchemy import or_, and_
+from sqlalchemy import and_
+from sqlalchemy import or_
 from sqlalchemy.orm import aliased
 
 from melange.common import utils
-from melange.db.sqlalchemy import session, migration
+from melange.db.sqlalchemy import migration
+from melange.db.sqlalchemy import session
 
 
 def find_all_by(model, **conditions):

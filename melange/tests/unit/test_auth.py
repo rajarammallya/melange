@@ -14,19 +14,19 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
+import httplib2
 import json
+from mox import IgnoreArg
 import routes
 import webob
-import httplib2
-from mox import IgnoreArg
-
-from melange.tests import BaseTest
 from webob.exc import HTTPForbidden
-from melange.common import auth, wsgi
-from melange.ipam.service import RoleBasedAuth
+
+from melange.common import auth
+from melange.common import wsgi
 from melange.common.auth import TenantBasedAuth
 from melange.common.auth import KeystoneClient
+from melange.ipam.service import RoleBasedAuth
+from melange.tests import BaseTest
 
 
 class MiddlewareTestApp(object):

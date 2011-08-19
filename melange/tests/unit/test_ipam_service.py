@@ -1505,18 +1505,23 @@ class NetworksControllerBase(object):
         self.assertEqual([_data(ip_address, with_ip_block=True)],
                          response.json['ip_addresses'])
 
-    def test_allocate_ip_allocates_v6_address_with_given_mac_address(self):
+    def test_allocate_ip_allocates_v6_address_with_given_params(self):
         mac_address = "11:22:33:44:55:66"
+        ipv6_generator = MockIpV6Generator("fe::/96")
         ipv6_block = self._ip_block_factory(network_id=1, cidr="fe::/96")
         self.mock.StubOutWithMock(models, "ipv6_address_generator_factory")
+        tenant_id = ipv6_block.tenant_id or "456"
         models.ipv6_address_generator_factory("fe::/96",
-               mac_address=mac_address).AndReturn(MockIpV6Generator("fe::/96"))
+                                              mac_address=mac_address,
+                                              tenant_id=tenant_id).\
+                                              AndReturn(ipv6_generator)
 
         self.mock.ReplayAll()
 
         response = self.app.post_json("{0}/networks/1/interfaces/123"
                                    "/ip_allocations".format(self.network_path),
-                                    {'network': {'mac_address': mac_address}})
+                                    {'network': {'mac_address': mac_address,
+                                                 'tenant_id': tenant_id}})
 
         ipv6_address = IpAddress.find_by(ip_block_id=ipv6_block.id)
         self.assertEqual([_data(ipv6_address, with_ip_block=True)],
@@ -1545,9 +1550,10 @@ class NetworksControllerBase(object):
         ipv6_block = self._ip_block_factory(cidr="fe::/96", network_id=1)
         ip_1 = ipv4_block.allocate_ip(interface_id="123")
         ip_2 = ipv4_block.allocate_ip(interface_id="123")
+        tenant_id = ipv6_block.tenant_id or "456"
         ip_3 = ipv6_block.allocate_ip(interface_id="123",
                                       mac_address="aa:bb:cc:dd:ee:ff",
-                                      tenant_id="321")
+                                      tenant_id=tenant_id)
 
         response = self.app.get("{0}/networks/1/interfaces/123/ip_allocations"\
                                  .format(self.network_path))
@@ -1587,7 +1593,7 @@ class TestTenantNetworksController(NetworksControllerBase,
         super(TestTenantNetworksController, self).setUp()
 
     def _ip_block_factory(self, **kwargs):
-        return PrivateIpBlockFactory(tenant_id=123, **kwargs)
+        return PrivateIpBlockFactory(tenant_id="123", **kwargs)
 
     def test_allocate_ip_creates_network_if_network_not_found(self):
         response = self.app.post("/ipam/tenants/123/networks/1"

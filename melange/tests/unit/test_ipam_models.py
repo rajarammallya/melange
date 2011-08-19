@@ -514,6 +514,12 @@ class TestIpBlock(BaseTest):
         self.assertRaises(models.AddressDoesNotBelongError, block.allocate_ip,
                           address="192.1.1.1")
 
+    def test_allocate_ip_for_another_tenant_fails(self):
+        block = PrivateIpBlockFactory(cidr="10.1.1.1/28", tenant_id="123")
+
+        self.assertRaises(models.InvalidTenantError, block.allocate_ip,
+                          tenant_id="456")
+
     def test_allocating_duplicate_address_fails(self):
         block = PrivateIpBlockFactory(cidr="10.0.0.0/29")
         block.allocate_ip(address='10.0.0.0')

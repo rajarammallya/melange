@@ -58,9 +58,6 @@ class BaseController(wsgi.Controller):
         return dict([(key, params[key]) for key in params.keys()
                      if key in ["limit", "marker"]])
 
-    def _get_optionals(self, params, *args):
-        return [params.get(key, None) for key in args]
-
     def _parse_ips(self, addresses):
         return [IpBlock.find_or_allocate_ip(address["ip_block_id"],
                                                  address["ip_address"])
@@ -286,11 +283,8 @@ class NetworksController(BaseController):
     def allocate_ips(self, request, network_id, interface_id, tenant_id=None):
         network = Network.find_or_create_by(id=network_id, tenant_id=tenant_id)
         params = self._extract_required_params(request, 'network')
-        [addresses, mac_address] = self._get_optionals(params,
-                                                    'addresses', 'mac_address')
-        ips = network.allocate_ips(addresses=addresses,
-                                   interface_id=interface_id,
-                                   mac_address=mac_address)
+        options = filter_dict(params, "addresses", "mac_address", "tenant_id")
+        ips = network.allocate_ips(interface_id=interface_id, **options)
         return Result(dict(ip_addresses=[ip.data(with_ip_block=True)
                                   for ip in ips]), 201)
 

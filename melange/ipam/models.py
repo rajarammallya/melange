@@ -328,6 +328,10 @@ class IpBlock(ModelBase):
         return IpBlock.get(self.parent_id)
 
     def allocate_ip(self, interface_id=None, address=None, **kwargs):
+        tenant_id = kwargs.get('tenant_id', None)
+        if self.tenant_id and tenant_id and self.tenant_id != tenant_id:
+            raise InvalidTenantError(_("Cannot allocate ip address "
+                                            "from differnt tenant's block"))
         if self.subnets():
             raise IpAllocationNotAllowedError(
                 _("Non Leaf block can not allocate IPAddress"))
@@ -782,6 +786,12 @@ class IpAllocationNotAllowedError(MelangeError):
 
     def _error_message(self):
         return _("Ip Block can not allocate address")
+
+
+class InvalidTenantError(MelangeError):
+
+    def _error_message(self):
+        return _("Cannot access other tenant's block")
 
 
 class InvalidModelError(MelangeError):

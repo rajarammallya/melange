@@ -103,6 +103,10 @@ def install_dependencies(venv=VENV):
               'greenlet'], redirect_output=False)
     run_command(['tools/with_venv.sh', 'pip', 'install', '-E', venv, '-r',
               PIP_REQUIRES], redirect_output=False)
+    run_command(['tools/with_venv.sh', 'pip', 'install', '-E', venv, '-e',
+                 "git+https://github.com/rajarammallya/"
+                 "openstack-skeleton.git#egg=skeleton"],
+                redirect_output=False)
 
     # Tell the virtual env how to "import nova"
     pthfile = os.path.join(venv, "lib", PY_VERSION, "site-packages",

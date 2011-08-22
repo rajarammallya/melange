@@ -28,6 +28,7 @@ import subprocess
 import sys
 import uuid
 
+from openstack.common.utils import import_class, import_object
 from melange.common import exception
 from melange.common.exception import ProcessExecutionError
 
@@ -40,26 +41,6 @@ def parse_int(subject):
         return int(subject)
     except (ValueError, TypeError):
         return None
-
-
-def import_class(import_str):
-    """Returns a class from a string including module and class"""
-    mod_str, _sep, class_str = import_str.rpartition('.')
-    try:
-        __import__(mod_str)
-        return getattr(sys.modules[mod_str], class_str)
-    except (ImportError, ValueError, AttributeError):
-        raise exception.NotFound('Class %s cannot be found' % class_str)
-
-
-def import_object(import_str):
-    """Returns an object including a module or module and class"""
-    try:
-        __import__(import_str)
-        return sys.modules[import_str]
-    except ImportError:
-        cls = import_class(import_str)
-        return cls()
 
 
 def execute(cmd, process_input=None, addl_env=None, check_exit_code=True):
@@ -101,18 +82,8 @@ def generate_uid(topic, size=8):
          for x in xrange(size)]))
 
 
-def isotime(at=None):
-    if not at:
-        at = datetime.datetime.utcnow()
-    return at.strftime(TIME_FORMAT)
-
-
 def utcnow():
     return datetime.datetime.utcnow()
-
-
-def parse_isotime(timestr):
-    return datetime.datetime.strptime(timestr, TIME_FORMAT)
 
 
 class LazyPluggable(object):

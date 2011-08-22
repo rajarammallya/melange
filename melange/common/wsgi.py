@@ -27,8 +27,6 @@ import json
 import logging
 import paste.urlmap
 import re
-import routes.middleware
-import sys
 import traceback
 from webob import Response
 import webob.dec
@@ -40,6 +38,7 @@ from webob.exc import HTTPNotAcceptable
 from webob.exc import HTTPNotFound
 from xml.dom import minidom
 
+from openstack.common.wsgi import Router, Server, Middleware
 from melange.common.exception import InvalidContentType
 from melange.common.exception import MelangeError
 from melange.common.utils import cached_property
@@ -71,23 +70,6 @@ class VersionedURLMap(object):
             app = self.urlmap
 
         return app(environ, start_response)
-
-
-class WritableLogger(object):
-    """A thin wrapper that responds to `write` and logs."""
-
-    def __init__(self, logger, level=logging.DEBUG):
-        self.logger = logger
-        self.level = level
-
-    def write(self, msg):
-        self.logger.log(self.level, msg.strip("\n"))
-
-
-def run_server(application, port):
-    """Run a WSGI server with the given application."""
-    sock = eventlet.listen(('0.0.0.0', port))
-    eventlet.wsgi.server(sock, application)
 
 
 class Request(webob.Request):
@@ -142,31 +124,6 @@ class Request(webob.Request):
         versioned_url_re = re.compile("/v(?P<version_no>\d+\.?\d*)")
         match = versioned_url_re.search(self.path)
         return match.group("version_no") if match else None
-
-
-class Server(object):
-    """Server class to manage multiple WSGI sockets and applications."""
-
-    def __init__(self, threads=1000):
-        self.pool = eventlet.GreenPool(threads)
-
-    def start(self, application, port, host='0.0.0.0', backlog=128):
-        """Run a WSGI server with the given application."""
-        socket = eventlet.listen((host, port), backlog=backlog)
-        self.pool.spawn_n(self._run, application, socket)
-
-    def wait(self):
-        """Wait until all servers have completed running."""
-        try:
-            self.pool.waitall()
-        except KeyboardInterrupt:
-            eventlet.convenience.StopServe()
-
-    def _run(self, application, socket):
-        """Start a WSGI server in a new green thread."""
-        logger = logging.getLogger('eventlet.wsgi.server')
-        eventlet.wsgi.server(socket, application, custom_pool=self.pool,
-                             log=WritableLogger(logger))
 
 
 class Middleware(object):
@@ -230,100 +187,6 @@ class Middleware(object):
             return response
         response = req.get_response(self.application)
         return self.process_response(response)
-
-
-class Debug(Middleware):
-    """
-    Helper class that can be inserted into any WSGI application chain
-    to get information about the request and response.
-    """
-
-    @webob.dec.wsgify
-    def __call__(self, req):
-        print ("*" * 40) + " REQUEST ENVIRON"
-        for key, value in req.environ.items():
-            print key, "=", value
-        print
-        resp = req.get_response(self.application)
-
-        print ("*" * 40) + " RESPONSE HEADERS"
-        for (key, value) in resp.headers.iteritems():
-            print key, "=", value
-        print
-
-        resp.app_iter = self.print_generator(resp.app_iter)
-
-        return resp
-
-    @staticmethod
-    def print_generator(app_iter):
-        """
-        Iterator that prints the contents of a wrapper string iterator
-        when iterated.
-        """
-        print ("*" * 40) + " BODY"
-        for part in app_iter:
-            sys.stdout.write(part)
-            sys.stdout.flush()
-            yield part
-        print
-
-
-class Router(object):
-    """
-    WSGI middleware that maps incoming requests to WSGI apps.
-    """
-
-    def __init__(self, mapper):
-        """
-        Create a router for the given routes.Mapper.
-
-        Each route in `mapper` must specify a 'controller', which is a
-        WSGI app to call.  You'll probably want to specify an 'action' as
-        well and have your controller be a service.Controller, who will route
-        the request to the action method.
-
-        Examples:
-          mapper = routes.Mapper()
-          sc = ServerController()
-
-          # Explicit mapping of one route to a controller+action
-          mapper.connect(None, "/svrlist", controller=sc, action="list")
-
-          # Actions are all implicitly defined
-          mapper.resource("server", "servers", controller=sc)
-
-          # Pointing to an arbitrary WSGI app.  You can specify the
-          # {path_info:.*} parameter so the target app can be handed just that
-          # section of the URL.
-          mapper.connect(None, "/v1.0/{path_info:.*}", controller=BlogApp())
-        """
-        self.map = mapper
-        self._router = routes.middleware.RoutesMiddleware(self._dispatch,
-                                                          self.map)
-
-    @webob.dec.wsgify
-    def __call__(self, req):
-
-        """
-        Route the incoming request to a controller based on self.map.
-        If no match, return a 404.
-        """
-        return self._router
-
-    @staticmethod
-    @webob.dec.wsgify
-    def _dispatch(req):
-        """
-        Called by self._router after matching the incoming request to a route
-        and putting the information into req.environ.  Either returns 404
-        or the routed WSGI app's response.
-        """
-        match = req.environ['wsgiorg.routing_args'][1]
-        if not match:
-            return webob.exc.HTTPNotFound()
-        app = match['controller']
-        return app
 
 
 class Result(object):

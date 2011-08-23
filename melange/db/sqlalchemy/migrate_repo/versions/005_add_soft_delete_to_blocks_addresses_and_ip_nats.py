@@ -40,6 +40,6 @@ def upgrade(migrate_engine):
 def downgrade(migrate_engine):
     meta = MetaData()
     meta.bind = migrate_engine
-    Table('ip_nats', meta).columns["deleted"].drop()
-    Table('ip_addresses', meta).columns["deleted"].drop()
-    Table('ip_blocks', meta).columns["deleted"].drop()
+    Table('ip_nats', meta, autoload=True).columns["deleted"].drop()
+    Table('ip_addresses', meta, autoload=True).columns["deleted"].drop()
+    Table('ip_blocks', meta, autoload=True).columns["deleted"].drop()

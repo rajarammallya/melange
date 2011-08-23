@@ -23,6 +23,7 @@ from openstack.common.config import (parse_options,
                                      add_log_options,
                                      add_common_options,
                                      load_paste_config,
+                                     setup_logging,
                                      load_paste_app, get_option)
 
 

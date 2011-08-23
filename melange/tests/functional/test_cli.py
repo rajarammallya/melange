@@ -37,7 +37,7 @@ from melange.tests.functional import get_api_port
 
 def run(command):
     return execute("{0} --port={1} {2} --auth-token=test".format(
-            melange_bin_path('melange-manage'),
+            melange_bin_path('melange-client'),
             get_api_port(), command))
 
 

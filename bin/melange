@@ -16,14 +16,14 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-# If ../melange/__init__.py exists, add ../ to Python search path, so that
-# it will override what happens to be installed in /usr/(local/)lib/python...
 import optparse
 import os
 import re
 import sys
 import time
 
+# If ../melange/__init__.py exists, add ../ to Python search path, so that
+# it will override what happens to be installed in /usr/(local/)lib/python...
 possible_topdir = os.path.normpath(os.path.join(os.path.abspath(sys.argv[0]),
                                    os.pardir,
                                    os.pardir))
@@ -57,8 +57,6 @@ if __name__ == '__main__':
     (options, args) = config.parse_options(oparser)
     try:
         conf, app = config.load_paste_app('melange', options, args)
-        #TODO move migration to a melange-manage script
-        db_api.db_sync(conf)
         conf["models"] = models()
         db_api.configure_db(conf)
         server = wsgi.Server()

@@ -44,14 +44,20 @@ def setup():
     shutil.copyfile(melange_etc_path("melange.conf.sample"),
                     os.path.expanduser("~/melange.conf"))
     server = Server("melange", melange_bin_path('melange'))
+    _db_sync()
     server.restart(port=setup_unused_port())
-    _setup_db()
+    _configure_db()
 
 
-def _setup_db():
+def _configure_db():
     conf_file, conf = config.load_paste_config("melange", {}, None)
     conf["models"] = models.models()
     db_api.configure_db(conf)
+
+
+def _db_sync():
+    conf_file, conf = config.load_paste_config("melange", {}, None)
+    db_api.db_sync(conf)
 
 
 def teardown():

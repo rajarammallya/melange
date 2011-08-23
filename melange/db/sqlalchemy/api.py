@@ -179,6 +179,14 @@ def db_sync(options, version=None):
     migration.db_sync(options, version)
 
 
+def db_upgrade(options, version=None):
+    migration.upgrade(options, version)
+
+
+def db_downgrade(options, version):
+    migration.downgrade(options, version)
+
+
 def _ip_nat():
     return session.models()["ip_nat_relation"]
 

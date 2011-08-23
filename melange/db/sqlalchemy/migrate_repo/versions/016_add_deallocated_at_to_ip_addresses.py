@@ -39,4 +39,4 @@ def upgrade(migrate_engine):
 def downgrade(migrate_engine):
     meta = MetaData()
     meta.bind = migrate_engine
-    Table('ip_addresses', meta).columns["deallocated_at"].drop()
+    Table('ip_addresses', meta, autoload=True).columns["deallocated_at"].drop()

@@ -16,49 +16,12 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-# Interactive shell based on Django:
-#
-# Copyright (c) 2005, the Lawrence Journal-World
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
-#
-#     1. Redistributions of source code must retain the above copyright notice,
-#        this list of conditions and the following disclaimer.
-#
-#     2. Redistributions in binary form must reproduce the above copyright
-#        notice, this list of conditions and the following disclaimer in the
-#        documentation and/or other materials provided with the distribution.
-#
-#     3. Neither the name of Django nor the names of its contributors may be
-#        used to endorse or promote products derived from this software without
-#        specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-# A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-# OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-# LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-# DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-# THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-
-"""
-  CLI interface for IPAM.
-"""
-from gettext import gettext as _
-import httplib2
-import json
-import logging
 import optparse
 import os
-from os import environ as env
+import re
 import sys
+import time
+from gettext import gettext as _
 
 # If ../melange/__init__.py exists, add ../ to Python search path, so that
 # it will override what happens to be installed in /usr/(local/)lib/python...
@@ -68,308 +31,93 @@ possible_topdir = os.path.normpath(os.path.join(os.path.abspath(sys.argv[0]),
 if os.path.exists(os.path.join(possible_topdir, 'melange', '__init__.py')):
     sys.path.insert(0, possible_topdir)
 
-from melange import version
-from melange.common.auth import KeystoneClient
-from melange.common.client import Client
+
+from melange.common import config
+from melange.common import wsgi
+from melange.db import db_api
+from melange.ipam.models import models
 from melange.common.utils import Method
-from melange.common.utils import remove_nones
-
-
-class Resource(object):
-
-    def __init__(self, path, name, host="0.0.0.0", port=9898):
-        self.path = "/v0.1/ipam/" + path
-        self.name = name
-        self.host = host
-        self.port = port
-
-    def create(self, **kwargs):
-        return self.request("POST", self.path,
-                            body=json.dumps({self.name: kwargs}))
-
-    def update(self, id, **kwargs):
-        return self.request("PUT", self._member_path(id),
-                            body=json.dumps({self.name: remove_nones(kwargs)}))
-
-    def all(self):
-        return self.request("GET", self.path)
-
-    def find(self, id):
-        return self.request("GET", self._member_path(id))
-
-    def delete(self, id):
-        return self.request("DELETE", self._member_path(id))
-
-    def _member_path(self, id):
-        return "{0}/{1}".format(self.path, id)
-
-    def request(self, method, path, body_params=None, **kwargs):
-        client = Client(host=self.host, port=self.port)
-        kwargs['headers'] = {'X-AUTH-TOKEN': self.auth_client.get_token(),
-                             'Content-Type': "application/json"}
-        response = client.do_request(method, path, **kwargs)
-        return response.read()
-
-
-class IpBlockCommands(object):
-
-    def __init__(self, block):
-        self.block = block
-
-    def create(self, type, cidr, network_id=None, policy_id=None):
-        print self.block.create(type=type, cidr=cidr, network_id=network_id,
-                                policy_id=policy_id)
-
-    def list(self):
-        print self.block.all()
-
-    def show(self, id):
-        print self.block.find(id)
-
-    def update(self, id, network_id=None, policy_id=None):
-        print self.block.update(id, network_id=network_id, policy_id=policy_id)
-
-    def delete(self, id):
-        print self.block.delete(id)
-
-
-class SubnetCommands(object):
-
-    def __init__(self, resource):
-        self.resource = resource
-
-    def _subnet(self, parent_id):
-        return self.resource("ip_blocks/{0}/subnets".format(parent_id),
-                             "subnet")
-
-    def create(self, parent_id, cidr, network_id=None):
-        print self._subnet(parent_id).create(cidr=cidr, network_id=network_id)
-
-    def list(self, parent_id):
-        print self._subnet(parent_id).all()
-
-
-class PolicyCommands(object):
-
-    def __init__(self, policy):
-        self.policy = policy
-
-    def create(self, name, description=None):
-        print self.policy.create(name=name, description=description)
-
-    def update(self, id, name, description=None):
-        print self.policy.update(id, name=name, description=description)
-
-    def list(self):
-        print self.policy.all()
-
-    def show(self, id):
-        print self.policy.find(id)
-
-    def delete(self, id):
-        print self.policy.delete(id)
-
-
-class UnusableIpRangesCommands(object):
-
-    def __init__(self, resource):
-        self.resource = resource
-
-    def _ip_ranges(self, policy_id):
-        return self.resource("policies/{0}/"
-                        "unusable_ip_ranges".format(policy_id), "ip_range")
-
-    def create(self, policy_id, offset, length):
-        print self._ip_ranges(policy_id).create(offset=offset, length=length)
-
-    def update(self, policy_id, id, offset=None, length=None):
-        print self._ip_ranges(policy_id).update(id, offset=offset,
-                                                length=length)
-
-    def list(self, policy_id):
-        print self._ip_ranges(policy_id).all()
-
-    def show(self, policy_id, id):
-        print self. _ip_ranges(policy_id).find(id)
-
-    def delete(self, policy_id, id):
-        print self._ip_ranges(policy_id).delete(id)
-
-
-class UnusableIpOctetsCommands(object):
-
-    def __init__(self, resource):
-        self.resource = resource
-
-    def _ip_octets(self, policy_id):
-        return self.resource("policies/{0}/"
-                        "unusable_ip_octets".format(policy_id), "ip_octet")
-
-    def create(self, policy_id, octet):
-        print self._ip_octets(policy_id).create(octet=octet)
-
-    def update(self, policy_id, id, octet=None):
-        print self._ip_octets(policy_id).update(id, octet=octet)
-
-    def list(self, policy_id):
-        print self._ip_octets(policy_id).all()
-
-    def show(self, policy_id, id):
-        print self._ip_octets(policy_id).find(id)
-
-    def delete(self, policy_id, id):
-        print self._ip_octets(policy_id).delete(id)
-
-
-def lazy_match(name, key_value_tuples):
-    result = [(k, v) for k, v in key_value_tuples
-               if k.lower() == name.lower()]
-
-    if len(result) == 0:
-        print "%s does not match any options:" % name
-        print_keys(key_value_tuples)
-        sys.exit(2)
-
-    if len(result) > 1:
-        print "%s matched multiple options:" % name
-        print_keys(result)
-        sys.exit(2)
-
-    return result[0]
-
-
-def print_keys(tuples):
-    for k, _v in tuples:
-        print "\t%s" % k
-
-
-def methods_of(obj):
-    """Get all callable methods of an object that don't start with underscore
-    returns a list of tuples of the form (method_name, method)"""
-
-    def is_public_method(attr):
-        return callable(getattr(obj, attr)) and not attr.startswith('_')
-
-    return [(attr, getattr(obj, attr)) for attr in dir(obj)
-              if is_public_method(attr)]
-
 
 def create_options(parser):
     """
     Sets up the CLI and config-file options that may be
     parsed and program commands.
-
     :param parser: The option parser
     """
-    parser.add_option('-v', '--verbose', default=False, action="store_true",
-                      help="Print more verbose output")
-    parser.add_option('-H', '--host', metavar="ADDRESS", default="0.0.0.0",
-                      help="Address of Melange API host. "
-                           "Default: %default")
     parser.add_option('-p', '--port', dest="port", metavar="PORT",
                       type=int, default=9898,
                       help="Port the Melange API host listens on. "
-                           "Default: %default")
-    parser.add_option('-t', '--tenant', dest="tenant", metavar="TENANT",
-                      type=str, help="tenant id in case of tenant resources")
-    parser.add_option('--auth-token', dest="auth_token",
-                      metavar="MELANGE_AUTH_TOKEN",
-                      default=env.get('MELANGE_AUTH_TOKEN', None),
-                      type=str, help="Auth token received from keystone")
-    parser.add_option('-u', '--username', dest="username",
-                      metavar="MELANGE_USERNAME",
-                      default=env.get('MELANGE_USERNAME', None),
-                      type=str, help="Melange user name")
-    parser.add_option('-k', '--api-key', dest="api_key",
-                      metavar="MELANGE_API_KEY",
-                      default=env.get('MELANGE_API_KEY', None),
-                      type=str, help="Melange access key")
-    parser.add_option('-a', '--auth-url', dest="auth_url",
-                      metavar="MELANGE_AUTH_URL", type=str,
-                      default=env.get('MELANGE_AUTH_URL', None),
-                      help="Url of keystone service")
+                      "Default: %default")
+    config.add_common_options(parser)
+    config.add_log_options(parser)
 
+class Commands(object):
 
-def parse_options(parser, cli_args):
-    """
-    Returns the parsed CLI options, command to run and its arguments, merged
-    with any same-named options found in a configuration file
+    def __init__(self, conf):
+        self.conf = conf
+    
+    def db_sync(self):
+        print self.conf
+        db_api.db_sync(self.conf)
 
-    :param parser: The option parser
-    """
-    (options, args) = parser.parse_args(cli_args)
-    if not args:
-        parser.print_usage()
-        sys.exit(2)
-    return (options, args)
+    def db_upgrade(self, version=None):
+        db_api.db_upgrade(self.conf, version)
+
+    def db_downgrade(self, version):
+        db_api.db_downgrade(self.conf, version)
+
+    def execute(self, command_name, *args):
+        if self.has(command_name):
+            return getattr(self, command_name)(*args)
+
+    _commands = ['db_sync', 'db_upgrade', 'db_downgrade']
+    
+    @classmethod
+    def has(cls, command_name):
+        return (command_name in cls._commands)
+
+    @classmethod
+    def all(cls):
+        return cls._commands
+
+    def params_of(self, command_name):
+        if Commands.has(command_name):
+            return Method(getattr(self, command_name))
 
 
 def usage():
     usage = """
-%prog category action [args] [options]"
+%prog action [args] [options]
 
-Available categories:
+Available actions:
 
     """
-    for k, _v in categories():
-        usage = usage + ("\t%s\n" % k)
-
+    for action in Commands.all():
+        usage = usage + ("\t%s\n" % action)
     return usage
 
 
-def categories(resource_factory=Resource):
-    return \
-    [('ip_block', IpBlockCommands(resource_factory("ip_blocks", 'ip_block'))),
-     ('subnet', SubnetCommands(resource_factory)),
-     ('policy', PolicyCommands(resource_factory("policies", 'policy'))),
-     ('unusable_ip_range', UnusableIpRangesCommands(resource_factory)),
-     ('unusable_ip_octet', UnusableIpOctetsCommands(resource_factory))]
-
-
-def main():
-    oparser = optparse.OptionParser(version='%%prog %s'
-                                    % version.version_string(),
-                                    usage=usage().strip())
+if __name__ == '__main__':
+    oparser = optparse.OptionParser(version='%%prog VERSION', usage=usage())
     create_options(oparser)
-    (options, args) = parse_options(oparser, sys.argv[1:])
-
-    script_name = os.path.basename(sys.argv[0])
-    category = args.pop(0)
-    Resource.auth_client = KeystoneClient(options.auth_url, options.username,
-                                      options.api_key, options.auth_token)
-
-    def resource_factory(path, name):
-        if options.tenant:
-            path = "tenants/{0}/{1}".format(options.tenant, path)
-        return Resource(path, name, host=options.host, port=options.port)
-
-    category, command_object = lazy_match(category,
-                                          categories(resource_factory))
-
-    actions = methods_of(command_object)
-    if len(args) < 1:
-        print "Usage: " + script_name + " category action [<args>]"
-        print _("Available actions for %s category:") % category
-        for k, _v in actions:
-            print "\t%s" % k
+    (options, args) = config.parse_options(oparser)
+    
+    if len(args) < 1 or not Commands.has(args[0]):
+        oparser.print_usage()
         sys.exit(2)
-    action = args.pop(0)
-    action, fn = lazy_match(action, actions)
 
-    # call the action with the remaining arguments
     try:
-        fn(*args)
-        sys.exit(0)
-    except TypeError:
+        conf_file, conf = config.load_paste_config('melange', options, args)
+        config.setup_logging(options, conf)
+        
+        command_name = args.pop(0)
+        Commands(conf).execute(command_name, *args)
+        sys.exit(0)            
+    except TypeError as e:
+        print e
         print _("Possible wrong number of arguments supplied")
-        print "Usage: %s %s %s" % (script_name, category, Method(fn))
-        if options.verbose:
-            raise
+        print "Usage: melange-manage %s" % Commands(conf).params_of(command_name)
         sys.exit(2)
-    except Exception:
+    except Exception as e:
         print _("Command failed, please check log for more info")
         raise
-
-
-if __name__ == '__main__':
-    main()

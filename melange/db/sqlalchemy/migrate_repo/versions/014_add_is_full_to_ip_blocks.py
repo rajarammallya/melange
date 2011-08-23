@@ -43,4 +43,4 @@ def upgrade(migrate_engine):
 def downgrade(migrate_engine):
     meta = MetaData()
     meta.bind = migrate_engine
-    Table('ip_blocks', meta).columns["is_full"].drop()
+    Table('ip_blocks', meta, autoload=True).columns["is_full"].drop()

@@ -37,4 +37,4 @@ def upgrade(migrate_engine):
 def downgrade(migrate_engine):
     meta = MetaData()
     meta.bind = migrate_engine
-    Table('policies', meta).columns["tenant_id"].drop()
+    Table('policies', meta, autoload=True).columns["tenant_id"].drop()

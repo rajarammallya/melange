@@ -17,35 +17,25 @@
 from datetime import datetime
 from datetime import timedelta
 
-from melange.common import data_types
 from melange.common.utils import cached_property
 from melange.ipam import models
-from melange.ipam.models import AddressDoesNotBelongError
-from melange.ipam.models import DataMissingError
-from melange.ipam.models import DuplicateAddressError
-from melange.ipam.models import IpAddress
-from melange.ipam.models import IpBlock
-from melange.ipam.models import IpOctet
-from melange.ipam.models import IpRange
-from melange.ipam.models import ModelBase
-from melange.ipam.models import ModelNotFoundError
-from melange.ipam.models import Network
-from melange.ipam.models import NoMoreAddressesError
-from melange.ipam.models import Policy
-from melange.ipam.models import Query
+from melange.ipam.models import (AddressDoesNotBelongError, DataMissingError,
+                                 DuplicateAddressError, ModelNotFoundError,
+                                 NoMoreAddressesError, InvalidModelError,
+                                 InvalidTenantError, AddressLockedError,
+                                 AddressDisallowedByPolicyError,
+                                 IpAllocationNotAllowedError)
+from melange.ipam.models import (ModelBase, IpAddress, IpBlock, IpOctet,
+                                 IpRange, Network, Policy)
+from melange.ipam.models import Converter, Query
 from melange.ipv6.tenant_based_generator import TenantBasedIpV6Generator
 from melange.tests import BaseTest
-from melange.tests import unit
-from melange.tests.factories.models import IpAddressFactory
-from melange.tests.factories.models import IpBlockFactory
-from melange.tests.factories.models import IpOctetFactory
-from melange.tests.factories.models import IpRangeFactory
-from melange.tests.factories.models import IpV6IpBlockFactory
-from melange.tests.factories.models import PolicyFactory
-from melange.tests.factories.models import PrivateIpBlockFactory
-from melange.tests.factories.models import PublicIpBlockFactory
-from melange.tests.unit import StubConfig
-from melange.tests.unit import StubTime
+from melange.tests.factories.models import (IpAddressFactory, IpBlockFactory,
+                                            IpOctetFactory, IpRangeFactory,
+                                            IpV6IpBlockFactory, PolicyFactory,
+                                            PrivateIpBlockFactory,
+                                            PublicIpBlockFactory)
+from melange.tests.unit import StubConfig, StubTime
 from melange.tests.unit.mock_generator import MockIpV6Generator
 
 
@@ -89,7 +79,7 @@ class TestModelBase(BaseTest):
 
     def test_converts_column_to_integer(self):
         model = ModelBase(foo=1)
-        model._columns = {'foo': data_types.integer}
+        model._columns = {'foo': 'integer'}
 
         model._convert_columns_to_proper_type()
 
@@ -97,7 +87,7 @@ class TestModelBase(BaseTest):
 
     def test_converts_column_to_boolean(self):
         model = ModelBase(foo="true")
-        model._columns = {'foo': data_types.boolean}
+        model._columns = {'foo': 'boolean'}
 
         model._convert_columns_to_proper_type()
 
@@ -171,6 +161,16 @@ class TestQuery(BaseTest):
         self.assertIsNotNone(IpBlock.get(noise_block.id))
 
 
+class TestConverter(BaseTest):
+
+    def test_converts_to_integer_value(self):
+        self.assertEqual(Converter('integer').convert("123"), 123)
+
+    def test_converts_to_boolean_value(self):
+        self.assertEqual(Converter('boolean').convert("True"), True)
+        self.assertEqual(Converter('boolean').convert("False"), False)
+
+
 class TestIpv6AddressGeneratorFactory(BaseTest):
 
     def setUp(self):
@@ -185,8 +185,7 @@ class TestIpv6AddressGeneratorFactory(BaseTest):
                                                                  **args)
 
         self.assertEqual(ip_generator.kwargs, args)
-        self.assertTrue(isinstance(ip_generator,
-                                   unit.mock_generator.MockIpV6Generator))
+        self.assertTrue(isinstance(ip_generator, MockIpV6Generator))
 
     def test_loads_default_ipv6_generator_when_not_configured(self):
         expected_ip_block = PublicIpBlockFactory()
@@ -239,8 +238,8 @@ class TestIpBlock(BaseTest):
 
         self.assertFalse(block.is_valid())
         self.assertEqual(block.errors, {'cidr': ['cidr is invalid']})
-        self.assertRaises(models.InvalidModelError, block.save)
-        self.assertRaises(models.InvalidModelError, IpBlock.create,
+        self.assertRaises(InvalidModelError, block.save)
+        self.assertRaises(InvalidModelError, IpBlock.create,
                           cidr="10.1.0.0/33", network_id=111)
 
         block.cidr = "10.1.1.1/8"
@@ -306,7 +305,7 @@ class TestIpBlock(BaseTest):
         parent.allocate_ip()
         expected_msg = "parent is not subnettable since it has allocated ips"
 
-        self.assertRaisesExcMessage(models.InvalidModelError, expected_msg,
+        self.assertRaisesExcMessage(InvalidModelError, expected_msg,
                                     parent.subnet, cidr="10.0.0.0/30")
 
     def test_validates_subnet_has_same_tenant_as_parent(self):
@@ -464,7 +463,7 @@ class TestIpBlock(BaseTest):
         self.assertEqual(found_block.cidr, block1.cidr)
 
     def test_find_ip_block_for_nonexistent_block(self):
-        self.assertRaises(models.ModelNotFoundError, IpBlock.find, 123)
+        self.assertRaises(ModelNotFoundError, IpBlock.find, 123)
 
     def test_find_allocated_ip(self):
         block = PrivateIpBlockFactory(cidr="10.0.0.1/8")
@@ -475,7 +474,7 @@ class TestIpBlock(BaseTest):
     def test_find_allocated_ip_for_nonexistent_address(self):
         block = PrivateIpBlockFactory(cidr="10.0.0.1/8")
 
-        self.assertRaises(models.ModelNotFoundError, block.find_allocated_ip,
+        self.assertRaises(ModelNotFoundError, block.find_allocated_ip,
                          '10.0.0.1')
 
     def test_policy(self):
@@ -505,26 +504,26 @@ class TestIpBlock(BaseTest):
         parent_block = IpBlockFactory(cidr="10.0.0.0/28")
         parent_block.subnet(cidr="10.0.0.0/28")
         expected_msg = "Non Leaf block can not allocate IPAddress"
-        self.assertRaisesExcMessage(models.IpAllocationNotAllowedError,
+        self.assertRaisesExcMessage(IpAllocationNotAllowedError,
                                     expected_msg, parent_block.allocate_ip)
 
     def test_allocate_ip_from_outside_cidr(self):
         block = PrivateIpBlockFactory(cidr="10.1.1.1/28")
 
-        self.assertRaises(models.AddressDoesNotBelongError, block.allocate_ip,
+        self.assertRaises(AddressDoesNotBelongError, block.allocate_ip,
                           address="192.1.1.1")
 
     def test_allocate_ip_for_another_tenant_fails(self):
         block = PrivateIpBlockFactory(cidr="10.1.1.1/28", tenant_id="123")
 
-        self.assertRaises(models.InvalidTenantError, block.allocate_ip,
+        self.assertRaises(InvalidTenantError, block.allocate_ip,
                           tenant_id="456")
 
     def test_allocating_duplicate_address_fails(self):
         block = PrivateIpBlockFactory(cidr="10.0.0.0/29")
         block.allocate_ip(address='10.0.0.0')
 
-        self.assertRaises(models.DuplicateAddressError, block.allocate_ip,
+        self.assertRaises(DuplicateAddressError, block.allocate_ip,
                           address="10.0.0.0")
 
     def test_allocate_ips_skips_gateway_address(self):
@@ -540,18 +539,18 @@ class TestIpBlock(BaseTest):
         for i in range(0, 2):
             block.allocate_ip()
 
-        self.assertRaises(models.NoMoreAddressesError, block.allocate_ip)
+        self.assertRaises(NoMoreAddressesError, block.allocate_ip)
 
     def test_allocating_gateway_address_fails(self):
         block = PrivateIpBlockFactory(cidr="10.0.0.0/29", gateway="10.0.0.0")
 
-        self.assertRaises(models.DuplicateAddressError, block.allocate_ip,
+        self.assertRaises(DuplicateAddressError, block.allocate_ip,
                           address=block.gateway)
 
     def test_allocating_broadcast_address_fails(self):
         block = PrivateIpBlockFactory(cidr="10.0.0.0/24")
 
-        self.assertRaises(models.DuplicateAddressError, block.allocate_ip,
+        self.assertRaises(DuplicateAddressError, block.allocate_ip,
                           address=block.broadcast)
 
     def test_allocate_ip_skips_ips_disallowed_by_policy(self):
@@ -567,7 +566,7 @@ class TestIpBlock(BaseTest):
         IpRangeFactory(policy_id=policy.id, offset=0, length=1)
         block = PrivateIpBlockFactory(cidr="10.0.0.0/29", policy_id=policy.id)
 
-        self.assertRaises(models.AddressDisallowedByPolicyError,
+        self.assertRaises(AddressDisallowedByPolicyError,
                           block.allocate_ip, address="10.0.0.0")
 
     def test_ip_block_is_marked_full_when_all_ips_are_allocated(self):
@@ -576,13 +575,13 @@ class TestIpBlock(BaseTest):
         for i in range(0, 2):
             ip_block.allocate_ip()
 
-        self.assertRaises(models.NoMoreAddressesError, ip_block.allocate_ip)
+        self.assertRaises(NoMoreAddressesError, ip_block.allocate_ip)
         self.assertTrue(ip_block.is_full)
 
     def test_allocate_ip_raises_error_when_ip_block_is_marked_full(self):
         ip_block = PrivateIpBlockFactory(cidr="10.0.0.0/29", is_full=True)
 
-        self.assertRaises(models.NoMoreAddressesError, ip_block.allocate_ip)
+        self.assertRaises(NoMoreAddressesError, ip_block.allocate_ip)
 
     def test_ip_block_is_not_full(self):
         ip_block = PrivateIpBlockFactory(cidr="10.0.0.0/28")
@@ -594,7 +593,7 @@ class TestIpBlock(BaseTest):
         for i in range(0, 2):
             block.allocate_ip()
 
-        self.assertRaises(models.NoMoreAddressesError, block.allocate_ip)
+        self.assertRaises(NoMoreAddressesError, block.allocate_ip)
 
     def test_allocate_ip_is_not_duplicated(self):
         block = PrivateIpBlockFactory(cidr="10.0.0.0/30")
@@ -655,10 +654,10 @@ class TestIpBlock(BaseTest):
 
         block.deallocate_ip(ip.address)
 
-        self.assertRaises(models.AddressLockedError,
+        self.assertRaises(AddressLockedError,
                           IpBlock.find_or_allocate_ip, block.id, ip.address)
 
-        self.assertRaises(models.DuplicateAddressError, block.allocate_ip,
+        self.assertRaises(DuplicateAddressError, block.allocate_ip,
                           address=ip.address)
 
     def test_data(self):
@@ -867,7 +866,7 @@ class TestIpAddress(BaseTest):
         self.assertEqual(ip_address.address, "10.11.3.255")
 
     def test_find_ip_address_for_nonexistent_address(self):
-        self.assertRaises(models.ModelNotFoundError, IpAddress.find, 123)
+        self.assertRaises(ModelNotFoundError, IpAddress.find, 123)
 
     def test_delete_ip_address(self):
         block = PrivateIpBlockFactory(cidr="10.0.0.1/8")
@@ -1159,7 +1158,7 @@ class TestPolicy(BaseTest):
         noise_ip_range = policy.create_unusable_range(offset=10,
                                                        length=1)
 
-        self.assertRaises(models.ModelNotFoundError, policy.find_ip_range,
+        self.assertRaises(ModelNotFoundError, policy.find_ip_range,
                           ip_range_id=122222)
 
     def test_create_unusable_ip_range(self):

@@ -24,8 +24,8 @@ import netaddr
 from netaddr import IPAddress
 from netaddr import IPNetwork
 from netaddr.strategy.ipv6 import ipv6_verbose
+from openstack.common.utils import bool_from_string
 
-from melange.common import data_types
 from melange.common import utils
 from melange.common.config import Config
 from melange.common.exception import MelangeError
@@ -65,6 +65,17 @@ class Query(object):
         return (collection, None)
 
 
+class Converter(object):
+    data_type_converters = {'integer': lambda x: int(x),
+                            'boolean': lambda value: bool_from_string(value)}
+
+    def __init__(self, data_type):
+        self.data_type = data_type
+
+    def convert(self, value):
+        return self.data_type_converters[self.data_type](value)
+
+
 class ModelBase(object):
     _columns = {}
     _auto_generated_attrs = ["id", "created_at", "updated_at"]
@@ -92,13 +103,12 @@ class ModelBase(object):
         self.merge_attributes(kwargs)
 
     def _validate_columns_type(self):
-        for column_name, column_type in self._columns.iteritems():
+        for column_name, data_type in self._columns.iteritems():
             try:
-                column_type(self[column_name])
+                Converter(data_type).convert(self[column_name])
             except (TypeError, ValueError):
-                type_name = column_type.__name__
                 self._add_error(column_name,
-                       _("%(column_name)s should be of type %(type_name)s")
+                       _("%(column_name)s should be of type %(data_type)s")
                          % locals())
 
     def _validate(self):
@@ -111,8 +121,8 @@ class ModelBase(object):
         pass
 
     def _convert_columns_to_proper_type(self):
-        for column_name, column_type in self._columns.iteritems():
-            self[column_name] = column_type(self[column_name])
+        for column_name, data_type in self._columns.iteritems():
+            self[column_name] = Converter(data_type).convert(self[column_name])
 
     def is_valid(self):
         self.errors = {}
@@ -646,7 +656,7 @@ class Policy(ModelBase):
 
 class IpRange(ModelBase):
 
-    _columns = {'offset': data_types.integer, 'length': data_types.integer}
+    _columns = {'offset': 'integer', 'length': 'integer'}
     _data_fields = ['offset', 'length', 'policy_id']
 
     def contains(self, cidr, address):
@@ -663,7 +673,7 @@ class IpRange(ModelBase):
 
 class IpOctet(ModelBase):
 
-    _columns = {'octet': data_types.integer}
+    _columns = {'octet': 'integer'}
     _data_fields = ['octet', 'policy_id']
 
     @classmethod

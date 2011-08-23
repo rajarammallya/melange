@@ -38,6 +38,7 @@ from melange.db import db_api
 from melange.ipam.models import models
 from melange.common.utils import Method
 
+
 def create_options(parser):
     """
     Sets up the CLI and config-file options that may be
@@ -51,11 +52,12 @@ def create_options(parser):
     config.add_common_options(parser)
     config.add_log_options(parser)
 
+
 class Commands(object):
 
     def __init__(self, conf):
         self.conf = conf
-    
+
     def db_sync(self):
         print self.conf
         db_api.db_sync(self.conf)
@@ -71,7 +73,7 @@ class Commands(object):
             return getattr(self, command_name)(*args)
 
     _commands = ['db_sync', 'db_upgrade', 'db_downgrade']
-    
+
     @classmethod
     def has(cls, command_name):
         return (command_name in cls._commands)
@@ -101,7 +103,7 @@ if __name__ == '__main__':
     oparser = optparse.OptionParser(version='%%prog VERSION', usage=usage())
     create_options(oparser)
     (options, args) = config.parse_options(oparser)
-    
+
     if len(args) < 1 or not Commands.has(args[0]):
         oparser.print_usage()
         sys.exit(2)
@@ -109,14 +111,14 @@ if __name__ == '__main__':
     try:
         conf_file, conf = config.load_paste_config('melange', options, args)
         config.setup_logging(options, conf)
-        
+
         command_name = args.pop(0)
         Commands(conf).execute(command_name, *args)
-        sys.exit(0)            
+        sys.exit(0)
     except TypeError as e:
-        print e
         print _("Possible wrong number of arguments supplied")
-        print "Usage: melange-manage %s" % Commands(conf).params_of(command_name)
+        command_params = Commands(conf).params_of(command_name)
+        print "Usage: melange-manage %s" % command_params
         sys.exit(2)
     except Exception as e:
         print _("Command failed, please check log for more info")

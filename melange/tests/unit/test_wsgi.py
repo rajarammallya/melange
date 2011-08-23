@@ -262,7 +262,7 @@ class RequestTest(BaseTest):
 
 class DummyApp(wsgi.Router):
 
-    def __init__(self, options={}):
+    def __init__(self):
         mapper = routes.Mapper()
         controller = StubController()
         mapper.resource("resource", "/resources",

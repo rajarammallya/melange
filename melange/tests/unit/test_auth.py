@@ -76,7 +76,7 @@ class TestAuthMiddleware(BaseTest):
 
 class DecoratorTestApp(wsgi.Router):
 
-    def __init__(self, options={}):
+    def __init__(self):
         super(DecoratorTestApp, self).__init__(mapper())
 
 

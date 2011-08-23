@@ -26,13 +26,17 @@ class Client(object):
         self.port = port
         self.use_ssl = use_ssl
 
-    def get(self, path, params={}, headers={}):
+    def get(self, path, params=None, headers=None):
+        params = params or {}
+        headers = headers or {}
         return self.do_request("GET", path, params=params, headers=headers)
 
-    def post(self, path, body=None, headers={}):
+    def post(self, path, body=None, headers=None):
+        headers = headers or {}
         return self.do_request("POST", path, body=body, headers=headers)
 
-    def delete(self, path, headers={}):
+    def delete(self, path, headers=None):
+        headers = headers or {}
         return self.do_request("DELETE", path, headers=headers)
 
     def _get_connection(self):
@@ -41,7 +45,9 @@ class Client(object):
         else:
             return httplib.HTTPConnection(self.host, self.port)
 
-    def do_request(self, method, path, body=None, headers={}, params={}):
+    def do_request(self, method, path, body=None, headers=None, params=None):
+        params = params or {}
+        headers = headers or {}
 
         url = path + '?' + urllib.urlencode(params)
 

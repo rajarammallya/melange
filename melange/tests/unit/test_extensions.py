@@ -158,7 +158,7 @@ class TestExtensionMiddlewareFactory(unittest.TestCase):
 
 class ExtensionsTestApp(wsgi.Router):
 
-    def __init__(self, options={}):
+    def __init__(self):
         mapper = routes.Mapper()
         controller = StubController(response_body)
         mapper.resource("dummy_resource", "/dummy_resources",
@@ -181,7 +181,7 @@ class StubController(wsgi.Controller):
 def app_factory(global_conf, **local_conf):
     conf = global_conf.copy()
     conf.update(local_conf)
-    return ExtensionsTestApp(conf)
+    return ExtensionsTestApp()
 
 
 def setup_extensions_test_app(extension_manager=None):

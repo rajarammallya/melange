@@ -693,7 +693,7 @@ class Network(ModelBase):
                                       type="private")
             return cls(id=id, ip_blocks=[ip_block])
 
-    def allocate_ips(self, addresses=[], **kwargs):
+    def allocate_ips(self, addresses=None, **kwargs):
         if addresses:
             return filter(None, [self._allocate_specific_ip(address, **kwargs)
                     for address in addresses])

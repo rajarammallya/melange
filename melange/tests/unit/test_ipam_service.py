@@ -58,7 +58,7 @@ class BaseTestController(BaseTest):
 
 class DummyApp(wsgi.Router):
 
-    def __init__(self, options={}):
+    def __init__(self):
         mapper = routes.Mapper()
         mapper.resource("resource", "/resources", controller=StubController())
         super(DummyApp, self).__init__(mapper)

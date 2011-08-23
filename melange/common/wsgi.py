@@ -151,7 +151,8 @@ class Controller(object):
     exception_map = {}
     admin_actions = []
 
-    def __init__(self, admin_actions=[]):
+    def __init__(self, admin_actions=None):
+        admin_actions = admin_actions or []
         self.model_exception_map = self._invert_dict_list(self.exception_map)
         self.admin_actions = admin_actions
 

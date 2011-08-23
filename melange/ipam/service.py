@@ -306,8 +306,7 @@ class NetworksController(BaseController):
 
 
 class API(wsgi.Router):
-    def __init__(self, options={}):
-        self.options = options
+    def __init__(self):
         mapper = routes.Mapper()
         super(API, self).__init__(mapper)
         self._natting_mapper(mapper, "inside_globals",
@@ -424,4 +423,4 @@ def app_factory(global_conf, **local_conf):
     conf = global_conf.copy()
     conf.update(local_conf)
     Config.instance = conf
-    return API(conf)
+    return API()

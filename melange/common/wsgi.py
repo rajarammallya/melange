@@ -21,7 +21,6 @@ Utility methods for working with WSGI servers
 import datetime
 from datetime import timedelta
 import eventlet.wsgi
-from gettext import gettext as _
 import inspect
 import json
 import logging

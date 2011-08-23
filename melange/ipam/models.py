@@ -20,7 +20,6 @@ SQLAlchemy models for Melange data
 """
 
 from datetime import timedelta
-from gettext import gettext as _
 import netaddr
 from netaddr import IPAddress
 from netaddr import IPNetwork

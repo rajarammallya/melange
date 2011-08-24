@@ -70,7 +70,7 @@ gettext.install("melange", unicode=1)
 from melange import version
 from melange.common.auth import KeystoneClient
 from melange.common.client import HTTPClient
-from melange.common.utils import Method
+from melange.common.utils import MethodInspector
 from melange.ipam.client import (IpBlockClient, SubnetClient, PolicyClient,
                                  UnusableIpOctetsClient,
                                  UnusableIpRangesClient)
@@ -203,7 +203,7 @@ def main():
         sys.exit(0)
     except TypeError:
         print _("Possible wrong number of arguments supplied")
-        print "Usage: %s %s %s" % (script_name, category, Method(fn))
+        print "Usage: %s %s %s" % (script_name, category, MethodInspector(fn))
         if options.verbose:
             raise
         sys.exit(2)

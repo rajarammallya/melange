@@ -135,7 +135,7 @@ class cached_property(object):
         return value
 
 
-class Method(object):
+class MethodInspector(object):
     def __init__(self, func):
         self._func = func
 

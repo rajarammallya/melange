@@ -38,7 +38,7 @@ from melange.common import config
 from melange.common import wsgi
 from melange.db import db_api
 from melange.ipam.models import models
-from melange.common.utils import Method
+from melange.common.utils import MethodInspector
 
 
 def create_options(parser):
@@ -86,7 +86,7 @@ class Commands(object):
 
     def params_of(self, command_name):
         if Commands.has(command_name):
-            return Method(getattr(self, command_name))
+            return MethodInspector(getattr(self, command_name))
 
 
 def usage():

@@ -135,13 +135,13 @@ class TestMergeDicts(unittest.TestCase):
                          dict(a=4, b=2, c=3))
 
 
-class TestMethod(unittest.TestCase):
+class TestMethodInspector(unittest.TestCase):
 
     def test_method_without_optional_args(self):
         def foo(bar):
             pass
 
-        method = utils.Method(foo)
+        method = utils.MethodInspector(foo)
 
         self.assertEqual(method.required_args, ['bar'])
         self.assertEqual(method.optional_args, [])
@@ -150,7 +150,7 @@ class TestMethod(unittest.TestCase):
         def foo(bar, baz=1):
             pass
 
-        method = utils.Method(foo)
+        method = utils.MethodInspector(foo)
 
         self.assertEqual(method.required_args, ['bar'])
         self.assertEqual(method.optional_args, [('baz', 1)])
@@ -160,7 +160,7 @@ class TestMethod(unittest.TestCase):
             def bar(self, baz, qux=2):
                 pass
 
-        method = utils.Method(Foo().bar)
+        method = utils.MethodInspector(Foo().bar)
 
         self.assertEqual(method.required_args, ['baz'])
         self.assertEqual(method.optional_args, [('qux', 2)])
@@ -169,7 +169,7 @@ class TestMethod(unittest.TestCase):
         def foo():
             pass
 
-        method = utils.Method(foo)
+        method = utils.MethodInspector(foo)
 
         self.assertEqual(method.required_args, [])
         self.assertEqual(method.optional_args, [])
@@ -179,7 +179,7 @@ class TestMethod(unittest.TestCase):
             def bar(self):
                 pass
 
-        method = utils.Method(Foo().bar)
+        method = utils.MethodInspector(Foo().bar)
 
         self.assertEqual(method.required_args, [])
         self.assertEqual(method.optional_args, [])
@@ -189,6 +189,6 @@ class TestMethod(unittest.TestCase):
             def bar(self, baz, qux=2):
                 pass
 
-        method = utils.Method(Foo().bar)
+        method = utils.MethodInspector(Foo().bar)
 
         self.assertEqual(str(method), "bar <baz> <qux=2>")

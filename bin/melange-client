@@ -51,9 +51,6 @@
 """
   CLI interface for IPAM.
 """
-import httplib2
-import json
-import logging
 import optparse
 import os
 from os import environ as env
@@ -72,188 +69,11 @@ gettext.install("melange", unicode=1)
 
 from melange import version
 from melange.common.auth import KeystoneClient
-from melange.common.client import Client
+from melange.common.client import HTTPClient
 from melange.common.utils import Method
-from melange.common.utils import remove_nones
-
-
-class Resource(object):
-
-    def __init__(self, path, name, host="0.0.0.0", port=9898):
-        self.path = "/v0.1/ipam/" + path
-        self.name = name
-        self.host = host
-        self.port = port
-
-    def create(self, **kwargs):
-        return self.request("POST", self.path,
-                            body=json.dumps({self.name: kwargs}))
-
-    def update(self, id, **kwargs):
-        return self.request("PUT", self._member_path(id),
-                            body=json.dumps({self.name: remove_nones(kwargs)}))
-
-    def all(self):
-        return self.request("GET", self.path)
-
-    def find(self, id):
-        return self.request("GET", self._member_path(id))
-
-    def delete(self, id):
-        return self.request("DELETE", self._member_path(id))
-
-    def _member_path(self, id):
-        return "{0}/{1}".format(self.path, id)
-
-    def request(self, method, path, body_params=None, **kwargs):
-        client = Client(host=self.host, port=self.port)
-        kwargs['headers'] = {'X-AUTH-TOKEN': self.auth_client.get_token(),
-                             'Content-Type': "application/json"}
-        response = client.do_request(method, path, **kwargs)
-        return response.read()
-
-
-class IpBlockCommands(object):
-
-    def __init__(self, block):
-        self.block = block
-
-    def create(self, type, cidr, network_id=None, policy_id=None):
-        print self.block.create(type=type, cidr=cidr, network_id=network_id,
-                                policy_id=policy_id)
-
-    def list(self):
-        print self.block.all()
-
-    def show(self, id):
-        print self.block.find(id)
-
-    def update(self, id, network_id=None, policy_id=None):
-        print self.block.update(id, network_id=network_id, policy_id=policy_id)
-
-    def delete(self, id):
-        print self.block.delete(id)
-
-
-class SubnetCommands(object):
-
-    def __init__(self, resource):
-        self.resource = resource
-
-    def _subnet(self, parent_id):
-        return self.resource("ip_blocks/{0}/subnets".format(parent_id),
-                             "subnet")
-
-    def create(self, parent_id, cidr, network_id=None):
-        print self._subnet(parent_id).create(cidr=cidr, network_id=network_id)
-
-    def list(self, parent_id):
-        print self._subnet(parent_id).all()
-
-
-class PolicyCommands(object):
-
-    def __init__(self, policy):
-        self.policy = policy
-
-    def create(self, name, description=None):
-        print self.policy.create(name=name, description=description)
-
-    def update(self, id, name, description=None):
-        print self.policy.update(id, name=name, description=description)
-
-    def list(self):
-        print self.policy.all()
-
-    def show(self, id):
-        print self.policy.find(id)
-
-    def delete(self, id):
-        print self.policy.delete(id)
-
-
-class UnusableIpRangesCommands(object):
-
-    def __init__(self, resource):
-        self.resource = resource
-
-    def _ip_ranges(self, policy_id):
-        return self.resource("policies/{0}/"
-                        "unusable_ip_ranges".format(policy_id), "ip_range")
-
-    def create(self, policy_id, offset, length):
-        print self._ip_ranges(policy_id).create(offset=offset, length=length)
-
-    def update(self, policy_id, id, offset=None, length=None):
-        print self._ip_ranges(policy_id).update(id, offset=offset,
-                                                length=length)
-
-    def list(self, policy_id):
-        print self._ip_ranges(policy_id).all()
-
-    def show(self, policy_id, id):
-        print self. _ip_ranges(policy_id).find(id)
-
-    def delete(self, policy_id, id):
-        print self._ip_ranges(policy_id).delete(id)
-
-
-class UnusableIpOctetsCommands(object):
-
-    def __init__(self, resource):
-        self.resource = resource
-
-    def _ip_octets(self, policy_id):
-        return self.resource("policies/{0}/"
-                        "unusable_ip_octets".format(policy_id), "ip_octet")
-
-    def create(self, policy_id, octet):
-        print self._ip_octets(policy_id).create(octet=octet)
-
-    def update(self, policy_id, id, octet=None):
-        print self._ip_octets(policy_id).update(id, octet=octet)
-
-    def list(self, policy_id):
-        print self._ip_octets(policy_id).all()
-
-    def show(self, policy_id, id):
-        print self._ip_octets(policy_id).find(id)
-
-    def delete(self, policy_id, id):
-        print self._ip_octets(policy_id).delete(id)
-
-
-def lazy_match(name, key_value_tuples):
-    result = [(k, v) for k, v in key_value_tuples
-               if k.lower() == name.lower()]
-
-    if len(result) == 0:
-        print "%s does not match any options:" % name
-        print_keys(key_value_tuples)
-        sys.exit(2)
-
-    if len(result) > 1:
-        print "%s matched multiple options:" % name
-        print_keys(result)
-        sys.exit(2)
-
-    return result[0]
-
-
-def print_keys(tuples):
-    for k, _v in tuples:
-        print "\t%s" % k
-
-
-def methods_of(obj):
-    """Get all callable methods of an object that don't start with underscore
-    returns a list of tuples of the form (method_name, method)"""
-
-    def is_public_method(attr):
-        return callable(getattr(obj, attr)) and not attr.startswith('_')
-
-    return [(attr, getattr(obj, attr)) for attr in dir(obj)
-              if is_public_method(attr)]
+from melange.ipam.client import (IpBlockClient, SubnetClient, PolicyClient,
+                                 UnusableIpOctetsClient,
+                                 UnusableIpRangesClient)
 
 
 def create_options(parser):
@@ -290,6 +110,10 @@ def create_options(parser):
                       metavar="MELANGE_AUTH_URL", type=str,
                       default=env.get('MELANGE_AUTH_URL', None),
                       help="Url of keystone service")
+    parser.add_option('--timeout', dest="timeout",
+                      metavar="MELANGE_TIME_OUT", type=int,
+                      default=env.get('MELANGE_TIME_OUT', None),
+                      help="timeout for melange client operations")
 
 
 def parse_options(parser, cli_args):
@@ -313,19 +137,40 @@ def usage():
 Available categories:
 
     """
-    for k, _v in categories():
+    for k, _v in categories.iteritems():
         usage = usage + ("\t%s\n" % k)
-
     return usage
 
 
-def categories(resource_factory=Resource):
-    return \
-    [('ip_block', IpBlockCommands(resource_factory("ip_blocks", 'ip_block'))),
-     ('subnet', SubnetCommands(resource_factory)),
-     ('policy', PolicyCommands(resource_factory("policies", 'policy'))),
-     ('unusable_ip_range', UnusableIpRangesCommands(resource_factory)),
-     ('unusable_ip_octet', UnusableIpOctetsCommands(resource_factory))]
+categories = dict(ip_block=IpBlockClient, subnet=SubnetClient,
+                 policy=PolicyClient, unusable_ip_range=UnusableIpRangesClient,
+                 unusable_ip_octet=UnusableIpOctetsClient)
+
+
+def lookup(name, hash):
+    result = hash.get(name, None)
+    if not result:
+        print "%s does not match any options:" % name
+        print_keys(hash)
+        sys.exit(2)
+
+    return result
+
+
+def print_keys(hash):
+    for k, _v in hash.iteritems():
+        print "\t%s" % k
+
+
+def methods_of(obj):
+    """Get all callable methods of an object that don't start with underscore
+    returns a list of tuples of the form (method_name, method)"""
+
+    def is_public_method(attr):
+        return callable(getattr(obj, attr)) and not attr.startswith('_')
+
+    return dict((attr, getattr(obj, attr)) for attr in dir(obj)
+              if is_public_method(attr))
 
 
 def main():
@@ -337,30 +182,24 @@ def main():
 
     script_name = os.path.basename(sys.argv[0])
     category = args.pop(0)
-    Resource.auth_client = KeystoneClient(options.auth_url, options.username,
+    http_client = HTTPClient(options.host, options.port, options.timeout)
+    auth_client = KeystoneClient(options.auth_url, options.username,
                                       options.api_key, options.auth_token)
 
-    def resource_factory(path, name):
-        if options.tenant:
-            path = "tenants/{0}/{1}".format(options.tenant, path)
-        return Resource(path, name, host=options.host, port=options.port)
-
-    category, command_object = lazy_match(category,
-                                          categories(resource_factory))
-
-    actions = methods_of(command_object)
+    category_client_class = lookup(category, categories)
+    client = category_client_class(http_client, auth_client, options.tenant)
+    client_actions = methods_of(client)
     if len(args) < 1:
         print "Usage: " + script_name + " category action [<args>]"
         print _("Available actions for %s category:") % category
-        for k, _v in actions:
-            print "\t%s" % k
+        print_keys(client_actions)
         sys.exit(2)
     action = args.pop(0)
-    action, fn = lazy_match(action, actions)
+    fn = lookup(action, client_actions)
 
     # call the action with the remaining arguments
     try:
-        fn(*args)
+        print fn(*args)
         sys.exit(0)
     except TypeError:
         print _("Possible wrong number of arguments supplied")

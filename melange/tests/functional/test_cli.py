@@ -47,6 +47,7 @@ class TestIpBlockCLI(BaseTest):
         policy = PolicyFactory()
         exitcode, out, err = run("ip_block create public 10.1.1.0/29 net1 "
                                  "%s" % (policy.id))
+
         self.assertEqual(exitcode, 0)
         ip_block = IpBlock.get_by(cidr="10.1.1.0/29", type='public')
         self.assertTrue(ip_block is not None)

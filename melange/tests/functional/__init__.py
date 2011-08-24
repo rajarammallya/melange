@@ -22,7 +22,7 @@ import subprocess
 from melange import melange_bin_path
 from melange import melange_etc_path
 from melange.common import config
-from melange.common.client import Client
+from melange.common.client import HTTPClient
 from melange.db import db_api
 from melange.ipam import models
 from melange.tests import BaseTest
@@ -36,7 +36,7 @@ class FunctionalTest(BaseTest):
 
     def setUp(self):
         super(FunctionalTest, self).setUp()
-        self.client = Client(port=get_api_port())
+        self.client = HTTPClient(port=get_api_port())
 
 
 def setup():

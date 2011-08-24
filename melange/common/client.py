@@ -19,12 +19,13 @@ import socket
 import urllib
 
 
-class Client(object):
+class HTTPClient(object):
 
-    def __init__(self, host='localhost', port=8080, use_ssl=False):
+    def __init__(self, host='localhost', port=8080, use_ssl=False, timeout=60):
         self.host = host
         self.port = port
         self.use_ssl = use_ssl
+        self.timeout = timeout
 
     def get(self, path, params=None, headers=None):
         params = params or {}
@@ -41,9 +42,11 @@ class Client(object):
 
     def _get_connection(self):
         if self.use_ssl:
-            return httplib.HTTPSConnection(self.host, self.port)
+            return httplib.HTTPSConnection(self.host, self.port,
+                                           timeout=self.timeout)
         else:
-            return httplib.HTTPConnection(self.host, self.port)
+            return httplib.HTTPConnection(self.host, self.port,
+                                          timeout=self.timeout)
 
     def do_request(self, method, path, body=None, headers=None, params=None):
         params = params or {}

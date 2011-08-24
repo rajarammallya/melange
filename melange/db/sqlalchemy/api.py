@@ -18,9 +18,11 @@ from sqlalchemy import and_
 from sqlalchemy import or_
 from sqlalchemy.orm import aliased
 
+from melange import ipam
 from melange.common import utils
 from melange.db.sqlalchemy import migration
 from melange.db.sqlalchemy import session
+from melange.db.sqlalchemy.mappers import IpNat
 
 
 def find_all_by(model, **conditions):
@@ -62,29 +64,29 @@ def update_all(model, conditions, values):
 
 
 def find_inside_globals_for(local_address_id, **kwargs):
-    marker_column = _ip_nat().inside_global_address_id
+    marker_column = IpNat.inside_global_address_id
     limit = kwargs.pop('limit', 200)
     marker = kwargs.pop('marker', None)
 
     kwargs["inside_local_address_id"] = local_address_id
-    query = _limits(_ip_nat(), kwargs,
+    query = _limits(IpNat, kwargs,
                     limit, marker, marker_column)
     return [nat.inside_global_address for nat in query]
 
 
 def find_inside_locals_for(global_address_id, **kwargs):
-    marker_column = _ip_nat().inside_local_address_id
+    marker_column = IpNat.inside_local_address_id
     limit = kwargs.pop('limit', 200)
     marker = kwargs.pop('marker', None)
 
     kwargs["inside_global_address_id"] = global_address_id
-    query = _limits(_ip_nat(), kwargs,
+    query = _limits(IpNat, kwargs,
                     limit, marker, marker_column)
     return [nat.inside_local_address for nat in query]
 
 
 def save_nat_relationships(nat_relationships):
-    ip_nat_table = _ip_nat()
+    ip_nat_table = IpNat
     for relationship in nat_relationships:
         ip_nat = ip_nat_table()
         relationship['id'] = utils.guid()
@@ -97,9 +99,9 @@ def remove_inside_globals(local_address_id,
 
     def _filter_inside_global_address(natted_ips, inside_global_address):
         return natted_ips.\
-            join((_ip_address(),
-                 _ip_nat().inside_global_address_id == _ip_address().id)).\
-                 filter(_ip_address().address == inside_global_address)
+            join((ipam.models.IpAddress,
+                 IpNat.inside_global_address_id == ipam.models.IpAddress.id)).\
+                 filter(ipam.models.IpAddress.address == inside_global_address)
 
     remove_natted_ips(_filter_inside_global_address,
                       inside_global_address,
@@ -111,9 +113,9 @@ def remove_inside_locals(global_address_id,
 
     def _filter_inside_local_address(natted_ips, inside_local_address):
         return natted_ips.\
-            join((_ip_address(),
-                  _ip_nat().inside_local_address_id == _ip_address().id)).\
-                  filter(_ip_address().address == inside_local_address)
+            join((ipam.models.IpAddress,
+                  IpNat.inside_local_address_id == ipam.models.IpAddress.id)).\
+                  filter(ipam.models.IpAddress.address == inside_local_address)
 
     remove_natted_ips(_filter_inside_local_address,
                           inside_local_address,
@@ -130,37 +132,37 @@ def remove_natted_ips(_filter_by_natted_address,
 
 
 def find_natted_ips(**kwargs):
-    return _base_query(_ip_nat()).\
+    return _base_query(IpNat).\
                  filter_by(**kwargs)
 
 
 def find_all_blocks_with_deallocated_ips():
-    return _base_query(_ip_block()).\
-           join(_ip_address()).\
-           filter(_ip_address().marked_for_deallocation == True)
+    return _base_query(ipam.models.IpBlock).\
+           join(ipam.models.IpAddress).\
+           filter(ipam.models.IpAddress.marked_for_deallocation == True)
 
 
 def delete_deallocated_ips(deallocated_by, **kwargs):
-    return _delete_all(_query_by(_ip_address(), **kwargs).\
+    return _delete_all(_query_by(ipam.models.IpAddress, **kwargs).\
            filter_by(marked_for_deallocation=True).\
-           filter(_ip_address().deallocated_at <= deallocated_by))
+           filter(ipam.models.IpAddress.deallocated_at <= deallocated_by))
 
 
 def find_all_top_level_blocks_in_network(network_id):
-    parent_block = aliased(_ip_block(), name="parent_block")
+    parent_block = aliased(ipam.models.IpBlock, name="parent_block")
 
-    return _base_query(_ip_block()).\
+    return _base_query(ipam.models.IpBlock).\
         outerjoin((parent_block,
-                   and_(_ip_block().parent_id == parent_block.id,
+                   and_(ipam.models.IpBlock.parent_id == parent_block.id,
                         parent_block.network_id == network_id))).\
-        filter(_ip_block().network_id == network_id).\
+        filter(ipam.models.IpBlock.network_id == network_id).\
         filter(parent_block.id == None)
 
 
 def find_all_ips_in_network(network_id, **conditions):
-    return _query_by(_ip_address(), **conditions).\
-        join(_ip_block()).\
-        filter(_ip_block().network_id == network_id)
+    return _query_by(ipam.models.IpAddress, **conditions).\
+        join(ipam.models.IpBlock).\
+        filter(ipam.models.IpBlock.network_id == network_id)
 
 
 def configure_db(options):
@@ -185,18 +187,6 @@ def db_upgrade(options, version=None):
 
 def db_downgrade(options, version):
     migration.downgrade(options, version)
-
-
-def _ip_nat():
-    return session.models()["ip_nat_relation"]
-
-
-def _ip_block():
-    return session.models()["IpBlock"]
-
-
-def _ip_address():
-    return session.models()["IpAddress"]
 
 
 def _delete_all(query):

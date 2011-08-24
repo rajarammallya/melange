@@ -36,7 +36,6 @@ gettext.install('melange', unicode=1)
 from melange.common import config
 from melange.common import wsgi
 from melange.db import db_api
-from melange.ipam.models import models
 
 
 def create_options(parser):
@@ -59,7 +58,6 @@ if __name__ == '__main__':
     (options, args) = config.parse_options(oparser)
     try:
         conf, app = config.load_paste_app('melange', options, args)
-        conf["models"] = models()
         db_api.configure_db(conf)
         server = wsgi.Server()
         server.start(app, options.get('port', conf['bind_port']),

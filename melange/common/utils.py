@@ -27,7 +27,6 @@ import subprocess
 import uuid
 
 from openstack.common.utils import import_class, import_object
-from melange.common import exception
 from melange.common.exception import ProcessExecutionError
 
 
@@ -104,37 +103,6 @@ def guid():
 def remove_nones(hash):
     return dict((key, value)
                for key, value in hash.iteritems() if value is not None)
-
-
-class LazyPluggable(object):
-    """A pluggable backend loaded lazily based on some value."""
-
-    def __init__(self, pivot, **backends):
-        self.__backends = backends
-        self.__pivot = pivot
-        self.__backend = None
-
-    def __get_backend(self):
-        if not self.__backend:
-            backend_name = self.__pivot.value
-            if backend_name not in self.__backends:
-                raise exception.Error('Invalid backend: %s' % backend_name)
-
-            backend = self.__backends[backend_name]
-            if type(backend) == type(tuple()):
-                name = backend[0]
-                fromlist = backend[1]
-            else:
-                name = backend
-                fromlist = backend
-
-            self.__backend = __import__(name, None, None, fromlist)
-            logging.info('backend %s', self.__backend)
-        return self.__backend
-
-    def __getattr__(self, key):
-        backend = self.__get_backend()
-        return getattr(backend, key)
 
 
 class cached_property(object):

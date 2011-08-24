@@ -17,7 +17,6 @@
 
 _ENGINE = None
 _MAKER = None
-_MODELS = None
 
 import contextlib
 import logging
@@ -27,25 +26,15 @@ from sqlalchemy.orm import sessionmaker
 
 from melange.common import config
 from melange.db.sqlalchemy import mappers
+from melange import ipam
 
 
 def configure_db(options):
     configure_sqlalchemy_log(options)
-    global _ENGINE, _MODELS
+    global _ENGINE
     if not _ENGINE:
         _ENGINE = _create_engine(options)
-
-        _MODELS = _models(_ENGINE, options)
-
-
-def _models(engine, options):
-
-    mappers.map(_ENGINE, options['models'])
-
-    models = options['models']
-    models['ip_nat_relation'] = mappers.IpNat
-
-    return models
+        mappers.map(_ENGINE, ipam.models.persisted_models())
 
 
 def configure_sqlalchemy_log(options):
@@ -65,12 +54,6 @@ def _create_engine(options):
                                 'sql_idle_timeout', type='int', default=3600)
     return create_engine(options['sql_connection'],
                                 pool_recycle=timeout)
-
-
-def models():
-    global _MODELS
-    assert _MODELS
-    return _MODELS
 
 
 def get_session(autocommit=True, expire_on_commit=False):

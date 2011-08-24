@@ -24,7 +24,6 @@ from melange import melange_etc_path
 from melange.common import config
 from melange.common.client import HTTPClient
 from melange.db import db_api
-from melange.ipam import models
 from melange.tests import BaseTest
 from melange.tests.functional.server import Server
 
@@ -51,7 +50,6 @@ def setup():
 
 def _configure_db():
     conf_file, conf = config.load_paste_config("melange", {}, None)
-    conf["models"] = models.models()
     db_api.configure_db(conf)
 
 

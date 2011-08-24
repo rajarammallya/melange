@@ -88,5 +88,4 @@ def setup():
 
     db_api.drop_db(conf)
     db_api.db_sync(conf)
-    conf["models"] = models.models()
     db_api.configure_db(conf)

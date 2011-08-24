@@ -744,7 +744,7 @@ class Network(ModelBase):
                 pass
 
 
-def models():
+def persisted_models():
     return {'IpBlock': IpBlock, 'IpAddress': IpAddress, 'Policy': Policy,
             'IpRange': IpRange, 'IpOctet': IpOctet}
 

@@ -29,7 +29,7 @@ sql_idle_timeout = 3600
 db_api_implementation = "melange.db.sqlalchemy.api"
 
 # Path to the extensions
-api_extensions_path = extensions
+api_extensions_path = melange/extensions
 
 # Cidr used for auto creating private ip block in a network
 default_cidr = 10.0.0.0/24

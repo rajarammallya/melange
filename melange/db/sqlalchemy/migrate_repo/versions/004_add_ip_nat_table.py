@@ -19,23 +19,16 @@ from sqlalchemy.schema import Column
 from sqlalchemy.schema import ForeignKey
 from sqlalchemy.schema import MetaData
 
-from melange.db.sqlalchemy.migrate_repo.schema import Boolean
 from melange.db.sqlalchemy.migrate_repo.schema import create_tables
 from melange.db.sqlalchemy.migrate_repo.schema import DateTime
 from melange.db.sqlalchemy.migrate_repo.schema import drop_tables
-from melange.db.sqlalchemy.migrate_repo.schema import from_migration_import
-from melange.db.sqlalchemy.migrate_repo.schema import Integer
 from melange.db.sqlalchemy.migrate_repo.schema import String
 from melange.db.sqlalchemy.migrate_repo.schema import Table
-from melange.db.sqlalchemy.migrate_repo.schema import Text
-from melange.ipam import models
 
 
 def define_ip_nat_table(meta):
-    (define_ip_addresses_table, ) = from_migration_import(
-        '002_add_ip_addresses_table', ['define_ip_addresses_table'])
 
-    ip_addresses = define_ip_addresses_table(meta)
+    ip_addresses = Table('ip_addresses', meta, autoload=True)
 
     ip_nats = Table('ip_nats', meta,
         Column('id', String(36), primary_key=True, nullable=False),

@@ -14,21 +14,15 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-import datetime
 from sqlalchemy.schema import Column
-from sqlalchemy.schema import ForeignKey
 from sqlalchemy.schema import MetaData
 
 from melange.db.sqlalchemy.migrate_repo.schema import Boolean
 from melange.db.sqlalchemy.migrate_repo.schema import create_tables
 from melange.db.sqlalchemy.migrate_repo.schema import DateTime
 from melange.db.sqlalchemy.migrate_repo.schema import drop_tables
-from melange.db.sqlalchemy.migrate_repo.schema import from_migration_import
-from melange.db.sqlalchemy.migrate_repo.schema import Integer
 from melange.db.sqlalchemy.migrate_repo.schema import String
 from melange.db.sqlalchemy.migrate_repo.schema import Table
-from melange.db.sqlalchemy.migrate_repo.schema import Text
-from melange.ipam import models
 
 
 def define_policy_table(meta):
@@ -37,9 +31,8 @@ def define_policy_table(meta):
         Column('id', String(36), primary_key=True, nullable=False),
         Column('name', String(255), nullable=False),
         Column('description', String(255), nullable=True),
-        Column('created_at', DateTime(),
-               default=datetime.datetime.utcnow, nullable=True),
-        Column('updated_at', DateTime(), default=datetime.datetime.utcnow),
+        Column('created_at', DateTime(), nullable=True),
+        Column('updated_at', DateTime()),
         Column('deleted', Boolean(), default=False))
     return policies
 

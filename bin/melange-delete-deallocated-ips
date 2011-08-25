@@ -15,9 +15,11 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+import gettext
 import logging
 import optparse
-import gettext
+import os
+import sys
 
 # If ../melange/__init__.py exists, add ../ to Python search path, so that
 # it will override what happens to be installed in /usr/(local/)lib/python...
@@ -29,17 +31,13 @@ if os.path.exists(os.path.join(possible_topdir, 'melange', '__init__.py')):
 
 gettext.install('melange', unicode=1)
 
-
+from melange.db import db_api
 from melange.common import config
-from melange.db import session
 from melange.ipam.models import IpBlock
-from melange.ipam.models import models
 
 
 def _configure_db_session(conf):
-    conf["models"] = models()
-    session.configure_db(conf)
-    session.configure_sqlalchemy_log(conf)
+    db_api.configure_db(conf)
 
 
 def _load_app_environment():

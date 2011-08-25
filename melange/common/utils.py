@@ -27,6 +27,7 @@ import subprocess
 import uuid
 
 from openstack.common.utils import import_class, import_object
+
 from melange.common.exception import ProcessExecutionError
 
 
@@ -59,10 +60,6 @@ def execute(cmd, process_input=None, addl_env=None, check_exit_code=True):
                                         stderr=stderr,
                                         cmd=cmd)
     return result
-
-
-def abspath(s):
-    return os.path.join(os.path.dirname(__file__), s)
 
 
 def utcnow():

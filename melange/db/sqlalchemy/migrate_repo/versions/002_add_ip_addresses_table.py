@@ -18,27 +18,21 @@ from sqlalchemy.schema import Column
 from sqlalchemy.schema import ForeignKey
 from sqlalchemy.schema import MetaData
 
-from melange.db.sqlalchemy.migrate_repo.schema import Boolean
 from melange.db.sqlalchemy.migrate_repo.schema import create_tables
 from melange.db.sqlalchemy.migrate_repo.schema import DateTime
 from melange.db.sqlalchemy.migrate_repo.schema import drop_tables
-from melange.db.sqlalchemy.migrate_repo.schema import from_migration_import
-from melange.db.sqlalchemy.migrate_repo.schema import Integer
 from melange.db.sqlalchemy.migrate_repo.schema import String
 from melange.db.sqlalchemy.migrate_repo.schema import Table
-from melange.db.sqlalchemy.migrate_repo.schema import Text
 
 
 def define_ip_addresses_table(meta):
-    (define_ip_blocks_table, ) = from_migration_import(
-        '001_add_ip_blocks_table', ['define_ip_blocks_table'])
 
-    ip_blocks = define_ip_blocks_table(meta)
+    ip_blocks = Table('ip_blocks', meta, autoload=True)
 
     ip_addresses = Table('ip_addresses', meta,
         Column('id', String(36), primary_key=True, nullable=False),
         Column('address', String(255), nullable=False),
-        Column('port_id', String(255), nullable=True),
+        Column('interface_id', String(255), nullable=True),
         Column('ip_block_id', String(36), ForeignKey('ip_blocks.id'),
                nullable=True),
         Column('created_at', DateTime(), nullable=True),

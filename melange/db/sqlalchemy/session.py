@@ -24,9 +24,9 @@ from sqlalchemy import create_engine
 from sqlalchemy import MetaData
 from sqlalchemy.orm import sessionmaker
 
+from melange import ipam
 from melange.common import config
 from melange.db.sqlalchemy import mappers
-from melange import ipam
 
 
 def configure_db(options):

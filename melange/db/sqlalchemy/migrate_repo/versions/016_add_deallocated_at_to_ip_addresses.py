@@ -14,19 +14,11 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-import datetime
 from sqlalchemy.schema import Column
 from sqlalchemy.schema import MetaData
 from sqlalchemy.schema import Table
 
-from melange.db.sqlalchemy.migrate_repo.schema import Boolean
-from melange.db.sqlalchemy.migrate_repo.schema import create_tables
 from melange.db.sqlalchemy.migrate_repo.schema import DateTime
-from melange.db.sqlalchemy.migrate_repo.schema import drop_tables
-from melange.db.sqlalchemy.migrate_repo.schema import Integer
-from melange.db.sqlalchemy.migrate_repo.schema import String
-from melange.db.sqlalchemy.migrate_repo.schema import Text
-from melange.ipam import models
 
 
 def upgrade(migrate_engine):

@@ -38,6 +38,7 @@ from webob.exc import HTTPNotFound
 from xml.dom import minidom
 
 from openstack.common.wsgi import Router, Server, Middleware
+
 from melange.common.exception import InvalidContentType
 from melange.common.exception import MelangeError
 from melange.common.utils import cached_property

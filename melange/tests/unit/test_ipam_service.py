@@ -18,32 +18,21 @@ import json
 import routes
 import string
 import unittest
-from webob.exc import HTTPBadRequest
-from webob.exc import HTTPNotFound
-from webob.exc import HTTPUnprocessableEntity
+from webob.exc import HTTPBadRequest, HTTPUnprocessableEntity, HTTPNotFound
 
-from melange.common import config
-from melange.common import utils
-from melange.common import wsgi
+from melange.common import config, utils, wsgi
 from melange.common.config import Config
 from melange.ipam import models
-from melange.ipam.models import IpAddress
-from melange.ipam.models import IpBlock
-from melange.ipam.models import IpOctet
-from melange.ipam.models import IpRange
-from melange.ipam.models import Policy
+from melange.ipam.models import (IpAddress, IpBlock, IpOctet,
+                                 IpRange, Policy)
 from melange.ipam.service import BaseController
 from melange.tests import BaseTest
-from melange.tests.factories.models import IpAddressFactory
-from melange.tests.factories.models import IpBlockFactory
-from melange.tests.factories.models import IpOctetFactory
-from melange.tests.factories.models import IpRangeFactory
-from melange.tests.factories.models import PolicyFactory
-from melange.tests.factories.models import PrivateIpBlockFactory
-from melange.tests.factories.models import PublicIpBlockFactory
-from melange.tests.unit import sanitize
-from melange.tests.unit import test_config_path
-from melange.tests.unit import TestApp
+from melange.tests.factories.models import (IpAddressFactory, IpBlockFactory,
+                                            IpOctetFactory, IpRangeFactory,
+                                            PolicyFactory,
+                                            PrivateIpBlockFactory,
+                                            PublicIpBlockFactory)
+from melange.tests.unit import sanitize, test_config_path, TestApp
 from melange.tests.unit.mock_generator import MockIpV6Generator
 
 

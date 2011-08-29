@@ -116,13 +116,10 @@ class ActionExtensionController(wsgi.Controller):
     def add_action(self, action_name, handler):
         self.action_handlers[action_name] = handler
 
-    def action(self, request, id):
-
-        input_dict = self._deserialize(request.body,
-                                       request.get_content_type())
+    def action(self, request, id, body=None):
         for action_name, handler in self.action_handlers.iteritems():
-            if action_name in input_dict:
-                return handler(input_dict, request, id)
+            if action_name in body:
+                return handler(body, request, id)
         # no action handler found (bump to downstream application)
         response = self.application
         return response
@@ -169,7 +166,7 @@ class ExtensionController(wsgi.Controller):
     def show(self, request, id):
         # NOTE(dprince): the extensions alias is used as the 'id' for show
         ext = self.extension_manager.extensions[id]
-        return self._translate(ext)
+        return dict(extension=self._translate(ext))
 
     def delete(self, request, id):
         raise webob.exc.HTTPNotFound()
@@ -196,11 +193,11 @@ class ExtensionMiddleware(wsgi.Middleware):
                 mapper.connect("/%s/:(id)/action.:(format)" %
                                 action.collection,
                                 action='action',
-                                controller=controller,
+                                controller=controller.create_resource(),
                                 conditions=dict(method=['POST']))
                 mapper.connect("/%s/:(id)/action" % action.collection,
                                 action='action',
-                                controller=controller,
+                                controller=controller.create_resource(),
                                 conditions=dict(method=['POST']))
                 action_controllers[action.collection] = controller
 
@@ -214,12 +211,12 @@ class ExtensionMiddleware(wsgi.Middleware):
                 controller = RequestExtensionController(application)
                 mapper.connect(req_ext.url_route + '.:(format)',
                                 action='process',
-                                controller=controller,
+                                controller=controller.create_resource(),
                                 conditions=req_ext.conditions)
 
                 mapper.connect(req_ext.url_route,
                                 action='process',
-                                controller=controller,
+                                controller=controller.create_resource(),
                                 conditions=req_ext.conditions)
                 request_ext_controllers[req_ext.key] = controller
 
@@ -238,7 +235,7 @@ class ExtensionMiddleware(wsgi.Middleware):
             LOG.debug(_('Extended resource: %s'),
                         resource.collection)
             mapper.resource(resource.collection, resource.collection,
-                            controller=resource.controller,
+                            controller=resource.controller.create_resource(),
                             collection=resource.collection_actions,
                             member=resource.member_actions,
                             parent_resource=resource.parent)
@@ -429,9 +426,12 @@ class ResourceExtension(object):
     """Add top level resources to the OpenStack API in melange."""
 
     def __init__(self, collection, controller, parent=None,
-                 collection_actions={}, member_actions={}):
+                 collection_actions=None, member_actions=None,
+                 deserializer=None, serializer=None):
         self.collection = collection
         self.controller = controller
         self.parent = parent
-        self.collection_actions = collection_actions
-        self.member_actions = member_actions
+        self.collection_actions = collection_actions or {}
+        self.member_actions = member_actions or {}
+        self.deserializer = deserializer
+        self.serializer = serializer

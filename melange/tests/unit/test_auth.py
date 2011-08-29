@@ -84,7 +84,8 @@ def mapper():
     mapper = routes.Mapper()
     admin_actions = ['create']
     controller = StubController(admin_actions=admin_actions)
-    mapper.resource("resource", "/resources", controller=controller)
+    mapper.resource("resource", "/resources",
+                    controller=controller.create_resource())
     return mapper
 
 

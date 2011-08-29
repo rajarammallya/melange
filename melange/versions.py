@@ -57,7 +57,8 @@ class Version(object):
 class VersionsAPI(wsgi.Router):
     def __init__(self):
         mapper = routes.Mapper()
-        mapper.connect("/", controller=VersionsController(), action="index")
+        mapper.connect("/", controller=VersionsController().create_resource(),
+                       action="index")
         super(VersionsAPI, self).__init__(mapper)
 
 

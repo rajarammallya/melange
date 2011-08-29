@@ -37,6 +37,7 @@ from webob.exc import HTTPNotAcceptable
 from webob.exc import HTTPNotFound
 from xml.dom import minidom
 
+from openstack.common import wsgi as openstack_wsgi
 from openstack.common.wsgi import Router, Server, Middleware
 
 from melange.common.exception import InvalidContentType
@@ -74,10 +75,6 @@ class VersionedURLMap(object):
 
 class Request(webob.Request):
 
-    @property
-    def deserialized_params(self):
-        return Serializer().deserialize(self.body, self.get_content_type())
-
     def best_match_content_type(self):
         """Determine the most acceptable content-type.
 
@@ -107,7 +104,7 @@ class Request(webob.Request):
             return type
         LOG.debug("Wrong Content-Type: %s" % type)
         raise webob.exc.HTTPUnsupportedMediaType(
-        _("Content type %s not supported") % type)
+            _("Content type %s not supported") % type)
 
     @cached_property
     def accept_version(self):
@@ -141,88 +138,56 @@ class Result(object):
         return serializer.serialize(self.data, serialization_type)
 
 
-class Controller(object):
-    """
-    WSGI app that reads routing information supplied by RoutesMiddleware
-    and calls the requested action method upon itself.  All action methods
-    must, in addition to their normal parameters, accept a 'req' argument
-    which is the incoming webob.Request.  They raise a webob.exc exception,
-    or return a dict which will be serialized by requested content type.
-    """
-    exception_map = {}
-    admin_actions = []
+class Resource(openstack_wsgi.Resource):
 
-    def __init__(self, admin_actions=None):
-        admin_actions = admin_actions or []
-        self.model_exception_map = self._invert_dict_list(self.exception_map)
-        self.admin_actions = admin_actions
+    def __init__(self, controller, deserializer, serializer,
+                 admin_actions=None, exception_map=None):
+        exception_map = exception_map or {}
+        self.model_exception_map = self._invert_dict_list(exception_map)
+        self.admin_actions = admin_actions or []
+        super(Resource, self).__init__(controller, deserializer, serializer)
 
     @webob.dec.wsgify(RequestClass=Request)
-    def __call__(self, req):
-        """
-        Call the method specified in req.environ by RoutesMiddleware.
-        """
-        arg_dict = req.environ['wsgiorg.routing_args'][1]
-        action = arg_dict['action']
-        method = getattr(self, action, None)
-        del arg_dict['controller']
-        del arg_dict['action']
-        arg_dict['request'] = req
+    def __call__(self, request):
+        return super(Resource, self).__call__(request)
 
-        result = self._execute_action(method, arg_dict)
-
-        if type(result) is dict:
-            result = Result(result)
-
-        if isinstance(result, Result):
-            return result.response(self._serializer(),
-                               req.best_match_content_type())
-        return result
-
-    def _execute_action(self, method, arg_dict):
-        if method is None:
-            raise HTTPNotFound
+    def execute_action(self, action, request, **action_args):
+        if getattr(self.controller, action, None) is None:
+            raise Fault(HTTPNotFound())
         try:
-            if self._method_doesnt_expect_format_arg(method):
-                arg_dict.pop('format', None)
-            return method(**arg_dict)
+            result = super(Resource, self).execute_action(action, request,
+                                                 **action_args)
+
+            if type(result) is dict:
+                result = Result(result)
+
+            return result
         except MelangeError as e:
             LOG.debug(traceback.format_exc())
             httpError = self._get_http_error(e)
-            return Fault(httpError(str(e), request=arg_dict['request']))
+            return Fault(httpError(str(e), request=request))
         except HTTPError as e:
             LOG.debug(traceback.format_exc())
             return Fault(e)
         except Exception as e:
             LOG.exception(e)
             return Fault(HTTPInternalServerError(e.message,
-                              request=arg_dict['request']))
+                              request=request))
 
-    def _method_doesnt_expect_format_arg(self, method):
-        return not 'format' in inspect.getargspec(method)[0]
+    def deserialize_request(self, action, request):
+        if request.body:
+            return dict(body=self.deserializer.deserialize(request.body,
+                                      request.get_content_type()))
+        return {}
+
+    def serialize_response(self, action, action_result, request):
+        if isinstance(action_result, Result):
+            return action_result.response(self.serializer,
+                                          request.best_match_content_type())
+        return action_result
 
     def _get_http_error(self, error):
         return self.model_exception_map.get(type(error), HTTPBadRequest)
-
-    def _serializer(self):
-        """
-        Serialize the given dict to the response type requested in request.
-        Uses self._serialization_metadata if it exists, which is a dict mapping
-        MIME types to information needed to serialize to that type.
-        """
-        _metadata = getattr(type(self), "_serialization_metadata", {})
-        return Serializer(_metadata)
-
-    def _deserialize(self, data, content_type):
-        """Deserialize the request body to the specefied content type.
-
-        Uses self._serialization_metadata if it exists, which is a dict mapping
-        MIME types to information needed to serialize to that type.
-
-        """
-        _metadata = getattr(type(self), '_serialization_metadata', {})
-        serializer = Serializer(_metadata)
-        return serializer.deserialize(data, content_type)
 
     def _invert_dict_list(self, exception_dict):
         """
@@ -234,6 +199,26 @@ class Controller(object):
             for value in value_list:
                 inverted_dict[value] = key
         return inverted_dict
+
+
+class Controller(object):
+    """
+    WSGI app that reads routing information supplied by RoutesMiddleware
+    and calls the requested action method upon itself.  All action methods
+    must, in addition to their normal parameters, accept a 'req' argument
+    which is the incoming webob.Request  They raise a webob.exc exception,
+    or return a dict which will be serialized by requested content type.
+    """
+    exception_map = {}
+    admin_actions = []
+
+    def __init__(self, admin_actions=None):
+        self.admin_actions = admin_actions or []
+
+    def create_resource(self):
+        _metadata = getattr(type(self), "_serialization_metadata", {})
+        return Resource(self, Deserializer(_metadata), Serializer(_metadata),
+                        self.admin_actions, self.exception_map)
 
 
 class Serializer(object):
@@ -304,6 +289,17 @@ class Serializer(object):
             node = doc.createTextNode(str(data))
             result.appendChild(node)
         return result
+
+
+class Deserializer(object):
+
+    def __init__(self, metadata=None):
+        """
+        Create a serializer based on the given WSGI environment.
+        'metadata' is an optional dict mapping MIME types to information
+        needed to serialize a dictionary to that type.
+        """
+        self.metadata = metadata or {}
 
     def deserialize(self, datastring, content_type):
         """Deserialize a string to a dictionary.

@@ -1,5 +1,4 @@
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
-
 # Copyright 2011 OpenStack LLC.
 # All Rights Reserved.
 #
@@ -49,12 +48,13 @@ class DummyApp(wsgi.Router):
 
     def __init__(self):
         mapper = routes.Mapper()
-        mapper.resource("resource", "/resources", controller=StubController())
+        mapper.resource("resource", "/resources",
+                                controller=StubController().create_resource())
         super(DummyApp, self).__init__(mapper)
 
 
 class StubController(BaseController):
-    def index(self, request, format=None):
+    def index(self, request):
         raise self.exception
 
 
@@ -164,7 +164,6 @@ class IpBlockControllerBase():
                   PublicIpBlockFactory(
                    **self._ip_block_args(cidr="192.3.3.3/30", network_id="1"))]
         response = self.app.get("%s" % self.ip_block_path)
-
         self.assertEqual(response.status, "200 OK")
         response_blocks = response.json['ip_blocks']
         self.assertEqual(len(response_blocks), 3)
@@ -215,14 +214,12 @@ class IpBlockControllerBase():
                   IpBlockFactory(**self._ip_block_args(cidr='10.4.1.0/28'))]
 
         blocks = models.sort(blocks)
-
         response = self.app.get("%s.xml?limit=2&marker=%s"
                                 % (self.ip_block_path, blocks[0].id))
 
         expected_next_link = string.replace(response.request.url,
                                         "marker=%s" % blocks[0].id,
                                         "marker=%s" % blocks[2].id)
-
         self.assertEqual(response.status, "200 OK")
         self.assertUrlEqual(expected_next_link,
                         response.xml.find("link").attrib["href"])
@@ -543,8 +540,8 @@ class IpAddressControllerBase(object):
         ips = [block.allocate_ip() for i in range(5)]
         block.deallocate_ip(ips[0].address)
 
-        response = self.app.put("{0}/{1}/restore".format(
-                self.address_path(block), ips[0].address))
+        response = self.app.put_json("{0}/{1}/restore".format(
+                self.address_path(block), ips[0].address), {})
 
         ip_addresses = [ip.address for ip in
                         IpAddress.find_all(ip_block_id=block.id)]
@@ -589,9 +586,9 @@ class TestTenantBasedIpAddressController(IpAddressControllerBase,
         ip_address = IpAddressFactory(ip_block_id=block.id)
         block.deallocate_ip(ip_address.address)
         self.block_path = "/ipam/tenants/111/ip_blocks"
-        response = self.app.put("%s/%s/ip_addresses/%s/restore"
+        response = self.app.put_json("%s/%s/ip_addresses/%s/restore"
                                  % (self.block_path, block.id,
-                                    ip_address.address),
+                                    ip_address.address), {},
                                  status='*')
 
         self.assertErrorResponse(response, HTTPNotFound, "IpBlock Not Found")
@@ -692,12 +689,13 @@ class TestInsideGlobalsController(BaseTestController):
         global_ip = global_block.allocate_ip()
         local_ip = local_block.allocate_ip()
 
-        response = self.app.post("/ipam/ip_blocks/%s/ip_addresses/%s/"
+        response = self.app.post_json("/ipam/ip_blocks/%s/ip_addresses/%s/"
                                  "inside_globals"
                               % (local_block.id, local_ip.address),
-                              {"ip_addresses": json.dumps(
-                                [{"ip_block_id": global_block.id,
-                                  "ip_address": global_ip.address}])})
+                              {"ip_addresses": [
+                                          {"ip_block_id": global_block.id,
+                                           "ip_address": global_ip.address}]
+                               })
 
         self.assertEqual(response.status, "200 OK")
 
@@ -814,8 +812,8 @@ class TestInsideLocalsController(BaseTestController):
             {'ip_block_id': local_block1.id, 'ip_address': "10.1.1.2"},
             {'ip_block_id': local_block2.id, 'ip_address': "10.0.0.2"},
         ]
-        request_data = {'ip_addresses': json.dumps(json_data)}
-        response = self.app.post(url % global_block.id, request_data)
+        request_data = {'ip_addresses': json_data}
+        response = self.app.post_json(url % global_block.id, request_data)
 
         self.assertEqual(response.status, "200 OK")
         ips = global_block.find_allocated_ip("169.1.1.0").inside_locals()
@@ -891,10 +889,11 @@ class UnusableIpRangesControllerBase():
         self.assertEqual(response.json, dict(ip_range=_data(unusable_range)))
 
     def test_create_on_non_existent_policy(self):
-        response = self.app.post("%s/10000/unusable_ip_ranges"
-                                 % self.policy_path,
-                                 {'ip_range': {'offset': '1', 'length': '2'}},
-                                  status="*")
+        response = self.app.post_json("%s/10000/unusable_ip_ranges"
+                                      % self.policy_path,
+                                      {'ip_range': {'offset': '1',
+                                                    'length': '2'}},
+                                      status="*")
 
         self.assertErrorResponse(response, HTTPNotFound,
                                  "Policy Not Found")
@@ -1064,7 +1063,7 @@ class TestUnusableIpRangeControllerForTenantPolicies(
         policy = PolicyFactory(tenant_id=123)
         ip_range = IpRangeFactory(policy_id=policy.id)
         self.policy_path = "/ipam/tenants/111/policies"
-        response = self.app.put("%s/%s/unusable_ip_ranges/%s"
+        response = self.app.put_json("%s/%s/unusable_ip_ranges/%s"
                                  % (self.policy_path, policy.id, ip_range.id),
                                  {'ip_range': {'offset': 1}}, status='*')
 
@@ -1350,8 +1349,8 @@ class TestPoliciesController(BaseTestController):
         self.assertEqual(response.json, dict(policy=_data(updated_policy)))
 
     def test_update_fails_for_invalid_policy_id(self):
-        response = self.app.put("/ipam/policies/invalid",
-                                {'policy': {'name': "Scrap"}}, status="*")
+        response = self.app.put_json("/ipam/policies/invalid",
+                                     {'policy': {'name': "Scrap"}}, status="*")
 
         self.assertErrorResponse(response, HTTPNotFound,
                                  "Policy Not Found")

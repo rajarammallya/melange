@@ -162,7 +162,7 @@ class ExtensionsTestApp(wsgi.Router):
         mapper = routes.Mapper()
         controller = StubController(response_body)
         mapper.resource("dummy_resource", "/dummy_resources",
-                        controller=controller)
+                        controller=controller.create_resource())
         super(ExtensionsTestApp, self).__init__(mapper)
 
 

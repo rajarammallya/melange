@@ -14,12 +14,10 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-import json
 import routes
 import webob
 from webob.exc import HTTPBadRequest
 from webob.exc import HTTPNotFound
-from webob.exc import HTTPUnsupportedMediaType
 from webtest import TestApp
 
 from melange.common import wsgi
@@ -174,34 +172,6 @@ class RequestTest(BaseTest):
         result = request.best_match_content_type()
         self.assertEqual(result, "application/json")
 
-    def test_desirializes_json_params_to_hash(self):
-        request = wsgi.Request.blank('/tests/123')
-        request.method = "POST"
-        request.body = json.dumps({'a': {'b': 1, 'c': 2}})
-        request.headers["CONTENT-TYPE"] = "application/json"
-        self.assertEqual(request.deserialized_params, {'a': {'b': 1, 'c': 2}})
-
-    def test_desirializes_xml_params_to_hash(self):
-        request = wsgi.Request.blank('/tests/123')
-        request.method = "POST"
-        request.body = """
-        <a>
-            <b>1</b>
-            <c>2</c>
-        </a>
-        """
-        request.headers["CONTENT-TYPE"] = "application/xml"
-        self.assertEqual(request.deserialized_params,
-                         {'a': {'b': "1", 'c': "2"}})
-
-    def test_desirialized_params_raises_error_for_unsupported_type(self):
-        request = wsgi.Request.blank('/tests/123')
-        request.method = "POST"
-        request.body = "a=b"
-        request.headers["CONTENT-TYPE"] = "application/unsupported"
-        self.assertRaises(HTTPUnsupportedMediaType,
-                        lambda: request.deserialized_params)
-
     def test_accept_version_for_custom_mime_type(self):
         environ = {'HTTP_ACCEPT': "application/vnd.openstack.melange+xml;"
                    "version=1.0"}
@@ -266,7 +236,7 @@ class DummyApp(wsgi.Router):
         mapper = routes.Mapper()
         controller = StubController()
         mapper.resource("resource", "/resources",
-                        controller=controller)
+                        controller=controller.create_resource())
         super(DummyApp, self).__init__(mapper)
 
 

@@ -23,12 +23,31 @@ from melange.tests.unit import test_config_path
 
 class TestVersionsController(BaseTest):
 
-    def test_versions_index(self):
+    def setUp(self):
         conf, melange_app = config.load_paste_app('versioned_melange',
                                      {"config_file": test_config_path()}, None)
-        test_app = TestApp(melange_app)
-        response = test_app.get("/")
+        self.test_app = TestApp(melange_app)
+        super(TestVersionsController, self).setUp()
+
+    def test_versions_index(self):
+        response = self.test_app.get("/")
         link = [{'href': "http://localhost/v0.1", 'rel': 'self'}]
         self.assertEqual(response.json, {'versions':
                          [{'status':'CURRENT',
                            'name': 'v0.1', 'links': link}]})
+
+    def test_versions_index_for_xml(self):
+        response = self.test_app.get("/",
+                                     headers={'Accept': "application/xml"})
+
+        self.assertEqual(response.content_type, "application/xml")
+        self.assertEqual(response.xml.tag, 'versions')
+        self.assertEqual(response.body,
+"""<versions>
+    <version name="v0.1" status="CURRENT">
+        <links>
+            <link href="http://localhost/v0.1" rel="self"/>
+        </links>
+    </version>
+</versions>
+""")

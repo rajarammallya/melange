@@ -25,6 +25,7 @@ from melange.tests import BaseTest
 
 
 class StubApp(object):
+
     def __init__(self):
         self.called = False
 
@@ -96,6 +97,7 @@ class VersionedURLMapTest(BaseTest):
 
 
 class RequestTest(BaseTest):
+
     def test_content_type_missing_defaults_to_json(self):
         request = wsgi.Request.blank('/tests/123')
         self.assertEqual(request.get_content_type(), "application/json")
@@ -250,6 +252,7 @@ class StubController(wsgi.Controller):
 
 
 class TestController(BaseTest):
+
     def test_response_content_type_matches_accept_header(self):
         app = TestApp(DummyApp())
 
@@ -277,6 +280,7 @@ class TestController(BaseTest):
 
 
 class TestFault(BaseTest):
+
     def test_fault_wraps_webob_exception(self):
         app = TestApp(wsgi.Fault(HTTPNotFound("some error")))
         response = app.get("/", status="*")
@@ -295,3 +299,29 @@ class TestFault(BaseTest):
         self.assertEqual(response.xml.attrib['code'], '400')
         self.assertEqual(response.xml.find('detail').text.strip(),
                          'some error')
+
+
+class TestResult(BaseTest):
+
+    class TestData(object):
+
+        def data_for_json(self):
+            return {'foo': "bar", 'foo2': "bar2"}
+
+        def data_for_xml(self):
+            return {'foos': [{'foo': "bar"}, {'foo2': "bar2"}]}
+
+    def test_data_returns_back_input_data(self):
+        self.assertEqual(wsgi.Result("blah").data("application/json"), "blah")
+        self.assertEqual(wsgi.Result({'x': "blah"}).data("application/json"),
+                         {'x': "blah"})
+        self.assertEqual(wsgi.Result(["x", "blah"]).data("application/xml"),
+                         ["x", "blah"])
+
+    def test_data_returns_json_specific_input_data(self):
+        self.assertEqual(wsgi.Result(self.TestData()).data("application/json"),
+                         {'foo': "bar", 'foo2': "bar2"})
+
+    def test_data_returns_xml_specific_input_data(self):
+        self.assertEqual(wsgi.Result(self.TestData()).data("application/xml"),
+                         {'foos': [{'foo': "bar"}, {'foo2': "bar2"}]})

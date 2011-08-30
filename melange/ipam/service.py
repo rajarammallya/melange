@@ -24,7 +24,6 @@ from melange.common import wsgi
 from melange.common.auth import RoleBasedAuth
 from melange.common.config import Config
 from melange.common.pagination import PaginatedDataView
-from melange.common.pagination import PaginatedResult
 from melange.common.utils import exclude
 from melange.common.utils import filter_dict
 from melange.common.utils import stringify_keys
@@ -71,8 +70,8 @@ class BaseController(wsgi.Controller):
             **self._extract_limits(request.params))
         collection = [element.data() for element in elements]
 
-        return PaginatedResult(PaginatedDataView(collection_type, collection,
-                                                 request.url, next_marker))
+        return Result(PaginatedDataView(collection_type, collection,
+                                        request.url, next_marker))
 
 
 class IpBlockController(BaseController):
@@ -346,14 +345,16 @@ class API(wsgi.Router):
                           conditions=dict(method=['DELETE']))
 
     def _policy_and_rules_mapper(self, mapper, policy_path):
+        ip_ranges_resource = UnusableIpRangesController().create_resource()
+        ip_octets_resource = UnusableIpOctetsController().create_resource()
         mapper.resource("policy", policy_path,
                         controller=PoliciesController().create_resource())
         mapper.resource("unusable_ip_range", "unusable_ip_ranges",
-                        controller=UnusableIpRangesController().create_resource(),
+                        controller=ip_ranges_resource,
                         parent_resource=dict(member_name="policy",
                                            collection_name=policy_path))
         mapper.resource("unusable_ip_octet", "unusable_ip_octets",
-                        controller=UnusableIpOctetsController().create_resource(),
+                        controller=ip_octets_resource,
                         parent_resource=dict(member_name="policy",
                                            collection_name=policy_path))
 
@@ -363,7 +364,8 @@ class API(wsgi.Router):
                         controller=block_controller)
         block_as_parent = dict(member_name="ip_block",
                             collection_path=block_resource_path)
-        self._ip_address_mapper(mapper, IpAddressController().create_resource(),
+        self._ip_address_mapper(mapper,
+                                IpAddressController().create_resource(),
                                 block_as_parent)
         self._subnet_mapper(mapper, SubnetController().create_resource(),
                                 block_as_parent)

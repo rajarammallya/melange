@@ -21,7 +21,6 @@ Utility methods for working with WSGI servers
 import datetime
 from datetime import timedelta
 import eventlet.wsgi
-import inspect
 import json
 import logging
 import paste.urlmap
@@ -92,7 +91,6 @@ class Request(webob.Request):
                   'application/vnd.openstack.melange+xml': "application/xml",
                   'application/json': "application/json",
                   'application/xml': "application/xml"}
-
         bm = self.accept.best_match(ctypes.keys())
         return ctypes.get(bm, 'application/json')
 
@@ -126,16 +124,16 @@ class Request(webob.Request):
 class Result(object):
 
     def __init__(self, data, status=200):
-        self.data = data
+        self._data = data
         self.status = status
 
-    def response(self, serializer, serialization_type):
-        serialized_data = self.serialize_data(serializer, serialization_type)
-        return Response(body=serialized_data, content_type=serialization_type,
-                        status=self.status)
-
-    def serialize_data(self, serializer, serialization_type):
-        return serializer.serialize(self.data, serialization_type)
+    def data(self, serialization_type):
+        if (serialization_type == "application/xml" and
+            hasattr(self._data, "data_for_xml")):
+            return self._data.data_for_xml()
+        if hasattr(self._data, "data_for_json"):
+            return self._data.data_for_json()
+        return self._data
 
 
 class Resource(openstack_wsgi.Resource):
@@ -153,15 +151,15 @@ class Resource(openstack_wsgi.Resource):
 
     def execute_action(self, action, request, **action_args):
         if getattr(self.controller, action, None) is None:
-            raise Fault(HTTPNotFound())
+            return Fault(HTTPNotFound())
         try:
-            result = super(Resource, self).execute_action(action, request,
-                                                 **action_args)
-
+            result = super(Resource, self).execute_action(action,
+                                                          request,
+                                                          **action_args)
             if type(result) is dict:
                 result = Result(result)
-
             return result
+
         except MelangeError as e:
             LOG.debug(traceback.format_exc())
             httpError = self._get_http_error(e)
@@ -172,22 +170,13 @@ class Resource(openstack_wsgi.Resource):
         except Exception as e:
             LOG.exception(e)
             return Fault(HTTPInternalServerError(e.message,
-                              request=request))
-
-    def deserialize_request(self, action, request):
-        if request.body:
-            return dict(body=self.deserializer.deserialize(request.body,
-                                      request.get_content_type()))
-        return {}
-
-    def serialize_response(self, action, action_result, request):
-        if isinstance(action_result, Result):
-            return action_result.response(self.serializer,
-                                          request.best_match_content_type())
-        return action_result
+                                                 request=request))
 
     def _get_http_error(self, error):
         return self.model_exception_map.get(type(error), HTTPBadRequest)
+
+    def serialize_response(self, action, action_result, request):
+        return self.dispatch(self.serializer, action, action_result, request)
 
     def _invert_dict_list(self, exception_dict):
         """
@@ -199,6 +188,34 @@ class Resource(openstack_wsgi.Resource):
             for value in value_list:
                 inverted_dict[value] = key
         return inverted_dict
+
+
+class RequestDeserializer(object):
+
+    def __init__(self, deserializer):
+        self.deserializer = deserializer
+
+    def default(self, request):
+        if request.body:
+            return dict(body=self.deserializer.deserialize(request.body,
+                                      request.get_content_type()))
+        return {}
+
+
+class ResponseSerializer(object):
+
+    def __init__(self, serializer):
+        self.serializer = serializer
+
+    def default(self, action_result, request):
+        if not isinstance(action_result, Result):
+            return action_result
+
+        content_type = request.best_match_content_type()
+        data = action_result.data(content_type)
+        serialized_data = self.serializer.serialize(data, content_type)
+        return Response(body=serialized_data, status=action_result.status,
+                        content_type=request.best_match_content_type())
 
 
 class Controller(object):
@@ -216,8 +233,8 @@ class Controller(object):
         self.admin_actions = admin_actions or []
 
     def create_resource(self):
-        _metadata = getattr(type(self), "_serialization_metadata", {})
-        return Resource(self, Deserializer(_metadata), Serializer(_metadata),
+        return Resource(self, RequestDeserializer(Deserializer()),
+                        ResponseSerializer(Serializer()),
                         self.admin_actions, self.exception_map)
 
 
@@ -285,7 +302,7 @@ class Serializer(object):
                 else:
                     node = self._to_xml_node(doc, metadata, k, v)
                     result.appendChild(node)
-        else:  # atom
+        else:
             node = doc.createTextNode(str(data))
             result.appendChild(node)
         return result

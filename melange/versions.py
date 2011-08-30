@@ -16,25 +16,18 @@
 #    under the License.
 import os
 import routes
+from xml.dom import minidom
 
-from melange.common import wsgi
+from melange.common.wsgi import (Controller,
+                                 Router, Result)
 
 
-class VersionsController(wsgi.Controller):
-
-    _serialization_metadata = {
-            "application/xml": {
-                "attributes": {
-                    "version": ["status", "name"],
-                    "link": ["rel", "href"],
-                }
-            }
-        }
+class VersionsController(Controller):
 
     def index(self, request):
         """Respond to a request for all OpenStack API versions."""
-        versions = [Version("v0.1", "CURRENT", request.application_url).data()]
-        return dict(versions=versions)
+        versions = [Version("v0.1", "CURRENT", request.application_url)]
+        return Result(VersionsDataView(versions))
 
 
 class Version(object):
@@ -53,8 +46,33 @@ class Version(object):
     def url(self):
         return os.path.join(self.base_url, self.name)
 
+    def to_xml(self):
+        doc = minidom.Document()
+        version_elem = doc.createElement("version")
+        version_elem.setAttribute("name", self.name)
+        version_elem.setAttribute("status", self.status)
+        links_elem = doc.createElement("links")
+        link_elem = doc.createElement("link")
+        link_elem.setAttribute("href", self.url())
+        link_elem.setAttribute("rel", "self")
+        links_elem.appendChild(link_elem)
+        version_elem.appendChild(links_elem)
+        return version_elem
 
-class VersionsAPI(wsgi.Router):
+
+class VersionsDataView(object):
+
+    def __init__(self, versions):
+        self.versions = versions
+
+    def data_for_json(self):
+        return {'versions': [version.data() for version in self.versions]}
+
+    def data_for_xml(self):
+        return {'versions': self.versions}
+
+
+class VersionsAPI(Router):
     def __init__(self):
         mapper = routes.Mapper()
         mapper.connect("/", controller=VersionsController().create_resource(),

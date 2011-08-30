@@ -47,15 +47,6 @@ class AtomLink(object):
         return atom_elem
 
 
-class PaginatedResult(Result):
-
-    def serialize_data(self, serializer, serialization_type):
-        data = self.data.data_for_json()
-        if serialization_type == "application/xml":
-            data = self.data.data_for_xml()
-        return serializer.serialize(data, serialization_type)
-
-
 class PaginatedDataView(object):
 
     def __init__(self, collection_type, collection, current_page_url,

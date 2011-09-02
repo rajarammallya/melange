@@ -14,6 +14,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
 import mox
 import unittest
 from urlparse import parse_qs
@@ -33,9 +34,10 @@ class BaseTest(unittest.TestCase):
         self.mock.VerifyAll()
         super(BaseTest, self).tearDown()
 
-    #This is similar to assertRaisesRegexp in python 2.7
     def assertRaisesExcMessage(self, exception, message,
                                func, *args, **kwargs):
+        """This is similar to assertRaisesRegexp in python 2.7"""
+
         try:
             func(*args, **kwargs)
             self.fail("Expected {0} to raise {1}".\
@@ -43,17 +45,17 @@ class BaseTest(unittest.TestCase):
         except exception as e:
             self.assertIn(message, e.message)
 
-    #This is similar to assertIn in python 2.7
     def assertIn(self, expected, actual):
+        """This is similar to assertIn in python 2.7"""
         self.assertTrue(expected in actual,
             "{0} does not contain {1}".format(repr(actual), repr(expected)))
 
-    #This is similar to assertIsNone in python 2.7
     def assertIsNone(self, actual):
+        """This is similar to assertIsNone in python 2.7"""
         self.assertEqual(actual, None)
 
-    #This is similar to assertIsNotNone in python 2.7
     def assertIsNotNone(self, actual):
+        """This is similar to assertIsNotNone in python 2.7"""
         self.assertNotEqual(actual, None)
 
     def assertItemsEqual(self, expected, actual):

@@ -14,13 +14,14 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
 import httplib2
 import json
 import re
-from webob.exc import HTTPForbidden
+from webob import exc
 import wsgi
 
-from melange.common.utils import import_class
+from melange.common import utils
 
 
 class AuthorizationMiddleware(wsgi.Middleware):
@@ -39,7 +40,8 @@ class AuthorizationMiddleware(wsgi.Middleware):
     @classmethod
     def factory(cls, global_config, **local_config):
         def _factory(app):
-            url_auth_factory = import_class(local_config['url_auth_factory'])
+            url_auth_factory = utils.import_class(
+                local_config['url_auth_factory'])
             return cls(app, url_auth_factory(), TenantBasedAuth(),
                        **local_config)
         return _factory
@@ -53,7 +55,7 @@ class TenantBasedAuth(object):
             return True
         match = self.tenant_scoped_url.match(request.path_info)
         if match and tenant_id != match.group('tenant_id'):
-            raise HTTPForbidden(_("User with tenant id %s cannot access "
+            raise exc.HTTPForbidden(_("User with tenant id %s cannot access "
                                   "this resource") % tenant_id)
         return True
 
@@ -68,7 +70,7 @@ class RoleBasedAuth(object):
             return True
         match = self.mapper.match(request.path_info, request.environ)
         if match and match['action'] in match['controller'].admin_actions:
-            raise HTTPForbidden(_("User with roles %s cannot access "
+            raise exc.HTTPForbidden(_("User with roles %s cannot access "
                                 "admin actions") % ', '.join(roles))
         return True
 

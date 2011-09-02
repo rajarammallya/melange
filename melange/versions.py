@@ -14,20 +14,20 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
 import os
 import routes
 from xml.dom import minidom
 
-from melange.common.wsgi import (Controller,
-                                 Router, Result)
+from melange.common import wsgi
 
 
-class VersionsController(Controller):
+class VersionsController(wsgi.Controller):
 
     def index(self, request):
         """Respond to a request for all OpenStack API versions."""
         versions = [Version("v0.1", "CURRENT", request.application_url)]
-        return Result(VersionsDataView(versions))
+        return wsgi.Result(VersionsDataView(versions))
 
 
 class Version(object):
@@ -72,7 +72,7 @@ class VersionsDataView(object):
         return {'versions': self.versions}
 
 
-class VersionsAPI(Router):
+class VersionsAPI(wsgi.Router):
     def __init__(self):
         mapper = routes.Mapper()
         mapper.connect("/", controller=VersionsController().create_resource(),

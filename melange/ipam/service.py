@@ -14,64 +14,65 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-import routes
-from webob.exc import HTTPBadRequest
-from webob.exc import HTTPConflict
-from webob.exc import HTTPNotFound
-from webob.exc import HTTPUnprocessableEntity
 
+import routes
+import webob.exc
+
+from melange.common import auth
+from melange.common import config
+from melange.common import pagination
+from melange.common import utils
 from melange.common import wsgi
-from melange.common.auth import RoleBasedAuth
-from melange.common.config import Config
-from melange.common.pagination import PaginatedDataView
-from melange.common.utils import exclude
-from melange.common.utils import filter_dict
-from melange.common.utils import stringify_keys
-from melange.common.wsgi import Result
 from melange.ipam import models
-from melange.ipam.models import IpAddress
-from melange.ipam.models import IpBlock
-from melange.ipam.models import IpOctet
-from melange.ipam.models import IpRange
-from melange.ipam.models import Network
-from melange.ipam.models import Policy
 
 
 class BaseController(wsgi.Controller):
     exclude_attr = []
-    exception_map = {HTTPUnprocessableEntity:
-                     [models.NoMoreAddressesError,
-                      models.AddressDoesNotBelongError,
-                      models.AddressLockedError],
-                     HTTPBadRequest: [models.InvalidModelError,
-                                      models.DataMissingError],
-                     HTTPNotFound: [models.ModelNotFoundError],
-                     HTTPConflict: [models.DuplicateAddressError]}
+    exception_map = {
+        webob.exc.HTTPUnprocessableEntity: [
+            models.NoMoreAddressesError,
+            models.AddressDoesNotBelongError,
+            models.AddressLockedError
+            ],
+        webob.exc.HTTPBadRequest: [
+            models.InvalidModelError,
+            models.DataMissingError
+            ],
+        webob.exc.HTTPNotFound: [
+            models.ModelNotFoundError
+            ],
+        webob.exc.HTTPConflict: [
+            models.DuplicateAddressError
+            ],
+        }
 
     def _extract_required_params(self, params,  model_name):
         params = params or {}
         model_params = params.get(model_name, {})
-        return stringify_keys(exclude(model_params, *self.exclude_attr))
+        return utils.stringify_keys(utils.exclude(model_params,
+                                                  *self.exclude_attr))
 
     def _extract_limits(self, params):
         return dict([(key, params[key]) for key in params.keys()
                      if key in ["limit", "marker"]])
 
     def _parse_ips(self, addresses):
-        return [IpBlock.find_or_allocate_ip(address["ip_block_id"],
-                                                 address["ip_address"])
-                     for address in addresses]
+        return [models.IpBlock.find_or_allocate_ip(address["ip_block_id"],
+                                                   address["ip_address"])
+                for address in addresses]
 
     def _get_addresses(self, ips):
         return dict(ip_addresses=[ip_address.data() for ip_address in ips])
 
     def _paginated_response(self, collection_type, collection_query, request):
         elements, next_marker = collection_query.paginated_collection(
-            **self._extract_limits(request.params))
+                                        **self._extract_limits(request.params))
         collection = [element.data() for element in elements]
 
-        return Result(PaginatedDataView(collection_type, collection,
-                                        request.url, next_marker))
+        return wsgi.Result(pagination.PaginatedDataView(collection_type,
+                                                        collection,
+                                                        request.url,
+                                                        next_marker))
 
 
 class IpBlockController(BaseController):
@@ -79,23 +80,23 @@ class IpBlockController(BaseController):
     exclude_attr = ['tenant_id', 'parent_id']
 
     def _find_block(self, **kwargs):
-        return IpBlock.find_by(**kwargs)
+        return models.IpBlock.find_by(**kwargs)
 
     def index(self, request, tenant_id=None):
-        type_dict = filter_dict(request.params, 'type')
-        all_blocks = IpBlock.find_all(tenant_id=tenant_id, **type_dict)
+        type_dict = utils.filter_dict(request.params, 'type')
+        all_blocks = models.IpBlock.find_all(tenant_id=tenant_id, **type_dict)
         return self._paginated_response('ip_blocks', all_blocks, request)
 
     def create(self, request, body=None, tenant_id=None):
         params = self._extract_required_params(body, 'ip_block')
-        block = IpBlock.create(tenant_id=tenant_id, **params)
-        return Result(dict(ip_block=block.data()), 201)
+        block = models.IpBlock.create(tenant_id=tenant_id, **params)
+        return wsgi.Result(dict(ip_block=block.data()), 201)
 
     def update(self, request, id, body=None, tenant_id=None):
         ip_block = self._find_block(id=id, tenant_id=tenant_id)
         params = self._extract_required_params(body, 'ip_block')
-        ip_block.update(**exclude(params, 'cidr', 'type'))
-        return Result(dict(ip_block=ip_block.data()), 200)
+        ip_block.update(**utils.exclude(params, 'cidr', 'type'))
+        return wsgi.Result(dict(ip_block=ip_block.data()), 200)
 
     def show(self, request, id, tenant_id=None):
         ip_block = self._find_block(id=id, tenant_id=tenant_id)
@@ -108,7 +109,7 @@ class IpBlockController(BaseController):
 class SubnetController(BaseController):
 
     def _find_block(self, id, tenant_id):
-        return IpBlock.find_by(id=id, tenant_id=tenant_id)
+        return models.IpBlock.find_by(id=id, tenant_id=tenant_id)
 
     def index(self, request, ip_block_id, tenant_id=None):
         ip_block = self._find_block(id=ip_block_id, tenant_id=tenant_id)
@@ -117,19 +118,21 @@ class SubnetController(BaseController):
     def create(self, request, ip_block_id, body=None, tenant_id=None):
         ip_block = self._find_block(id=ip_block_id, tenant_id=tenant_id)
         params = self._extract_required_params(body, 'subnet')
-        subnet = ip_block.subnet(**filter_dict(params, 'cidr', 'network_id',
-                                               'tenant_id'))
-        return Result(dict(subnet=subnet.data()), 201)
+        subnet = ip_block.subnet(**utils.filter_dict(params,
+                                                     'cidr',
+                                                     'network_id',
+                                                     'tenant_id'))
+        return wsgi.Result(dict(subnet=subnet.data()), 201)
 
 
 class IpAddressController(BaseController):
 
     def _find_block(self, id, tenant_id):
-        return IpBlock.find_by(id=id, tenant_id=tenant_id)
+        return models.IpBlock.find_by(id=id, tenant_id=tenant_id)
 
     def index(self, request, ip_block_id, tenant_id=None):
         ip_block = self._find_block(id=ip_block_id, tenant_id=tenant_id)
-        addresses = IpAddress.find_all(ip_block_id=ip_block.id)
+        addresses = models.IpAddress.find_all(ip_block_id=ip_block.id)
         return self._paginated_response('ip_addresses', addresses, request)
 
     def show(self, request, address, ip_block_id, tenant_id=None):
@@ -145,7 +148,7 @@ class IpAddressController(BaseController):
         params = self._extract_required_params(body, 'ip_address')
         params['tenant_id'] = tenant_id or params.get('tenant_id', None)
         ip_address = ip_block.allocate_ip(**params)
-        return Result(dict(ip_address=ip_address.data()), 201)
+        return wsgi.Result(dict(ip_address=ip_address.data()), 201)
 
     def restore(self, request, ip_block_id, address, body=None,
                 tenant_id=None):
@@ -157,67 +160,67 @@ class IpAddressController(BaseController):
 class InsideGlobalsController(BaseController):
 
     def create(self, request, ip_block_id, address, body=None,):
-        local_ip = IpBlock.find_or_allocate_ip(ip_block_id, address)
+        local_ip = models.IpBlock.find_or_allocate_ip(ip_block_id, address)
         global_ips = self._parse_ips(body["ip_addresses"])
         local_ip.add_inside_globals(global_ips)
 
     def index(self, request, ip_block_id, address):
-        ip = IpBlock.find(ip_block_id).find_allocated_ip(address)
+        ip = models.IpBlock.find(ip_block_id).find_allocated_ip(address)
         return self._get_addresses(ip.inside_globals(
                                       **self._extract_limits(request.params)))
 
     def delete(self, request, ip_block_id, address,
                inside_globals_address=None):
-        local_ip = IpBlock.find(ip_block_id).find_allocated_ip(address)
+        local_ip = models.IpBlock.find(ip_block_id).find_allocated_ip(address)
         local_ip.remove_inside_globals(inside_globals_address)
 
 
 class InsideLocalsController(BaseController):
 
     def create(self, request, ip_block_id, address, body=None):
-        global_ip = IpBlock.find_or_allocate_ip(ip_block_id, address)
+        global_ip = models.IpBlock.find_or_allocate_ip(ip_block_id, address)
         local_ips = self._parse_ips(body["ip_addresses"])
         global_ip.add_inside_locals(local_ips)
 
     def index(self, request, ip_block_id, address):
-        ip = IpBlock.find(ip_block_id).find_allocated_ip(address)
+        ip = models.IpBlock.find(ip_block_id).find_allocated_ip(address)
         return self._get_addresses(ip.inside_locals(
                                     **self._extract_limits(request.params)))
 
     def delete(self, request, ip_block_id, address,
                inside_locals_address=None):
-        global_ip = IpBlock.find(ip_block_id).find_allocated_ip(address)
+        global_ip = models.IpBlock.find(ip_block_id).find_allocated_ip(address)
         global_ip.remove_inside_locals(inside_locals_address)
 
 
 class UnusableIpRangesController(BaseController):
 
     def create(self, request, policy_id,  body=None, tenant_id=None):
-        policy = Policy.find_by(id=policy_id, tenant_id=tenant_id)
+        policy = models.Policy.find_by(id=policy_id, tenant_id=tenant_id)
         params = self._extract_required_params(body, 'ip_range')
         ip_range = policy.create_unusable_range(**params)
-        return Result(dict(ip_range=ip_range.data()), 201)
+        return wsgi.Result(dict(ip_range=ip_range.data()), 201)
 
     def show(self, request, policy_id, id, tenant_id=None):
-        ip_range = Policy.find_by(id=policy_id,
+        ip_range = models.Policy.find_by(id=policy_id,
                                   tenant_id=tenant_id).find_ip_range(id)
         return dict(ip_range=ip_range.data())
 
     def index(self, request, policy_id, tenant_id=None):
-        policy = Policy.find_by(id=policy_id,
+        policy = models.Policy.find_by(id=policy_id,
                                       tenant_id=tenant_id)
-        ip_ranges = IpRange.find_all(policy_id=policy.id)
+        ip_ranges = models.IpRange.find_all(policy_id=policy.id)
         return self._paginated_response('ip_ranges', ip_ranges, request)
 
     def update(self, request, policy_id, id,  body=None, tenant_id=None):
-        ip_range = Policy.find_by(id=policy_id,
+        ip_range = models.Policy.find_by(id=policy_id,
                                   tenant_id=tenant_id).find_ip_range(id)
         params = self._extract_required_params(body, 'ip_range')
-        ip_range.update(**exclude(params, 'policy_id'))
+        ip_range.update(**utils.exclude(params, 'policy_id'))
         return dict(ip_range=ip_range.data())
 
     def delete(self, request, policy_id, id, tenant_id=None):
-        ip_range = Policy.find_by(id=policy_id,
+        ip_range = models.Policy.find_by(id=policy_id,
                                   tenant_id=tenant_id).find_ip_range(id)
         ip_range.delete()
 
@@ -225,30 +228,30 @@ class UnusableIpRangesController(BaseController):
 class UnusableIpOctetsController(BaseController):
 
     def index(self, request, policy_id, tenant_id=None):
-        policy = Policy.find_by(id=policy_id, tenant_id=tenant_id)
-        ip_octets = IpOctet.find_all(policy_id=policy.id)
+        policy = models.Policy.find_by(id=policy_id, tenant_id=tenant_id)
+        ip_octets = models.IpOctet.find_all(policy_id=policy.id)
         return self._paginated_response('ip_octets', ip_octets, request)
 
     def create(self, request, policy_id,  body=None, tenant_id=None):
-        policy = Policy.find_by(id=policy_id, tenant_id=tenant_id)
+        policy = models.Policy.find_by(id=policy_id, tenant_id=tenant_id)
         params = self._extract_required_params(body, 'ip_octet')
         ip_octet = policy.create_unusable_ip_octet(**params)
-        return Result(dict(ip_octet=ip_octet.data()), 201)
+        return wsgi.Result(dict(ip_octet=ip_octet.data()), 201)
 
     def show(self, request, policy_id, id, tenant_id=None):
-        ip_octet = Policy.find_by(id=policy_id,
+        ip_octet = models.Policy.find_by(id=policy_id,
                                   tenant_id=tenant_id).find_ip_octet(id)
         return dict(ip_octet=ip_octet.data())
 
     def update(self, request, policy_id, id, body=None, tenant_id=None):
-        ip_octet = Policy.find_by(id=policy_id,
+        ip_octet = models.Policy.find_by(id=policy_id,
                                   tenant_id=tenant_id).find_ip_octet(id)
         params = self._extract_required_params(body, 'ip_octet')
-        ip_octet.update(**exclude(params, 'policy_id'))
+        ip_octet.update(**utils.exclude(params, 'policy_id'))
         return dict(ip_octet=ip_octet.data())
 
     def delete(self, request, policy_id, id, tenant_id=None):
-        ip_octet = Policy.find_by(id=policy_id,
+        ip_octet = models.Policy.find_by(id=policy_id,
                                   tenant_id=tenant_id).find_ip_octet(id)
         ip_octet.delete()
 
@@ -258,49 +261,51 @@ class PoliciesController(BaseController):
     exclude_attr = ['tenant_id']
 
     def index(self, request, tenant_id=None):
-        policies = Policy.find_all(tenant_id=tenant_id)
+        policies = models.Policy.find_all(tenant_id=tenant_id)
         return self._paginated_response('policies', policies, request)
 
     def show(self, request, id, tenant_id=None):
-        return dict(policy=Policy.find_by(id=id, tenant_id=tenant_id).data())
+        policy = models.Policy.find_by(id=id, tenant_id=tenant_id).data()
+        return dict(policy=policy)
 
     def create(self, request, body=None, tenant_id=None):
         params = self._extract_required_params(body, 'policy')
-        policy = Policy.create(tenant_id=tenant_id, **params)
-        return Result(dict(policy=policy.data()), 201)
+        policy = models.Policy.create(tenant_id=tenant_id, **params)
+        return wsgi.Result(dict(policy=policy.data()), 201)
 
     def update(self, request, id, body=None, tenant_id=None):
-        policy = Policy.find_by(id=id, tenant_id=tenant_id)
+        policy = models.Policy.find_by(id=id, tenant_id=tenant_id)
         policy.update(**self._extract_required_params(body, 'policy'))
         return dict(policy=policy.data())
 
     def delete(self, request, id, tenant_id=None):
-        policy = Policy.find_by(id=id, tenant_id=tenant_id)
+        policy = models.Policy.find_by(id=id, tenant_id=tenant_id)
         policy.delete()
 
 
 class NetworksController(BaseController):
     def allocate_ips(self, request, network_id, interface_id,
                      body=None, tenant_id=None):
-        network = Network.find_or_create_by(id=network_id, tenant_id=tenant_id)
-        print body
+        network = models.Network.find_or_create_by(id=network_id,
+                                                   tenant_id=tenant_id)
         params = self._extract_required_params(body, 'network')
-        options = filter_dict(params, "addresses", "mac_address", "tenant_id")
+        options = utils.filter_dict(params, "addresses", "mac_address",
+                                    "tenant_id")
         ips = network.allocate_ips(interface_id=interface_id, **options)
-        return Result(dict(ip_addresses=[ip.data(with_ip_block=True)
+        return wsgi.Result(dict(ip_addresses=[ip.data(with_ip_block=True)
                                   for ip in ips]), 201)
 
     def deallocate_ips(self, request, network_id, interface_id,
                        tenant_id=None):
-        network = Network.find_by(id=network_id, tenant_id=tenant_id)
+        network = models.Network.find_by(id=network_id, tenant_id=tenant_id)
         network.deallocate_ips(interface_id)
 
     def get_allocated_ips(self, request, network_id, interface_id,
                           tenant_id=None):
-        ip_blocks = IpBlock.find_all(network_id=network_id,
+        ip_blocks = models.IpBlock.find_all(network_id=network_id,
                                      tenant_id=tenant_id)
-        addresses = [IpAddress.find_all(interface_id=interface_id,
-                                       ip_block_id=ip_block.id)
+        addresses = [models.IpAddress.find_all(interface_id=interface_id,
+                                               ip_block_id=ip_block.id)
                      for ip_block in ip_blocks]
         return dict(ip_addresses=[item.data(with_ip_block=True)
                                   for sublist in addresses
@@ -421,11 +426,11 @@ class API(wsgi.Router):
 
 
 def UrlAuthorizationFactory():
-    return RoleBasedAuth(API().map)
+    return auth.RoleBasedAuth(API().map)
 
 
 def app_factory(global_conf, **local_conf):
     conf = global_conf.copy()
     conf.update(local_conf)
-    Config.instance = conf
+    config.Config.instance = conf
     return API()

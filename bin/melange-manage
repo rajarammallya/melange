@@ -15,6 +15,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
 import gettext
 import optparse
 import os
@@ -35,15 +36,14 @@ gettext.install('melange', unicode=1)
 
 from melange.common import config
 from melange.common import wsgi
-from melange.common.utils import MethodInspector
+from melange.common import utils
 from melange.db import db_api
 
 
 def create_options(parser):
-    """
-    Sets up the CLI and config-file options that may be
-    parsed and program commands.
+    """Sets up the CLI and config-file options
     :param parser: The option parser
+
     """
     parser.add_option('-p', '--port', dest="port", metavar="PORT",
                       type=int, default=9898,
@@ -59,7 +59,6 @@ class Commands(object):
         self.conf = conf
 
     def db_sync(self):
-        print self.conf
         db_api.db_sync(self.conf)
 
     def db_upgrade(self, version=None):
@@ -84,7 +83,7 @@ class Commands(object):
 
     def params_of(self, command_name):
         if Commands.has(command_name):
-            return MethodInspector(getattr(self, command_name))
+            return utils.MethodInspector(getattr(self, command_name))
 
 
 def usage():
@@ -115,11 +114,11 @@ if __name__ == '__main__':
         command_name = args.pop(0)
         Commands(conf).execute(command_name, *args)
         sys.exit(0)
-    except TypeError as e:
+    except TypeError:
         print _("Possible wrong number of arguments supplied")
         command_params = Commands(conf).params_of(command_name)
         print "Usage: melange-manage %s" % command_params
         sys.exit(2)
-    except Exception as e:
+    except Exception:
         print _("Command failed, please check log for more info")
         raise

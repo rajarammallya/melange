@@ -16,9 +16,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-"""
-Routines for configuring Melange
-"""
+""" Routines for configuring Melange """
+
 from openstack.common.config import (parse_options,
                                      add_log_options,
                                      add_common_options,

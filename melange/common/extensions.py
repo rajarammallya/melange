@@ -15,6 +15,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
 import imp
 import logging
 import os
@@ -177,6 +178,7 @@ class ExtensionController(wsgi.Controller):
 
 class ExtensionMiddleware(wsgi.Middleware):
     """Extensions middleware for WSGI."""
+
     @classmethod
     def factory(cls, global_config, **local_config):
         """Paste factory."""

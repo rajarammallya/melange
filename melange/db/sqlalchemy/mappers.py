@@ -14,10 +14,10 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
 from sqlalchemy import MetaData
 from sqlalchemy import Table
-from sqlalchemy.orm import mapper
-from sqlalchemy.orm import relation
+from sqlalchemy import orm
 
 
 def map(engine, models):
@@ -29,20 +29,24 @@ def map(engine, models):
     ip_ranges_table = Table('ip_ranges', meta, autoload=True)
     ip_octets_table = Table('ip_octets', meta, autoload=True)
 
-    mapper(models["IpBlock"], Table('ip_blocks', meta, autoload=True))
-    mapper(models["IpAddress"], ip_addresses_table)
-    mapper(models["Policy"], policies_table)
-    mapper(models["IpRange"], ip_ranges_table)
-    mapper(models["IpOctet"], ip_octets_table)
-    mapper(IpNat, ip_nats_table,
+    orm.mapper(models["IpBlock"], Table('ip_blocks', meta, autoload=True))
+    orm.mapper(models["IpAddress"], ip_addresses_table)
+    orm.mapper(models["Policy"], policies_table)
+    orm.mapper(models["IpRange"], ip_ranges_table)
+    orm.mapper(models["IpOctet"], ip_octets_table)
+
+    inside_global_join = (ip_nats_table.c.inside_global_address_id
+                          == ip_addresses_table.c.id)
+    inside_local_join = (ip_nats_table.c.inside_local_address_id
+                         == ip_addresses_table.c.id)
+
+    orm.mapper(IpNat, ip_nats_table,
            properties={'inside_global_address':
-                       relation(models["IpAddress"],
-                         primaryjoin=ip_nats_table.c.inside_global_address_id \
-                         == ip_addresses_table.c.id),
-                        'inside_local_address': relation(models["IpAddress"],
-                       primaryjoin=ip_nats_table.c.\
-                                     inside_local_address_id == \
-                                            ip_addresses_table.c.id)})
+                       orm.relation(models["IpAddress"],
+                                     primaryjoin=inside_global_join),
+                       'inside_local_address':
+                       orm.relation(models["IpAddress"],
+                                    primaryjoin=inside_local_join)})
 
 
 class IpNat(object):

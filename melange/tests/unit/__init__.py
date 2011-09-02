@@ -21,21 +21,17 @@ import __builtin__
 setattr(__builtin__, '_', lambda x: x)
 
 import json
-import os
-import urlparse
 import webtest
 
-from melange import melange_etc_path
+import melange
 from melange.common import config
 from melange.common import utils
 from melange.common import wsgi
-from melange.common.config import Config
 from melange.db import db_api
-from melange.ipam import models
 
 
 def test_config_path():
-    return melange_etc_path("melange.conf.test")
+    return melange.melange_etc_path("melange.conf.test")
 
 
 def sanitize(data):
@@ -49,13 +45,13 @@ class StubConfig():
         self.options = options
 
     def __enter__(self):
-        self.actual_config = Config.instance
+        self.actual_config = config.Config.instance
         temp_config = self.actual_config.copy()
         temp_config.update(self.options)
-        Config.instance = temp_config
+        config.Config.instance = temp_config
 
     def __exit__(self, exc_type, exc_value, traceback):
-        Config.instance = self.actual_config
+        config.Config.instance = self.actual_config
 
 
 class StubTime(object):
@@ -84,7 +80,8 @@ class TestApp(webtest.TestApp):
 
 def setup():
     conf_file, conf = config.load_paste_config("melange",
-                        {"config_file": test_config_path()}, None)
+                                               {"config_file":
+                                                test_config_path()}, None)
 
     db_api.drop_db(conf)
     db_api.db_sync(conf)

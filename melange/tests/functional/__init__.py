@@ -14,37 +14,38 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
 import os
 import shutil
 import socket
 import subprocess
 
-from melange import melange_bin_path
-from melange import melange_etc_path
+import melange
+from melange import tests
 from melange.common import config
-from melange.common.client import HTTPClient
+from melange.common import client
 from melange.db import db_api
-from melange.tests import BaseTest
-from melange.tests.functional.server import Server
+from melange.tests.functional import server
 
 
 _PORT = None
 
 
-class FunctionalTest(BaseTest):
+class FunctionalTest(tests.BaseTest):
 
     def setUp(self):
         super(FunctionalTest, self).setUp()
-        self.client = HTTPClient(port=get_api_port())
+        self.client = client.HTTPClient(port=get_api_port())
 
 
 def setup():
     print "Restarting melange server..."
-    shutil.copyfile(melange_etc_path("melange.conf.sample"),
+    shutil.copyfile(melange.melange_etc_path("melange.conf.sample"),
                     os.path.expanduser("~/melange.conf"))
-    server = Server("melange", melange_bin_path('melange'))
+    svr = server.Server("melange",
+                         melange.melange_bin_path('melange'))
     _db_sync()
-    server.restart(port=setup_unused_port())
+    svr.restart(port=setup_unused_port())
     _configure_db()
 
 
@@ -60,26 +61,26 @@ def _db_sync():
 
 def teardown():
     print "Stopping melange server..."
-    Server("melange", melange_bin_path('melange')).stop()
+    server.Server("melange", melange.melange_bin_path('melange')).stop()
 
 
 def execute(cmd, raise_error=True):
-    """
-    Executes a command in a subprocess. Returns a tuple
-    of (exitcode, out, err), where out is the string output
+    """Executes a command in a subprocess.
+    Returns a tuple of (exitcode, out, err), where out is the string output
     from stdout and err is the string output from stderr when
     executing the command.
 
     :param cmd: Command string to execute
     :param raise_error: If returncode is not 0 (success), then
                         raise a RuntimeError? Default: True)
+
     """
 
     env = os.environ.copy()
 
     # Make sure that we use the programs in the
     # current source directory's bin/ directory.
-    env['PATH'] = melange_bin_path() + ':' + env['PATH']
+    env['PATH'] = melange.melange_bin_path() + ':' + env['PATH']
     process = subprocess.Popen(cmd,
                                shell=True,
                                stdin=subprocess.PIPE,
@@ -99,9 +100,7 @@ def execute(cmd, raise_error=True):
 
 
 def get_unused_port():
-    """
-    Returns an unused port on localhost.
-    """
+    """Returns an unused port on localhost."""
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.bind(('localhost', 0))
     addr, port = s.getsockname()

@@ -14,6 +14,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
 from sqlalchemy import and_
 from sqlalchemy import or_
 from sqlalchemy.orm import aliased
@@ -21,8 +22,8 @@ from sqlalchemy.orm import aliased
 from melange import ipam
 from melange.common import utils
 from melange.db.sqlalchemy import migration
+from melange.db.sqlalchemy import mappers
 from melange.db.sqlalchemy import session
-from melange.db.sqlalchemy.mappers import IpNat
 
 
 def find_all_by(model, **conditions):
@@ -64,31 +65,30 @@ def update_all(model, conditions, values):
 
 
 def find_inside_globals_for(local_address_id, **kwargs):
-    marker_column = IpNat.inside_global_address_id
+    marker_column = mappers.IpNat.inside_global_address_id
     limit = kwargs.pop('limit', 200)
     marker = kwargs.pop('marker', None)
 
     kwargs["inside_local_address_id"] = local_address_id
-    query = _limits(IpNat, kwargs,
+    query = _limits(mappers.IpNat, kwargs,
                     limit, marker, marker_column)
     return [nat.inside_global_address for nat in query]
 
 
 def find_inside_locals_for(global_address_id, **kwargs):
-    marker_column = IpNat.inside_local_address_id
+    marker_column = mappers.IpNat.inside_local_address_id
     limit = kwargs.pop('limit', 200)
     marker = kwargs.pop('marker', None)
 
     kwargs["inside_global_address_id"] = global_address_id
-    query = _limits(IpNat, kwargs,
+    query = _limits(mappers.IpNat, kwargs,
                     limit, marker, marker_column)
     return [nat.inside_local_address for nat in query]
 
 
 def save_nat_relationships(nat_relationships):
-    ip_nat_table = IpNat
     for relationship in nat_relationships:
-        ip_nat = ip_nat_table()
+        ip_nat = mappers.IpNat()
         relationship['id'] = utils.guid()
         update(ip_nat, relationship)
         save(ip_nat)
@@ -98,10 +98,9 @@ def remove_inside_globals(local_address_id,
                           inside_global_address=None):
 
     def _filter_inside_global_address(natted_ips, inside_global_address):
-        return natted_ips.\
-            join((ipam.models.IpAddress,
-                 IpNat.inside_global_address_id == ipam.models.IpAddress.id)).\
-                 filter(ipam.models.IpAddress.address == inside_global_address)
+        return natted_ips.join((ipam.models.IpAddress,
+         mappers.IpNat.inside_global_address_id == ipam.models.IpAddress.id)).\
+         filter(ipam.models.IpAddress.address == inside_global_address)
 
     remove_natted_ips(_filter_inside_global_address,
                       inside_global_address,
@@ -112,18 +111,16 @@ def remove_inside_locals(global_address_id,
                          inside_local_address=None):
 
     def _filter_inside_local_address(natted_ips, inside_local_address):
-        return natted_ips.\
-            join((ipam.models.IpAddress,
-                  IpNat.inside_local_address_id == ipam.models.IpAddress.id)).\
-                  filter(ipam.models.IpAddress.address == inside_local_address)
+        return natted_ips.join((ipam.models.IpAddress,
+          mappers.IpNat.inside_local_address_id == ipam.models.IpAddress.id)).\
+          filter(ipam.models.IpAddress.address == inside_local_address)
 
     remove_natted_ips(_filter_inside_local_address,
-                          inside_local_address,
-                          inside_global_address_id=global_address_id)
+                      inside_local_address,
+                      inside_global_address_id=global_address_id)
 
 
-def remove_natted_ips(_filter_by_natted_address,
-                      natted_address, **kwargs):
+def remove_natted_ips(_filter_by_natted_address, natted_address, **kwargs):
     natted_ips = find_natted_ips(**kwargs)
     if natted_address != None:
         natted_ips = _filter_by_natted_address(natted_ips, natted_address)
@@ -132,8 +129,7 @@ def remove_natted_ips(_filter_by_natted_address,
 
 
 def find_natted_ips(**kwargs):
-    return _base_query(IpNat).\
-                 filter_by(**kwargs)
+    return _base_query(mappers.IpNat).filter_by(**kwargs)
 
 
 def find_all_blocks_with_deallocated_ips():
@@ -208,6 +204,6 @@ def _query_by(cls, **conditions):
 def _limits(cls, conditions, limit, marker, marker_column=None):
     query = _query_by(cls, **conditions)
     marker_column = marker_column or cls.id
-    if (marker is not None):
+    if marker is not None:
         query = query.filter(marker_column > marker)
     return query.order_by(marker_column).limit(limit)

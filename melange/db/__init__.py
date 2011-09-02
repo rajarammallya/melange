@@ -14,25 +14,26 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
 import optparse
 
 from melange.common import utils
-from melange.common.config import Config
+from melange.common import config
 
 
-db_api = utils.import_object(Config.get("db_api_implementation",
-                                        "melange.db.sqlalchemy.api"))
+db_api = utils.import_object(config.Config.get("db_api_implementation",
+                                               "melange.db.sqlalchemy.api"))
 
 
 def add_options(parser):
-    """
-    Adds any configuration options that the db layer might have.
+    """Adds any configuration options that the db layer might have.
 
     :param parser: An optparse.OptionParser object
     :retval None
+
     """
     help_text = "The following configuration options are specific to the "\
-                "Melange image registry database."
+                "Melange database."
 
     group = optparse.OptionGroup(parser, "Registry Database Options",
                                  help_text)

@@ -14,36 +14,37 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
 import unittest
 
-from melange.common.config import Config
-from melange.tests.unit import StubConfig
+from melange.common import config
+from melange.tests import unit
 
 
 class TestConfig(unittest.TestCase):
 
     def setUp(self):
-        Config.instance = {'foo': "bar", 'rab': 'oof'}
+        config.Config.instance = {'foo': "bar", 'rab': 'oof'}
 
     def test_get_existing_key(self):
-        self.assertEqual(Config.get('foo'), "bar")
+        self.assertEqual(config.Config.get('foo'), "bar")
 
     def test_get_non_existing_key(self):
-        self.assertEqual(Config.get('baz'), None)
+        self.assertEqual(config.Config.get('baz'), None)
 
     def test_get_non_existing_key_with_default(self):
-        self.assertEqual(Config.get('baz', "qux"), "qux")
+        self.assertEqual(config.Config.get('baz', "qux"), "qux")
 
     def test_stub_config(self):
-        with(StubConfig(foo="baz")):
-            self.assertEqual(Config.get('foo'), "baz")
+        with(unit.StubConfig(foo="baz")):
+            self.assertEqual(config.Config.get('foo'), "baz")
 
-        self.assertEqual(Config.get('foo'), "bar")
+        self.assertEqual(config.Config.get('foo'), "bar")
 
     def test_stub_config_retains_other_values(self):
-        with(StubConfig(foo="baz")):
-            self.assertEqual(Config.get('foo'), "baz")
-            self.assertEqual(Config.get('rab'), "oof")
+        with(unit.StubConfig(foo="baz")):
+            self.assertEqual(config.Config.get('foo'), "baz")
+            self.assertEqual(config.Config.get('rab'), "oof")
 
-        self.assertEqual(Config.get('foo'), "bar")
-        self.assertEqual(Config.get('rab'), "oof")
+        self.assertEqual(config.Config.get('foo'), "bar")
+        self.assertEqual(config.Config.get('rab'), "oof")

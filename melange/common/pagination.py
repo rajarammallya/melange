@@ -14,16 +14,15 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
 import urllib
 import urlparse
 from xml.dom import minidom
 
-from melange.common.utils import merge_dicts
-from melange.common.wsgi import Result
+from melange.common import utils
 
 
 class AtomLink(object):
-    """An atom link"""
 
     def __init__(self, rel, href, link_type=None, hreflang=None, title=None):
         self.rel = rel
@@ -61,7 +60,8 @@ class PaginatedDataView(object):
         if self._links():
             links_key = self.collection_type + "_links"
             links_dict[links_key] = self._links()
-        return merge_dicts({self.collection_type: self.collection}, links_dict)
+        return utils.merge_dicts({self.collection_type: self.collection},
+                                 links_dict)
 
     def data_for_xml(self):
         atom_links = [AtomLink(link['rel'], link['href'])
@@ -91,7 +91,8 @@ class AppUrl(object):
     def change_query_params(self, **kwargs):
         parsed_url = urlparse.urlparse(self.url)
         query_params = dict(urlparse.parse_qsl(parsed_url.query))
-        new_query_params = urllib.urlencode(merge_dicts(query_params, kwargs))
+        new_query_params = urllib.urlencode(utils.merge_dicts(query_params,
+                                                              kwargs))
         return self.__class__(
             urlparse.ParseResult(parsed_url.scheme,
                                  parsed_url.netloc, parsed_url.path,

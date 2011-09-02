@@ -15,9 +15,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-"""
-System-level utilities and helper functions.
-"""
+""" System-level utilities and helper functions."""
 
 import datetime
 import inspect
@@ -28,7 +26,7 @@ import uuid
 
 from openstack.common.utils import import_class, import_object
 
-from melange.common.exception import ProcessExecutionError
+from melange.common import exception
 
 
 def parse_int(subject):
@@ -55,10 +53,10 @@ def execute(cmd, process_input=None, addl_env=None, check_exit_code=True):
         logging.debug("Result was %s" % (obj.returncode))
         if check_exit_code and obj.returncode != 0:
             (stdout, stderr) = result
-            raise ProcessExecutionError(exit_code=obj.returncode,
-                                        stdout=stdout,
-                                        stderr=stderr,
-                                        cmd=cmd)
+            raise exception.ProcessExecutionError(exit_code=obj.returncode,
+                                                  stdout=stdout,
+                                                  stderr=stderr,
+                                                  cmd=cmd)
     return result
 
 
@@ -103,10 +101,10 @@ def remove_nones(hash):
 
 
 class cached_property(object):
-    """
+    """A decorator that converts a function into a lazy property.
+
     Taken from : https://github.com/nshah/python-memoize
-    A decorator that converts a function into a lazy property. The
-    function wrapped is called the first time to retrieve the result
+    The function wrapped is called the first time to retrieve the result
     and than that calculated result is used the next time you access
     the value::
 

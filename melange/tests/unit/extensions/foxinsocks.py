@@ -14,6 +14,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
 import json
 
 from melange.common import extensions
@@ -54,10 +55,12 @@ class Foxinsocks(object):
         return resources
 
     def get_actions(self):
-        return  [extensions.ActionExtension('dummy_resources', 'add_tweedle',
+        return  [extensions.ActionExtension('dummy_resources',
+                                            'add_tweedle',
                                             self._add_tweedle),
                  extensions.ActionExtension('dummy_resources',
-                                       'delete_tweedle', self._delete_tweedle)]
+                                            'delete_tweedle',
+                                            self._delete_tweedle)]
 
     def get_request_extensions(self):
         request_exts = []

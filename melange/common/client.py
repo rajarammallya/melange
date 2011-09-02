@@ -14,6 +14,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
 import httplib
 import socket
 import urllib
@@ -59,6 +60,6 @@ class HTTPClient(object):
             connection.request(method, url, body, headers)
             response = connection.getresponse()
             return response
-        except (socket.error, IOError), e:
+        except (socket.error, IOError) as error:
             raise Exception(_("Unable to connect to "
-                            "server. Got error: %s") % e)
+                            "server. Got error: %s") % error)

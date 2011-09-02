@@ -15,6 +15,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
 import gettext
 import optparse
 import os
@@ -38,10 +39,10 @@ from melange.db import db_api
 
 
 def create_options(parser):
-    """
-    Sets up the CLI and config-file options that may be
-    parsed and program commands.
+    """Sets up the CLI and config-file options
+
     :param parser: The option parser
+    
     """
     parser.add_option('-p', '--port', dest="port", metavar="PORT",
                       type=int, default=9898,

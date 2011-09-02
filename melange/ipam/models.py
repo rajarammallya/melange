@@ -15,9 +15,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-"""
-SQLAlchemy models for Melange data
-"""
+""" Model classes that form the core of ipam functionality """
 
 import netaddr
 from datetime import timedelta
@@ -25,11 +23,9 @@ from netaddr.strategy.ipv6 import ipv6_verbose
 from openstack.common.utils import bool_from_string
 
 from melange.common import utils
-from melange.common.config import Config
-from melange.common.exception import MelangeError
-from melange.common.utils import cached_property
-from melange.common.utils import exclude
-from melange.common.utils import find
+from melange.common import config
+from melange.common import exception
+from melange.common import utils
 from melange.db import db_api
 
 
@@ -179,7 +175,7 @@ class ModelBase(object):
             self[k] = v
 
     def update(self, **values):
-        attrs = exclude(values, *self._auto_generated_attrs)
+        attrs = utils.exclude(values, *self._auto_generated_attrs)
         self.merge_attributes(attrs)
         return self.save()
 
@@ -242,7 +238,8 @@ class ModelBase(object):
 def ipv6_address_generator_factory(cidr, **kwargs):
     default_generator = "melange.ipv6.tenant_based_generator."\
                         "TenantBasedIpV6Generator"
-    ip_generator_class_name = Config.get("ipv6_generator", default_generator)
+    ip_generator_class_name = config.Config.get("ipv6_generator",
+                                                default_generator)
     ip_generator = utils.import_class(ip_generator_class_name)
     required_params = ip_generator.required_params\
         if hasattr(ip_generator, "required_params") else []
@@ -330,7 +327,7 @@ class IpBlock(ModelBase):
     def addresses(self):
         return IpAddress.find_all(ip_block_id=self.id).all()
 
-    @cached_property
+    @utils.cached_property
     def parent(self):
         return IpBlock.get(self.parent_id)
 
@@ -338,7 +335,7 @@ class IpBlock(ModelBase):
         tenant_id = kwargs.get('tenant_id', None)
         if self.tenant_id and tenant_id and self.tenant_id != tenant_id:
             raise InvalidTenantError(_("Cannot allocate ip address "
-                                            "from differnt tenant's block"))
+                                       "from differnt tenant's block"))
         if self.subnets():
             raise IpAllocationNotAllowedError(
                 _("Non Leaf block can not allocate IPAddress"))
@@ -354,7 +351,8 @@ class IpBlock(ModelBase):
             self.update(is_full=True)
             raise NoMoreAddressesError(_("IpBlock is full"))
 
-        return IpAddress.create(address=address, interface_id=interface_id,
+        return IpAddress.create(address=address,
+                                interface_id=interface_id,
                                 ip_block_id=self.id)
 
     def _generate_ip_address(self, **kwargs):
@@ -362,8 +360,9 @@ class IpBlock(ModelBase):
             address_generator = ipv6_address_generator_factory(self.cidr,
                                                                **kwargs)
 
-            return find(lambda address: self.get_address(address) is None,
-                                IpAddressIterator(address_generator))
+            return utils.find(lambda address:
+                              self.get_address(address) is None,
+                              IpAddressIterator(address_generator))
         else:
             #TODO: very inefficient way to generate ips,
             #will look at better algos for this
@@ -416,7 +415,8 @@ class IpBlock(ModelBase):
             deallocated_by=self._deallocated_by_date(), ip_block_id=self.id)
 
     def _deallocated_by_date(self):
-        days_to_keep_ips = Config.get('keep_deallocated_ips_for_days', 2)
+        days_to_keep_ips = config.Config.get('keep_deallocated_ips_for_days',
+                                             2)
         return utils.utcnow() - timedelta(days=days_to_keep_ips)
 
     def subnet(self, cidr, network_id=None, tenant_id=None):
@@ -533,8 +533,8 @@ class IpBlock(ModelBase):
 
     def _before_save(self):
         self.gateway = self.gateway or str(netaddr.IPNetwork(self.cidr)[1])
-        self.dns1 = self.dns1 or Config.get("dns1")
-        self.dns2 = self.dns2 or Config.get("dns2")
+        self.dns1 = self.dns1 or config.Config.get("dns1")
+        self.dns2 = self.dns2 or config.Config.get("dns2")
 
 
 class IpAddress(ModelBase):
@@ -631,11 +631,11 @@ class Policy(ModelBase):
         attributes['policy_id'] = self.id
         return IpOctet.create(**attributes)
 
-    @cached_property
+    @utils.cached_property
     def unusable_ip_ranges(self):
         return IpRange.find_all(policy_id=self.id).all()
 
-    @cached_property
+    @utils.cached_property
     def unusable_ip_octets(self):
         return IpOctet.find_all(policy_id=self.id).all()
 
@@ -698,7 +698,7 @@ class Network(ModelBase):
         try:
             return cls.find_by(id=id, tenant_id=tenant_id)
         except ModelNotFoundError:
-            ip_block = IpBlock.create(cidr=Config.get('default_cidr'),
+            ip_block = IpBlock.create(cidr=config.Config.get('default_cidr'),
                                       network_id=id, tenant_id=tenant_id,
                                       type="private")
             return cls(id=id, ip_blocks=[ip_block])
@@ -749,61 +749,61 @@ def persisted_models():
             'IpRange': IpRange, 'IpOctet': IpOctet}
 
 
-class NoMoreAddressesError(MelangeError):
+class NoMoreAddressesError(exception.MelangeError):
 
     def _error_message(self):
         return _("no more addresses")
 
 
-class DuplicateAddressError(MelangeError):
+class DuplicateAddressError(exception.MelangeError):
 
     def _error_message(self):
         return _("Address is already allocated")
 
 
-class AddressDoesNotBelongError(MelangeError):
+class AddressDoesNotBelongError(exception.MelangeError):
 
     def _error_message(self):
         return _("Address does not belong here")
 
 
-class AddressLockedError(MelangeError):
+class AddressLockedError(exception.MelangeError):
 
     def _error_message(self):
         return _("Address is locked")
 
 
-class ModelNotFoundError(MelangeError):
+class ModelNotFoundError(exception.MelangeError):
 
     def _error_message(self):
         return _("Not Found")
 
 
-class DataMissingError(MelangeError):
+class DataMissingError(exception.MelangeError):
 
     def _error_message(self):
         return _("Data Missing")
 
 
-class AddressDisallowedByPolicyError(MelangeError):
+class AddressDisallowedByPolicyError(exception.MelangeError):
 
     def _error_message(self):
         return _("Policy does not allow this address")
 
 
-class IpAllocationNotAllowedError(MelangeError):
+class IpAllocationNotAllowedError(exception.MelangeError):
 
     def _error_message(self):
         return _("Ip Block can not allocate address")
 
 
-class InvalidTenantError(MelangeError):
+class InvalidTenantError(exception.MelangeError):
 
     def _error_message(self):
         return _("Cannot access other tenant's block")
 
 
-class InvalidModelError(MelangeError):
+class InvalidModelError(exception.MelangeError):
 
     def __init__(self, errors, message=None):
         self.errors = errors

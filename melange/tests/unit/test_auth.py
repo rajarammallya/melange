@@ -14,19 +14,17 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
 import httplib2
 import json
 from mox import IgnoreArg
 import routes
 import webob
-from webob.exc import HTTPForbidden
+import webob.exc
 
 from melange.common import auth
 from melange.common import wsgi
-from melange.common.auth import TenantBasedAuth
-from melange.common.auth import KeystoneClient
-from melange.ipam.service import RoleBasedAuth
-from melange.tests import BaseTest
+from melange import tests
 
 
 class MiddlewareTestApp(object):
@@ -39,7 +37,7 @@ class MiddlewareTestApp(object):
         self.was_called = True
 
 
-class TestAuthMiddleware(BaseTest):
+class TestAuthMiddleware(tests.BaseTest):
 
     def setUp(self):
         super(TestAuthMiddleware, self).setUp()
@@ -56,10 +54,10 @@ class TestAuthMiddleware(BaseTest):
         self.auth_provider1.authorize(self.request, "tenant_id", ['Member']).\
             AndReturn(True)
         self.auth_provider2.authorize(self.request, "tenant_id", ['Member']).\
-            AndRaise(HTTPForbidden("Auth Failed"))
+            AndRaise(webob.exc.HTTPForbidden("Auth Failed"))
         self.mock.ReplayAll()
 
-        self.assertRaisesExcMessage(HTTPForbidden, "Auth Failed",
+        self.assertRaisesExcMessage(webob.exc.HTTPForbidden, "Auth Failed",
                                     self.auth_middleware, self.request)
 
     def test_authorizes_based_on_auth_providers(self):
@@ -98,11 +96,11 @@ class StubController(wsgi.Controller):
         pass
 
 
-class TestRoleBasedAuth(BaseTest):
+class TestRoleBasedAuth(tests.BaseTest):
 
     def setUp(self):
         super(TestRoleBasedAuth, self).setUp()
-        self.auth_provider = RoleBasedAuth(mapper())
+        self.auth_provider = auth.RoleBasedAuth(mapper())
         self.request = webob.Request.blank("/resources")
 
     def test_authorizes_admin_accessing_admin_actions(self):
@@ -115,13 +113,16 @@ class TestRoleBasedAuth(BaseTest):
     def test_forbids_non_admin_accessing_admin_actions(self):
         self.request.method = "POST"
 
-        self.assertRaises(HTTPForbidden, self.auth_provider.authorize,
+        self.assertRaises(webob.exc.HTTPForbidden,
+                          self.auth_provider.authorize,
                           self.request, tenant_id='foo', roles=[])
 
         msg = "User with roles Member, Viewer cannot access admin actions"
-        self.assertRaisesExcMessage(HTTPForbidden, msg,
+        self.assertRaisesExcMessage(webob.exc.HTTPForbidden,
+                                    msg,
                                     self.auth_provider.authorize,
-                                    self.request, tenant_id='foo',
+                                    self.request,
+                                    tenant_id='foo',
                                     roles=['Member', 'Viewer'])
 
     def test_authorizes_any_user_accessing_unrestricted_url(self):
@@ -138,11 +139,11 @@ class TestRoleBasedAuth(BaseTest):
                                                      roles=[]))
 
 
-class TestTenantBasedAuth(BaseTest):
+class TestTenantBasedAuth(tests.BaseTest):
 
     def setUp(self):
         super(TestTenantBasedAuth, self).setUp()
-        self.auth_provider = TenantBasedAuth()
+        self.auth_provider = auth.TenantBasedAuth()
 
     def test_authorizes_tenant_accessing_its_own_resources(self):
         request = webob.Request.blank("/tenants/1/resources")
@@ -153,9 +154,11 @@ class TestTenantBasedAuth(BaseTest):
     def test_tenant_accessing_other_tenants_resources_is_unauthorized(self):
         request = webob.Request.blank("/tenants/1/resources")
         expected_msg = "User with tenant id blah cannot access this resource"
-        self.assertRaisesExcMessage(HTTPForbidden, expected_msg,
+        self.assertRaisesExcMessage(webob.exc.HTTPForbidden,
+                                    expected_msg,
                                     self.auth_provider.authorize,
-                                    request, tenant_id="blah",
+                                    request,
+                                    tenant_id="blah",
                                     roles=["Member"])
 
     def test_authorizes_tenant_accessing_resources_not_scoped_by_tenant(self):
@@ -184,23 +187,25 @@ class TestTenantBasedAuth(BaseTest):
                                                      roles=["Admin"]))
 
 
-class TestKeyStoneClient(BaseTest):
+class TestKeyStoneClient(tests.BaseTest):
 
     def test_get_token_doesnot_call_auth_service_when_token_is_given(self):
         url = "http://localhost:5001"
-        client = KeystoneClient(url, "username", "access_key", "auth_token")
+        client = auth.KeystoneClient(url, "username", "access_key",
+                                     "auth_token")
         self.mock.StubOutWithMock(client, "request")
 
         self.assertEqual(client.get_token(), "auth_token")
 
     def test_get_token_calls_auth_service_when_token_is_not_given(self):
         url = "http://localhost:5001"
-        client = KeystoneClient(url, "username", "access_key", auth_token=None)
+        client = auth.KeystoneClient(url, "username", "access_key",
+                                     auth_token=None)
 
         self.mock.StubOutWithMock(client, "request")
         request_body = json.dumps({"passwordCredentials":
-                                       {"username": "username",
-                                        'password': "access_key"}})
+                                   {"username": "username",
+                                    'password': "access_key"}})
 
         response_body = json.dumps({'auth': {'token': {'id': "auth_token"}}})
         res = httplib2.Response(dict(status='200'))
@@ -212,7 +217,7 @@ class TestKeyStoneClient(BaseTest):
 
     def test_raises_error_when_retreiveing_token_fails(self):
         url = "http://localhost:5001"
-        client = KeystoneClient(url, None, "access_key", auth_token=None)
+        client = auth.KeystoneClient(url, None, "access_key", auth_token=None)
         self.mock.StubOutWithMock(client, "request")
         res = httplib2.Response(dict(status='401'))
         response_body = "Failed to get token"

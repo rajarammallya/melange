@@ -13,15 +13,16 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
 import json
 import routes
 import unittest
-from webtest import TestApp
+import webtest
 
 from melange.common import config
 from melange.common import extensions
 from melange.common import wsgi
-from melange.tests.unit import test_config_path
+from melange.tests import unit
 
 
 response_body = "Try to say this Mr. Knox, sir..."
@@ -149,10 +150,11 @@ class TestExtensionMiddlewareFactory(unittest.TestCase):
 
     def test_app_configured_with_extensions_as_filter(self):
         conf, melange_app = config.load_paste_app('extensions_app_with_filter',
-                                           {"config_file": test_config_path()},
-                                           None)
+                                                  {"config_file":
+                                                   unit.test_config_path()},
+                                                  None)
 
-        response = TestApp(melange_app).get("/extensions")
+        response = webtest.TestApp(melange_app).get("/extensions")
         self.assertEqual(response.status_int, 200)
 
 
@@ -185,11 +187,11 @@ def app_factory(global_conf, **local_conf):
 
 
 def setup_extensions_test_app(extension_manager=None):
-    options = {'config_file': test_config_path(),
+    options = {'config_file': unit.test_config_path(),
                'extension_manager': extension_manager}
     conf, app = config.load_paste_app('extensions_test_app', options, None)
     extended_app = extensions.ExtensionMiddleware(app, conf, extension_manager)
-    return TestApp(extended_app)
+    return webtest.TestApp(extended_app)
 
 
 class StubExtensionManager(object):

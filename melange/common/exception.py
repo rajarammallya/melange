@@ -15,17 +15,13 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-"""
-Nova base exception handling, including decorator for re-raising
-Nova-type exceptions. SHOULD include dedicated exception logging.
-"""
-
 from openstack.common.exception import (Error, ProcessExecutionError,
                                         DatabaseMigrationError,
                                         InvalidContentType)
 
 
 class MelangeError(Error):
+    """Base exception that all custom melange app exceptions inherit from"""
 
     def __init__(self, message=None):
         super(MelangeError, self).__init__(message or self._error_message())

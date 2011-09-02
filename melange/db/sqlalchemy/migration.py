@@ -14,6 +14,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
 import logging
 import os
 
@@ -36,12 +37,13 @@ def db_version(options):
 
     :param options: options dict
     :retval version number
+
     """
     repo_path = get_migrate_repo_path()
     sql_connection = options['sql_connection']
     try:
         return versioning_api.db_version(sql_connection, repo_path)
-    except versioning_exceptions.DatabaseNotControlledError, e:
+    except versioning_exceptions.DatabaseNotControlledError:
         msg = ("database '%(sql_connection)s' is not under migration control"
                % locals())
         raise exception.DatabaseMigrationError(msg)
@@ -53,6 +55,7 @@ def upgrade(options, version=None):
     :param options: options dict
     :param version: version to upgrade (defaults to latest)
     :retval version number
+
     """
     db_version(options)  # Ensure db is under migration control
     repo_path = get_migrate_repo_path()
@@ -69,6 +72,7 @@ def downgrade(options, version):
     :param options: options dict
     :param version: version to downgrade to
     :retval version number
+
     """
     db_version(options)  # Ensure db is under migration control
     repo_path = get_migrate_repo_path()
@@ -82,11 +86,12 @@ def version_control(options):
     """Place a database under migration control
 
     :param options: options dict
+
     """
     sql_connection = options['sql_connection']
     try:
         _version_control(options)
-    except versioning_exceptions.DatabaseAlreadyControlledError, e:
+    except versioning_exceptions.DatabaseAlreadyControlledError:
         msg = ("database '%(sql_connection)s' is already under migration "
                "control" % locals())
         raise exception.DatabaseMigrationError(msg)
@@ -96,6 +101,7 @@ def _version_control(options):
     """Place a database under migration control
 
     :param options: options dict
+
     """
     repo_path = get_migrate_repo_path()
     sql_connection = options['sql_connection']
@@ -107,10 +113,11 @@ def db_sync(options, version=None):
 
     :param options: options dict
     :retval version number
+
     """
     try:
         _version_control(options)
-    except versioning_exceptions.DatabaseAlreadyControlledError, e:
+    except versioning_exceptions.DatabaseAlreadyControlledError:
         pass
 
     upgrade(options, version=version)
@@ -118,6 +125,7 @@ def db_sync(options, version=None):
 
 def get_migrate_repo_path():
     """Get the path for the migrate repository."""
+
     path = os.path.join(os.path.abspath(os.path.dirname(__file__)),
                         'migrate_repo')
     assert os.path.exists(path)

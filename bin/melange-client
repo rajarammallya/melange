@@ -15,9 +15,9 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-"""
-  CLI interface for IPAM.
-"""
+
+""" CLI interface for IPAM. """
+
 import gettext
 import optparse
 import os
@@ -35,20 +35,17 @@ if os.path.exists(os.path.join(possible_topdir, 'melange', '__init__.py')):
 gettext.install("melange", unicode=1)
 
 from melange import version
-from melange.common.auth import KeystoneClient
-from melange.common.client import HTTPClient
-from melange.common.utils import MethodInspector
-from melange.ipam.client import (IpBlockClient, SubnetClient, PolicyClient,
-                                 UnusableIpOctetsClient,
-                                 UnusableIpRangesClient)
+from melange.common import auth
+from melange.common import client as base_client
+from melange.common import utils
+from melange.ipam import client
 
 
 def create_options(parser):
-    """
-    Sets up the CLI and config-file options that may be
-    parsed and program commands.
+    """Sets up the CLI and config-file options
 
     :param parser: The option parser
+
     """
     parser.add_option('-v', '--verbose', default=False, action="store_true",
                       help="Print more verbose output")
@@ -84,11 +81,11 @@ def create_options(parser):
 
 
 def parse_options(parser, cli_args):
-    """
-    Returns the parsed CLI options, command to run and its arguments, merged
+    """Returns parsed CLI options, command to run and its arguments, merged
     with any same-named options found in a configuration file
 
     :param parser: The option parser
+
     """
     (options, args) = parser.parse_args(cli_args)
     if not args:
@@ -106,12 +103,16 @@ Available categories:
     """
     for k, _v in categories.iteritems():
         usage = usage + ("\t%s\n" % k)
-    return usage
+    return usage.strip()
 
 
-categories = dict(ip_block=IpBlockClient, subnet=SubnetClient,
-                 policy=PolicyClient, unusable_ip_range=UnusableIpRangesClient,
-                 unusable_ip_octet=UnusableIpOctetsClient)
+categories = {
+    'ip_block':client.IpBlockClient,
+    'subnet':client.SubnetClient,
+    'policy':client.PolicyClient,
+    'unusable_ip_range':client.UnusableIpRangesClient,
+    'unusable_ip_octet':client.UnusableIpOctetsClient,
+}
 
 
 def lookup(name, hash):
@@ -130,8 +131,12 @@ def print_keys(hash):
 
 
 def methods_of(obj):
-    """Get all callable methods of an object that don't start with underscore
-    returns a list of tuples of the form (method_name, method)"""
+    """Gets callable public methods.
+
+    Get all callable methods of an object that don't start with underscore
+    returns a dictionary of the form dict(method_name, method)
+
+    """
 
     def is_public_method(attr):
         return callable(getattr(obj, attr)) and not attr.startswith('_')
@@ -143,15 +148,19 @@ def methods_of(obj):
 def main():
     oparser = optparse.OptionParser(version='%%prog %s'
                                     % version.version_string(),
-                                    usage=usage().strip())
+                                    usage=usage())
     create_options(oparser)
     (options, args) = parse_options(oparser, sys.argv[1:])
 
     script_name = os.path.basename(sys.argv[0])
     category = args.pop(0)
-    http_client = HTTPClient(options.host, options.port, options.timeout)
-    auth_client = KeystoneClient(options.auth_url, options.username,
-                                      options.api_key, options.auth_token)
+    http_client = base_client.HTTPClient(options.host,
+                                         options.port,
+                                         options.timeout)
+    auth_client = auth.KeystoneClient(options.auth_url,
+                                      options.username,
+                                      options.api_key,
+                                      options.auth_token)
 
     category_client_class = lookup(category, categories)
     client = category_client_class(http_client, auth_client, options.tenant)

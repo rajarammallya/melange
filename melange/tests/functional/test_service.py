@@ -14,10 +14,11 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-from melange.tests.functional import FunctionalTest
+
+from melange.tests import functional
 
 
-class TestServiceConf(FunctionalTest):
+class TestServiceConf(functional.FunctionalTest):
 
     def test_root_url_returns_versions(self):
         response = self.client.get("/")
@@ -38,7 +39,7 @@ class TestServiceConf(FunctionalTest):
         self.assertTrue("ip_blocks" in response.read())
 
 
-class TestMimeTypeVersioning(FunctionalTest):
+class TestMimeTypeVersioning(functional.FunctionalTest):
 
     def test_ipam_service_can_be_accessed_with_mime_type_versioning(self):
         headers = {'X_ROLE': 'Admin',

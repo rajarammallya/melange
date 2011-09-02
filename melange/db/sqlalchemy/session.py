@@ -58,6 +58,7 @@ def _create_engine(options):
 
 def get_session(autocommit=True, expire_on_commit=False):
     """Helper method to grab session"""
+
     global _MAKER, _ENGINE
     if not _MAKER:
         assert _ENGINE

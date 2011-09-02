@@ -15,6 +15,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
 import gettext
 import logging
 import optparse
@@ -33,7 +34,7 @@ gettext.install('melange', unicode=1)
 
 from melange.db import db_api
 from melange.common import config
-from melange.ipam.models import IpBlock
+from melange.ipam import models
 
 
 def _configure_db_session(conf):
@@ -52,6 +53,6 @@ def _load_app_environment():
 if __name__ == '__main__':
     try:
         _load_app_environment()
-        IpBlock.delete_all_deallocated_ips()
-    except RuntimeError, e:
+        models.IpBlock.delete_all_deallocated_ips()
+    except RuntimeError as e:
         sys.exit("ERROR: %s" % e)

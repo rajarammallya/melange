@@ -15,9 +15,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-"""
-Utility methods for working with WSGI servers
-"""
+""" Utility methods for working with WSGI servers """
+
 import datetime
 from datetime import timedelta
 import eventlet.wsgi
@@ -26,22 +25,16 @@ import logging
 import paste.urlmap
 import re
 import traceback
-from webob import Response
+import webob
 import webob.dec
 import webob.exc
-from webob.exc import HTTPBadRequest
-from webob.exc import HTTPError
-from webob.exc import HTTPInternalServerError
-from webob.exc import HTTPNotAcceptable
-from webob.exc import HTTPNotFound
 from xml.dom import minidom
 
 from openstack.common import wsgi as openstack_wsgi
 from openstack.common.wsgi import Router, Server, Middleware
 
-from melange.common.exception import InvalidContentType
-from melange.common.exception import MelangeError
-from melange.common.utils import cached_property
+from melange.common import exception
+from melange.common import utils
 
 
 eventlet.patcher.monkey_patch(all=False, socket=True)
@@ -64,8 +57,8 @@ class VersionedURLMap(object):
 
         if req.url_version is None and req.accept_version is not None:
             version = "/v" + req.accept_version
-            app = self.urlmap.get(
-                version, Fault(HTTPNotAcceptable(_("version not supported"))))
+            http_exc = webob.exc.HTTPNotAcceptable(_("version not supported"))
+            app = self.urlmap.get(version, Fault(http_exc))
         else:
             app = self.urlmap
 
@@ -104,7 +97,7 @@ class Request(webob.Request):
         raise webob.exc.HTTPUnsupportedMediaType(
             _("Content type %s not supported") % type)
 
-    @cached_property
+    @utils.cached_property
     def accept_version(self):
         accept_header = self.headers.get('ACCEPT', "")
         accept_version_re = re.compile(".*?application/vnd.openstack.melange"
@@ -114,7 +107,7 @@ class Request(webob.Request):
         match = accept_version_re.search(accept_header)
         return  match.group("version_no") if match else None
 
-    @cached_property
+    @utils.cached_property
     def url_version(self):
         versioned_url_re = re.compile("/v(?P<version_no>\d+\.?\d*)")
         match = versioned_url_re.search(self.path)
@@ -151,7 +144,7 @@ class Resource(openstack_wsgi.Resource):
 
     def execute_action(self, action, request, **action_args):
         if getattr(self.controller, action, None) is None:
-            return Fault(HTTPNotFound())
+            return Fault(webob.exc.HTTPNotFound())
         try:
             result = super(Resource, self).execute_action(action,
                                                           request,
@@ -160,28 +153,32 @@ class Resource(openstack_wsgi.Resource):
                 result = Result(result)
             return result
 
-        except MelangeError as e:
+        except exception.MelangeError as melange_error:
             LOG.debug(traceback.format_exc())
-            httpError = self._get_http_error(e)
-            return Fault(httpError(str(e), request=request))
-        except HTTPError as e:
+            httpError = self._get_http_error(melange_error)
+            return Fault(httpError(str(melange_error), request=request))
+        except webob.exc.HTTPError as http_error:
             LOG.debug(traceback.format_exc())
-            return Fault(e)
-        except Exception as e:
-            LOG.exception(e)
-            return Fault(HTTPInternalServerError(e.message,
+            return Fault(http_error)
+        except Exception as error:
+            LOG.exception(error)
+            return Fault(webob.exc.HTTPInternalServerError(error.message,
                                                  request=request))
 
     def _get_http_error(self, error):
-        return self.model_exception_map.get(type(error), HTTPBadRequest)
+        return self.model_exception_map.get(type(error),
+                                            webob.exc.HTTPBadRequest)
 
     def serialize_response(self, action, action_result, request):
         return self.dispatch(self.serializer, action, action_result, request)
 
     def _invert_dict_list(self, exception_dict):
-        """
+        """Flattens values of keys and inverts keys and values
+
+        Example:
         {'x':[1,2,3],'y':[4,5,6]} converted to
         {1:'x',2:'x',3:'x',4:'y',5:'y',6:'y'}
+
         """
         inverted_dict = {}
         for key, value_list in exception_dict.items():
@@ -196,10 +193,11 @@ class RequestDeserializer(object):
         self.deserializer = deserializer
 
     def default(self, request):
-        if request.body:
-            return dict(body=self.deserializer.deserialize(request.body,
+        if not request.body:
+            return {}
+
+        return dict(body=self.deserializer.deserialize(request.body,
                                       request.get_content_type()))
-        return {}
 
 
 class ResponseSerializer(object):
@@ -214,18 +212,14 @@ class ResponseSerializer(object):
         content_type = request.best_match_content_type()
         data = action_result.data(content_type)
         serialized_data = self.serializer.serialize(data, content_type)
-        return Response(body=serialized_data, status=action_result.status,
-                        content_type=request.best_match_content_type())
+        return webob.Response(body=serialized_data,
+                              status=action_result.status,
+                              content_type=request.best_match_content_type())
 
 
 class Controller(object):
-    """
-    WSGI app that reads routing information supplied by RoutesMiddleware
-    and calls the requested action method upon itself.  All action methods
-    must, in addition to their normal parameters, accept a 'req' argument
-    which is the incoming webob.Request  They raise a webob.exc exception,
-    or return a dict which will be serialized by requested content type.
-    """
+    """Base controller that creates Resource with default serializers"""
+
     exception_map = {}
     admin_actions = []
 
@@ -239,15 +233,14 @@ class Controller(object):
 
 
 class Serializer(object):
-    """
-    Serializes a dictionary to a Content Type specified by a WSGI environment.
-    """
+    """Serializes a dictionary based on request content type"""
 
     def __init__(self, metadata=None):
-        """
-        Create a serializer based on the given WSGI environment.
+        """ Create a serializer based on the given WSGI environment.
+
         'metadata' is an optional dict mapping MIME types to information
         needed to serialize a dictionary to that type.
+
         """
         self.metadata = metadata or {}
         self._methods = {
@@ -255,10 +248,12 @@ class Serializer(object):
             'application/xml': self._to_xml}
 
     def serialize(self, data, content_type):
-        """
-        Serialize a dictionary into a string.  The format of the string
-        will be decided based on the Content Type requested in self.environ:
+        """Serialize a dictionary into a string.
+
+        The format of the string will be decided based on the
+        Content Type requested in self.environ:
         by Accept: header, or by URL suffix.
+
         """
         return self._methods.get(content_type, repr)(data)
 
@@ -281,6 +276,7 @@ class Serializer(object):
 
     def _to_xml_node(self, doc, metadata, nodename, data):
         """Recursive method to convert data members to XML nodes."""
+
         if hasattr(data, 'to_xml'):
             return data.to_xml()
         result = doc.createElement(nodename)
@@ -309,12 +305,14 @@ class Serializer(object):
 
 
 class Deserializer(object):
+    """Deserializes a dictionary based on request accept content type"""
 
     def __init__(self, metadata=None):
-        """
-        Create a serializer based on the given WSGI environment.
+        """Create a deserializer based on the given WSGI environment.
+
         'metadata' is an optional dict mapping MIME types to information
         needed to serialize a dictionary to that type.
+
         """
         self.metadata = metadata or {}
 
@@ -335,7 +333,7 @@ class Deserializer(object):
         try:
             return handlers[content_type]
         except Exception:
-            raise InvalidContentType(content_type=content_type)
+            raise webob.exc.InvalidContentType(content_type=content_type)
 
     def _from_json(self, datastring):
         return json.loads(datastring or "{}")
@@ -373,11 +371,13 @@ class Fault(webob.exc.HTTPException):
 
     def __init__(self, exception):
         """Create a Fault for the given webob.exc.exception."""
+
         self.wrapped_exc = exception
 
     @webob.dec.wsgify(RequestClass=Request)
     def __call__(self, req):
         """Generate a WSGI response based on the exception passed to ctor."""
+
         # Replace the body with fault details.
         fault_name = self.wrapped_exc.__class__.__name__
         if(fault_name.startswith("HTTP")):

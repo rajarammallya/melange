@@ -42,7 +42,7 @@ def create_options(parser):
     """Sets up the CLI and config-file options
 
     :param parser: The option parser
-    
+
     """
     parser.add_option('-p', '--port', dest="port", metavar="PORT",
                       type=int, default=9898,

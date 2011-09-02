@@ -107,11 +107,11 @@ Available categories:
 
 
 categories = {
-    'ip_block':client.IpBlockClient,
-    'subnet':client.SubnetClient,
-    'policy':client.PolicyClient,
-    'unusable_ip_range':client.UnusableIpRangesClient,
-    'unusable_ip_octet':client.UnusableIpOctetsClient,
+    'ip_block': client.IpBlockClient,
+    'subnet': client.SubnetClient,
+    'policy': client.PolicyClient,
+    'unusable_ip_range': client.UnusableIpRangesClient,
+    'unusable_ip_octet': client.UnusableIpOctetsClient,
 }
 
 

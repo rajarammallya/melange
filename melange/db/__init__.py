@@ -32,12 +32,14 @@ def add_options(parser):
     :retval None
 
     """
-    help_text = "The following configuration options are specific to the "\
-                "Melange database."
+    help_text = ("The following configuration options are specific to the "
+                "Melange database.")
 
-    group = optparse.OptionGroup(parser, "Registry Database Options",
+    group = optparse.OptionGroup(parser,
+                                 "Registry Database Options",
                                  help_text)
-    group.add_option('--sql-connection', metavar="CONNECTION",
+    group.add_option('--sql-connection',
+                     metavar="CONNECTION",
                      default=None,
                      help="A valid SQLAlchemy connection string for the "
                           "registry database. Default: %default")

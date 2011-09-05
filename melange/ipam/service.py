@@ -27,22 +27,23 @@ from melange.ipam import models
 
 
 class BaseController(wsgi.Controller):
+
     exclude_attr = []
     exception_map = {
         webob.exc.HTTPUnprocessableEntity: [
             models.NoMoreAddressesError,
             models.AddressDoesNotBelongError,
-            models.AddressLockedError
+            models.AddressLockedError,
             ],
         webob.exc.HTTPBadRequest: [
             models.InvalidModelError,
-            models.DataMissingError
+            models.DataMissingError,
             ],
         webob.exc.HTTPNotFound: [
-            models.ModelNotFoundError
+            models.ModelNotFoundError,
             ],
         webob.exc.HTTPConflict: [
-            models.DuplicateAddressError
+            models.DuplicateAddressError,
             ],
         }
 
@@ -284,6 +285,7 @@ class PoliciesController(BaseController):
 
 
 class NetworksController(BaseController):
+
     def allocate_ips(self, request, network_id, interface_id,
                      body=None, tenant_id=None):
         network = models.Network.find_or_create_by(id=network_id,
@@ -313,6 +315,7 @@ class NetworksController(BaseController):
 
 
 class API(wsgi.Router):
+
     def __init__(self):
         mapper = routes.Mapper()
         super(API, self).__init__(mapper)

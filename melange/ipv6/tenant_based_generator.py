@@ -16,33 +16,33 @@
 #    under the License.
 
 import hashlib
-from netaddr import EUI
-from netaddr import IPAddress
-from netaddr import IPNetwork
+import netaddr
 
 
 class TenantBasedIpV6Generator(object):
+
     required_params = ["tenant_id", "mac_address"]
 
     def __init__(self, cidr, **kwargs):
         self._cidr = cidr
         self._tenant_id = kwargs['tenant_id']
-        self._mac_address = kwargs['mac_address']
+        self._mac_address = netaddr.EUI(kwargs['mac_address'])
 
     def next_ip(self):
         address = self._deduce_ip_address()
-        self._mac_address = str(EUI(int(EUI(self._mac_address)) + 1))
+        next_mac = int(self._mac_address) + 1
+        self._mac_address = netaddr.EUI(next_mac)
         return address
 
     def _deduce_ip_address(self):
         variable_segment = self._variable_segment()
-        network = IPNetwork(self._cidr)
+        network = netaddr.IPNetwork(self._cidr)
         return str(variable_segment & network.hostmask | network.cidr.ip)
 
     def _variable_segment(self):
         tenant_hash = hashlib.sha1(self._tenant_id).hexdigest()
         first_2_segments = int(tenant_hash[:8], 16) << 32
         constant = 0xff << 24
-        ei_mac_address = int(EUI(self._mac_address)) & int("ffffff", 16)
+        ei_mac_address = int(self._mac_address) & int("ffffff", 16)
         last_2_segments = constant | ei_mac_address
-        return IPAddress(first_2_segments | last_2_segments)
+        return netaddr.IPAddress(first_2_segments | last_2_segments)

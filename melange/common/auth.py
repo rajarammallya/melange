@@ -18,9 +18,9 @@
 import httplib2
 import json
 import re
+import urlparse
 from webob import exc
 import wsgi
-import urlparse
 
 from melange.common import utils
 

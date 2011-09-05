@@ -21,7 +21,7 @@ from openstack.common.exception import (Error, ProcessExecutionError,
 
 
 class MelangeError(Error):
-    """Base exception that all custom melange app exceptions inherit from"""
+    """Base exception that all custom melange app exceptions inherit from."""
 
     def __init__(self, message=None):
         super(MelangeError, self).__init__(message or self._error_message())

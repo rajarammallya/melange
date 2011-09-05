@@ -46,7 +46,9 @@ def map(engine, models):
                                      primaryjoin=inside_global_join),
                        'inside_local_address':
                        orm.relation(models["IpAddress"],
-                                    primaryjoin=inside_local_join)})
+                                    primaryjoin=inside_local_join),
+                       }
+               )
 
 
 class IpNat(object):

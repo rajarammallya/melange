@@ -15,29 +15,29 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from netaddr import EUI
-from netaddr import IPAddress
-from netaddr import IPNetwork
+import netaddr
 
 
 class RFC2462IpV6Generator(object):
+
     required_params = ["mac_address"]
 
     def __init__(self, cidr, **kwargs):
         self._cidr = cidr
-        self._mac_address = kwargs['mac_address']
+        self._mac_address = netaddr.EUI(kwargs['mac_address'])
 
     def next_ip(self):
         address = self._deduce_ip_address()
-        self._mac_address = str(EUI(int(EUI(self._mac_address)) + 1))
+        next_mac = int(self._mac_address) + 1
+        self._mac_address = netaddr.EUI(next_mac)
         return address
 
     def _deduce_ip_address(self):
         variable_segment = self._variable_segment()
-        network = IPNetwork(self._cidr)
+        network = netaddr.IPNetwork(self._cidr)
         return str(variable_segment & network.hostmask | network.cidr.ip)
 
     def _variable_segment(self):
-        mac64 = EUI(self._mac_address).eui64().words
+        mac64 = self._mac_address.eui64().words
         int_addr = int(''.join(['%02x' % i for i in mac64]), 16)
-        return IPAddress(int_addr) ^ IPAddress("::0200:0:0:0")
+        return netaddr.IPAddress(int_addr) ^ netaddr.IPAddress("::0200:0:0:0")

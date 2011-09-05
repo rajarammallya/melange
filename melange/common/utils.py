@@ -24,7 +24,8 @@ import os
 import subprocess
 import uuid
 
-from openstack.common.utils import import_class, import_object
+from openstack.common.utils import (import_class, import_object,
+                                    bool_from_string)
 
 from melange.common import exception
 
@@ -90,7 +91,7 @@ def merge_dicts(*dictionaries):
     return merged_dict
 
 
-def guid():
+def generate_uuid():
     return str(uuid.uuid4())
 
 
@@ -105,7 +106,7 @@ class cached_property(object):
     Taken from : https://github.com/nshah/python-memoize
     The function wrapped is called the first time to retrieve the result
     and than that calculated result is used the next time you access
-    the value::
+    the value:
 
         class Foo(object):
 
@@ -130,6 +131,7 @@ class cached_property(object):
 
 
 class MethodInspector(object):
+
     def __init__(self, func):
         self._func = func
 

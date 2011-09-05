@@ -172,6 +172,7 @@ class StubController(wsgi.Controller):
 
     def __init__(self, body):
         self.body = body
+        super(StubController, self).__init__()
 
     def index(self, request):
         return self.body

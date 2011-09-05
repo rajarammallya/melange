@@ -17,7 +17,7 @@
 
 import mox
 import unittest
-from urlparse import parse_qs
+import urlparse
 
 from melange.db import db_api
 
@@ -40,10 +40,10 @@ class BaseTest(unittest.TestCase):
 
         try:
             func(*args, **kwargs)
-            self.fail("Expected {0} to raise {1}".\
-                      format(func, repr(exception)))
-        except exception as e:
-            self.assertIn(message, e.message)
+            self.fail("Expected {0} to raise {1}".format(func,
+                                                         repr(exception)))
+        except exception as error:
+            self.assertIn(message, error.message)
 
     def assertIn(self, expected, actual):
         """This is similar to assertIn in python 2.7"""
@@ -67,8 +67,8 @@ class BaseTest(unittest.TestCase):
 
     def assertUrlEqual(self, expected, actual):
         self.assertEqual(expected.partition("?")[0], actual.partition("?")[0])
-        self.assertEqual(parse_qs(expected.partition("?")[2]),
-                         parse_qs(actual.partition("?")[2]))
+        self.assertEqual(urlparse.parse_qs(expected.partition("?")[2]),
+                         urlparse.parse_qs(actual.partition("?")[2]))
 
     def assertErrorResponse(self, response, error_type, expected_error):
         self.assertEqual(response.status_int, error_type().code)

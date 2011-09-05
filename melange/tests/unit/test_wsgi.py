@@ -14,14 +14,14 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
 import routes
 import webob
-from webob.exc import HTTPBadRequest
-from webob.exc import HTTPNotFound
-from webtest import TestApp
+import webob.exc
+import webtest
 
 from melange.common import wsgi
-from melange.tests import BaseTest
+from melange import tests
 
 
 class StubApp(object):
@@ -42,7 +42,7 @@ class StubUrlMap(StubApp, dict):
         super(StubUrlMap, self).__init__()
 
 
-class VersionedURLMapTest(BaseTest):
+class VersionedURLMapTest(tests.BaseTest):
 
     def setUp(self):
         self.v1_app = StubApp()
@@ -69,17 +69,21 @@ class VersionedURLMapTest(BaseTest):
         self.assertTrue(self.urlmap.called)
 
     def test_delegates_to_urlmapper_for_std_accept_headers_with_version(self):
-        environ = {'HTTP_ACCEPT': "application/json;version=1.0",
-                   'PATH_INFO': "/resource"}
+        environ = {
+            'HTTP_ACCEPT': "application/json;version=1.0",
+            'PATH_INFO': "/resource",
+            }
 
         self.versioned_urlmap(environ=environ, start_response=None)
 
         self.assertTrue(self.urlmap.called)
 
     def test_delegates_to_urlmapper_for_nonexistant_version_of_app(self):
-        environ = {'HTTP_ACCEPT': "application/vnd.openstack.melange+xml;"
-                   "version=9.0", 'REQUEST_METHOD': "GET",
-                   'PATH_INFO': "/resource.xml"}
+        environ = {
+            'HTTP_ACCEPT': "application/vnd.openstack.melange+xml;"
+            "version=9.0", 'REQUEST_METHOD': "GET",
+            'PATH_INFO': "/resource.xml",
+            }
 
         def assert_status(status, *args):
             self.assertEqual(status, "406 Not Acceptable")
@@ -87,16 +91,18 @@ class VersionedURLMapTest(BaseTest):
         self.versioned_urlmap(environ=environ, start_response=assert_status)
 
     def test_delegates_to_urlmapper_when_url_versioned(self):
-        environ = {'HTTP_ACCEPT': "application/vnd.openstack.melange+xml;"
-                   "version=2.0",
-                   'PATH_INFO': "/v1.0/resource"}
+        environ = {
+            'HTTP_ACCEPT': "application/vnd.openstack.melange+xml;"
+            "version=2.0",
+            'PATH_INFO': "/v1.0/resource",
+            }
 
         self.versioned_urlmap(environ=environ, start_response=None)
 
         self.assertTrue(self.urlmap.called)
 
 
-class RequestTest(BaseTest):
+class RequestTest(tests.BaseTest):
 
     def test_content_type_missing_defaults_to_json(self):
         request = wsgi.Request.blank('/tests/123')
@@ -251,10 +257,10 @@ class StubController(wsgi.Controller):
         return {'fort': 'knox'}
 
 
-class TestController(BaseTest):
+class TestController(tests.BaseTest):
 
     def test_response_content_type_matches_accept_header(self):
-        app = TestApp(DummyApp())
+        app = webtest.TestApp(DummyApp())
 
         response = app.get("/resources", headers={'Accept': "application/xml"})
 
@@ -263,7 +269,7 @@ class TestController(BaseTest):
         self.assertEqual(response.xml.text.strip(), "knox")
 
     def test_response_content_type_matches_url_format_over_accept_header(self):
-        app = TestApp(DummyApp())
+        app = webtest.TestApp(DummyApp())
 
         response = app.get("/resources.json",
                            headers={'Accept': "application/xml"})
@@ -272,17 +278,17 @@ class TestController(BaseTest):
         self.assertEqual(response.json, {'fort': 'knox'})
 
     def test_returns_404_if_action_not_implemented(self):
-        app = TestApp(DummyApp())
+        app = webtest.TestApp(DummyApp())
 
         response = app.get("/resources/new", status='*')
 
         self.assertEqual(response.status_int, 404)
 
 
-class TestFault(BaseTest):
+class TestFault(tests.BaseTest):
 
     def test_fault_wraps_webob_exception(self):
-        app = TestApp(wsgi.Fault(HTTPNotFound("some error")))
+        app = webtest.TestApp(wsgi.Fault(webob.exc.HTTPNotFound("some error")))
         response = app.get("/", status="*")
         self.assertEqual(response.status_int, 404)
         self.assertEqual(response.content_type, "application/json")
@@ -292,7 +298,8 @@ class TestFault(BaseTest):
                               detail="some error"))
 
     def test_fault_gives_back_xml(self):
-        app = TestApp(wsgi.Fault(HTTPBadRequest("some error")))
+        app = webtest.TestApp(wsgi.Fault(
+            webob.exc.HTTPBadRequest("some error")))
         response = app.get("/x.xml", status="*")
         self.assertEqual(response.content_type, "application/xml")
         self.assertEqual(response.xml.tag, 'BadRequest')
@@ -301,7 +308,7 @@ class TestFault(BaseTest):
                          'some error')
 
 
-class TestResult(BaseTest):
+class TestResult(tests.BaseTest):
 
     class TestData(object):
 

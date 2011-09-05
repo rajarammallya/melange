@@ -15,9 +15,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-"""
-Various conveniences used for migration scripts
-"""
+"""Various conveniences used for migration scripts."""
 
 import logging
 import sqlalchemy.types

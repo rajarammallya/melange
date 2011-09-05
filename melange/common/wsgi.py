@@ -18,7 +18,6 @@
 """ Utility methods for working with WSGI servers """
 
 import datetime
-from datetime import timedelta
 import eventlet.wsgi
 import json
 import logging
@@ -173,7 +172,7 @@ class Resource(openstack_wsgi.Resource):
         return self.dispatch(self.serializer, action, action_result, request)
 
     def _invert_dict_list(self, exception_dict):
-        """Flattens values of keys and inverts keys and values
+        """Flattens values of keys and inverts keys and values.
 
         Example:
         {'x':[1,2,3],'y':[4,5,6]} converted to
@@ -195,7 +194,6 @@ class RequestDeserializer(object):
     def default(self, request):
         if not request.body:
             return {}
-
         return dict(body=self.deserializer.deserialize(request.body,
                                       request.get_content_type()))
 
@@ -218,10 +216,9 @@ class ResponseSerializer(object):
 
 
 class Controller(object):
-    """Base controller that creates Resource with default serializers"""
+    """Base controller that creates a Resource with default serializers."""
 
     exception_map = {}
-    admin_actions = []
 
     def __init__(self, admin_actions=None):
         self.admin_actions = admin_actions or []
@@ -233,7 +230,7 @@ class Controller(object):
 
 
 class Serializer(object):
-    """Serializes a dictionary based on request content type"""
+    """Serializes a dictionary based on request content type."""
 
     def __init__(self, metadata=None):
         """ Create a serializer based on the given WSGI environment.
@@ -260,7 +257,7 @@ class Serializer(object):
     def _to_json(self, data):
         def sanitizer(obj):
             if isinstance(obj, datetime.datetime):
-                _dtime = obj - timedelta(microseconds=obj.microsecond)
+                _dtime = obj - datetime.timedelta(microseconds=obj.microsecond)
                 return _dtime.isoformat()
             return obj
 
@@ -305,7 +302,7 @@ class Serializer(object):
 
 
 class Deserializer(object):
-    """Deserializes a dictionary based on request accept content type"""
+    """Deserializes a dictionary based on request accept content type."""
 
     def __init__(self, metadata=None):
         """Create a deserializer based on the given WSGI environment.
@@ -367,7 +364,7 @@ class Deserializer(object):
 
 
 class Fault(webob.exc.HTTPException):
-    """Error codes for API faults"""
+    """Error codes for API faults."""
 
     def __init__(self, exception):
         """Create a Fault for the given webob.exc.exception."""
@@ -386,7 +383,10 @@ class Fault(webob.exc.HTTPException):
             fault_name: {
                 'code': self.wrapped_exc.status_int,
                 'message': self.wrapped_exc.explanation,
-                'detail': self.wrapped_exc.detail}}
+                'detail': self.wrapped_exc.detail,
+                }
+            }
+
         # 'code' is an attribute on the fault tag itself
         metadata = {'application/xml': {'attributes': {fault_name: 'code'}}}
         serializer = Serializer(metadata)

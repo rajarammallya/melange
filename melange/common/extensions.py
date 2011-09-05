@@ -113,6 +113,7 @@ class ActionExtensionController(wsgi.Controller):
 
         self.application = application
         self.action_handlers = {}
+        super(ActionExtensionController, self).__init__()
 
     def add_action(self, action_name, handler):
         self.action_handlers[action_name] = handler
@@ -131,6 +132,7 @@ class RequestExtensionController(wsgi.Controller):
     def __init__(self, application):
         self.application = application
         self.handlers = []
+        super(RequestExtensionController, self).__init__()
 
     def add_handler(self, handler):
         self.handlers.append(handler)
@@ -147,6 +149,7 @@ class ExtensionController(wsgi.Controller):
 
     def __init__(self, extension_manager):
         self.extension_manager = extension_manager
+        super(ExtensionController, self).__init__()
 
     def _translate(self, ext):
         ext_data = {}

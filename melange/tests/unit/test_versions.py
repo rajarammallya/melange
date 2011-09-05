@@ -14,27 +14,32 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-from webtest import TestApp
+
+import webtest
 
 from melange.common import config
-from melange.tests import BaseTest
-from melange.tests.unit import test_config_path
+from melange import tests
+from melange.tests import unit
 
 
-class TestVersionsController(BaseTest):
+class TestVersionsController(tests.BaseTest):
 
     def setUp(self):
         conf, melange_app = config.load_paste_app('versioned_melange',
-                                     {"config_file": test_config_path()}, None)
-        self.test_app = TestApp(melange_app)
+                              {"config_file": unit.test_config_path()}, None)
+        self.test_app = webtest.TestApp(melange_app)
         super(TestVersionsController, self).setUp()
 
     def test_versions_index(self):
         response = self.test_app.get("/")
         link = [{'href': "http://localhost/v0.1", 'rel': 'self'}]
         self.assertEqual(response.json, {'versions':
-                         [{'status':'CURRENT',
-                           'name': 'v0.1', 'links': link}]})
+                                         [{
+                                             'status':'CURRENT',
+                                             'name': 'v0.1',
+                                             'links': link,
+                                             }]
+                                         })
 
     def test_versions_index_for_xml(self):
         response = self.test_app.get("/",

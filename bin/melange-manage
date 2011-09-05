@@ -30,7 +30,6 @@ possible_topdir = os.path.normpath(os.path.join(os.path.abspath(sys.argv[0]),
 if os.path.exists(os.path.join(possible_topdir, 'melange', '__init__.py')):
     sys.path.insert(0, possible_topdir)
 
-
 from melange import version
 from melange.common import config
 from melange.common import wsgi
@@ -39,7 +38,8 @@ from melange.db import db_api
 
 
 def create_options(parser):
-    """Sets up the CLI and config-file options
+    """Sets up the CLI and config-file options.
+
     :param parser: The option parser
 
     """

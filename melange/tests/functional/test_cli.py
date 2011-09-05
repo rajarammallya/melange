@@ -99,7 +99,8 @@ class TestTenantBasedIpBlockCLI(tests.BaseTest):
 
         self.assertEqual(exitcode, 0)
         ip_block = models.IpBlock.get_by(cidr="10.1.1.0/29",
-                                  type="private", tenant_id="123")
+                                         type="private",
+                                         tenant_id="123")
         self.assertTrue(ip_block is not None)
         self.assertEqual(ip_block.network_id, "net1")
         self.assertEqual(ip_block.policy_id, policy.id)
@@ -376,7 +377,7 @@ class TestUnusableIpOctetsCLI(tests.BaseTest):
     def test_update_with_optional_params(self):
         policy = self._policy_factory()
         ip_octet = factory_models.IpOctetFactory(policy_id=policy.id,
-                                                   octet=222)
+                                                 octet=222)
         exitcode, out, err = run("unusable_ip_octet update"
                                  " {0} {1}".format(policy.id, ip_octet.id))
 

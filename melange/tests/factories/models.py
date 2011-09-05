@@ -14,13 +14,14 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
 import factory
 
-from melange.ipam.models import *
+from melange.ipam import models
 
 
 class IpBlockFactory(factory.Factory):
-    FACTORY_FOR = IpBlock
+    FACTORY_FOR = models.IpBlock
     cidr = factory.Sequence(lambda n: "192.168.{0}.0/24".format(int(n) % 255))
     type = "private"
     dns1 = "ns1.example.com"
@@ -43,21 +44,25 @@ class IpV6IpBlockFactory(IpBlockFactory):
 
 
 class IpAddressFactory(factory.Factory):
+    FACTORY_FOR = models.IpAddress
     ip_block_id = factory.LazyAttribute(lambda a: PublicIpBlockFactory().id)
     address = factory.LazyAttribute(
-        lambda ip: IpBlock.find(ip.ip_block_id).allocate_ip().address)
+        lambda ip: models.IpBlock.find(ip.ip_block_id).allocate_ip().address)
 
 
 class IpRangeFactory(factory.Factory):
+    FACTORY_FOR = models.IpRange
     offset = 0
     length = 1
 
 
 class IpOctetFactory(factory.Factory):
+    FACTORY_FOR = models.IpOctet
     octet = 0
 
 
 class PolicyFactory(factory.Factory):
+    FACTORY_FOR = models.Policy
     name = 'default policy'
 
 

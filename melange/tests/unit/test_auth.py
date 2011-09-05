@@ -19,13 +19,13 @@ import httplib2
 import json
 from mox import IgnoreArg
 import routes
+import urlparse
 import webob
 import webob.exc
-import urlparse
 
+from melange import tests
 from melange.common import auth
 from melange.common import wsgi
-from melange import tests
 
 
 class MiddlewareTestApp(object):
@@ -208,9 +208,11 @@ class TestKeyStoneClient(tests.BaseTest):
                                      auth_token=None)
 
         self.mock.StubOutWithMock(client, "request")
-        request_body = json.dumps({"passwordCredentials":
-                                   {"username": "username",
-                                    'password': "access_key"}})
+        request_body = json.dumps({
+            "passwordCredentials": {
+                "username": "username",
+                'password': "access_key"},
+            })
 
         response_body = json.dumps({'auth': {'token': {'id': "auth_token"}}})
         res = httplib2.Response(dict(status='200'))

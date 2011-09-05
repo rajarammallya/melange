@@ -89,7 +89,7 @@ def find_inside_locals_for(global_address_id, **kwargs):
 def save_nat_relationships(nat_relationships):
     for relationship in nat_relationships:
         ip_nat = mappers.IpNat()
-        relationship['id'] = utils.guid()
+        relationship['id'] = utils.generate_uuid()
         update(ip_nat, relationship)
         save(ip_nat)
 

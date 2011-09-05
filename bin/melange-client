@@ -16,9 +16,13 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-""" CLI interface for IPAM. """
+"""CLI interface for common Melange client opertaions.
 
-import gettext
+Simple cli for creating ip blocks, adding policies and rules for ip address
+allocations from these blocks.
+
+"""
+
 import optparse
 import os
 from os import environ as env
@@ -32,8 +36,6 @@ possible_topdir = os.path.normpath(os.path.join(os.path.abspath(sys.argv[0]),
 if os.path.exists(os.path.join(possible_topdir, 'melange', '__init__.py')):
     sys.path.insert(0, possible_topdir)
 
-gettext.install("melange", unicode=1)
-
 from melange import version
 from melange.common import auth
 from melange.common import client as base_client
@@ -42,7 +44,7 @@ from melange.ipam import client
 
 
 def create_options(parser):
-    """Sets up the CLI and config-file options
+    """Sets up the CLI and config-file options.
 
     :param parser: The option parser
 
@@ -81,7 +83,9 @@ def create_options(parser):
 
 
 def parse_options(parser, cli_args):
-    """Returns parsed CLI options, command to run and its arguments, merged
+    """Parses CLI options.
+
+    Returns parsed CLI options, command to run and its arguments, merged
     with any same-named options found in a configuration file
 
     :param parser: The option parser

@@ -15,12 +15,10 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-""" Model classes that form the core of ipam functionality """
+"""Model classes that form the core of ipam functionality."""
 
-import netaddr
 import datetime
-from netaddr.strategy.ipv6 import ipv6_verbose
-from openstack.common.utils import bool_from_string
+import netaddr
 
 from melange.common import config
 from melange.common import exception
@@ -59,8 +57,11 @@ class Query(object):
 
 
 class Converter(object):
-    data_type_converters = {'integer': lambda x: int(x),
-                            'boolean': lambda value: bool_from_string(value)}
+
+    data_type_converters = {
+        'integer': lambda value: int(value),
+        'boolean': lambda value: utils.bool_from_string(value),
+     }
 
     def __init__(self, data_type):
         self.data_type = data_type
@@ -70,13 +71,14 @@ class Converter(object):
 
 
 class ModelBase(object):
+
     _columns = {}
     _auto_generated_attrs = ["id", "created_at", "updated_at"]
     _data_fields = []
 
     @classmethod
     def create(cls, **values):
-        values['id'] = utils.guid()
+        values['id'] = utils.generate_uuid()
         values['created_at'] = utils.utcnow()
         instance = cls(**values)
         return instance.save()
@@ -414,9 +416,8 @@ class IpBlock(ModelBase):
             deallocated_by=self._deallocated_by_date(), ip_block_id=self.id)
 
     def _deallocated_by_date(self):
-        days_to_keep_ips = config.Config.get('keep_deallocated_ips_for_days',
-                                             2)
-        return utils.utcnow() - datetime.timedelta(days=days_to_keep_ips)
+        days = config.Config.get('keep_deallocated_ips_for_days', 2)
+        return utils.utcnow() - datetime.timedelta(days=days)
 
     def subnet(self, cidr, network_id=None, tenant_id=None):
         network_id = network_id or self.network_id
@@ -549,7 +550,8 @@ class IpAddress(ModelBase):
 
     @classmethod
     def _formatted(cls, address):
-        return netaddr.IPAddress(address).format(dialect=ipv6_verbose)
+        ipv6_format_dialect = netaddr.strategy.ipv6.ipv6_verbose
+        return netaddr.IPAddress(address).format(dialect=ipv6_format_dialect)
 
     @classmethod
     def find_all_by_network(cls, network_id, **conditions):
@@ -563,9 +565,11 @@ class IpAddress(ModelBase):
 
     def add_inside_locals(self, ip_addresses):
         db_api.save_nat_relationships([
-            {'inside_global_address_id': self.id,
-             'inside_local_address_id': local_address.id}
-            for local_address in ip_addresses])
+            {
+            'inside_global_address_id': self.id,
+            'inside_local_address_id': local_address.id,
+            }
+        for local_address in ip_addresses])
 
     def deallocate(self):
         return self.update(marked_for_deallocation=True,
@@ -698,7 +702,8 @@ class Network(ModelBase):
             return cls.find_by(id=id, tenant_id=tenant_id)
         except ModelNotFoundError:
             ip_block = IpBlock.create(cidr=config.Config.get('default_cidr'),
-                                      network_id=id, tenant_id=tenant_id,
+                                      network_id=id,
+                                      tenant_id=tenant_id,
                                       type="private")
             return cls(id=id, ip_blocks=[ip_block])
 
@@ -744,8 +749,13 @@ class Network(ModelBase):
 
 
 def persisted_models():
-    return {'IpBlock': IpBlock, 'IpAddress': IpAddress, 'Policy': Policy,
-            'IpRange': IpRange, 'IpOctet': IpOctet}
+    return {
+        'IpBlock': IpBlock,
+        'IpAddress': IpAddress,
+        'Policy': Policy,
+        'IpRange': IpRange,
+        'IpOctet': IpOctet,
+        }
 
 
 class NoMoreAddressesError(exception.MelangeError):

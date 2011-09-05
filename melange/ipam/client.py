@@ -16,6 +16,7 @@
 #    under the License.
 
 import json
+import urlparse
 
 from melange.common.utils import remove_nones
 
@@ -25,7 +26,7 @@ class Resource(object):
     def __init__(self, path, name, client, auth_client, tenant_id=None):
         if tenant_id:
             path = "tenants/{0}/{1}".format(tenant_id, path)
-        self.path = "/v0.1/ipam/" + path
+        self.path = urlparse.urljoin("/v0.1/ipam/", path)
         self.name = name
         self.client = client
         self.auth_client = auth_client

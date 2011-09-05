@@ -18,11 +18,10 @@
 """ Model classes that form the core of ipam functionality """
 
 import netaddr
-from datetime import timedelta
+import datetime
 from netaddr.strategy.ipv6 import ipv6_verbose
 from openstack.common.utils import bool_from_string
 
-from melange.common import utils
 from melange.common import config
 from melange.common import exception
 from melange.common import utils
@@ -417,7 +416,7 @@ class IpBlock(ModelBase):
     def _deallocated_by_date(self):
         days_to_keep_ips = config.Config.get('keep_deallocated_ips_for_days',
                                              2)
-        return utils.utcnow() - timedelta(days=days_to_keep_ips)
+        return utils.utcnow() - datetime.timedelta(days=days_to_keep_ips)
 
     def subnet(self, cidr, network_id=None, tenant_id=None):
         network_id = network_id or self.network_id

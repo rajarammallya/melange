@@ -21,6 +21,7 @@ from mox import IgnoreArg
 import routes
 import webob
 import webob.exc
+import urlparse
 
 from melange.common import auth
 from melange.common import wsgi
@@ -45,8 +46,8 @@ class TestAuthMiddleware(tests.BaseTest):
         self.auth_provider1 = self.mock.CreateMockAnything()
         self.auth_provider2 = self.mock.CreateMockAnything()
         self.auth_middleware = auth.AuthorizationMiddleware(self.dummy_app,
-                                                       self.auth_provider1,
-                                                       self.auth_provider2)
+                                                       [self.auth_provider1,
+                                                       self.auth_provider2])
         self.request = webob.Request.blank("/dummy_url")
         self.request.headers = {'X_TENANT': "tenant_id", 'X_ROLE': "Member"}
 
@@ -108,7 +109,11 @@ class TestRoleBasedAuth(tests.BaseTest):
 
         self.assertTrue(self.auth_provider.authorize(self.request,
                                                      tenant_id='foo',
-                                                     roles=['Admin']))
+                                                     roles=['admin']))
+
+        self.assertTrue(self.auth_provider.authorize(self.request,
+                                                     tenant_id='foo',
+                                                     roles=['ADMIN']))
 
     def test_forbids_non_admin_accessing_admin_actions(self):
         self.request.method = "POST"
@@ -209,7 +214,8 @@ class TestKeyStoneClient(tests.BaseTest):
 
         response_body = json.dumps({'auth': {'token': {'id': "auth_token"}}})
         res = httplib2.Response(dict(status='200'))
-        client.request(url + "/v2.0/tokens", "POST", headers=IgnoreArg(),
+        client.request(urlparse.urljoin(url, "/v2.0/tokens"), "POST",
+                       headers=IgnoreArg(),
                        body=request_body).AndReturn((res, response_body))
 
         self.mock.ReplayAll()
@@ -221,7 +227,8 @@ class TestKeyStoneClient(tests.BaseTest):
         self.mock.StubOutWithMock(client, "request")
         res = httplib2.Response(dict(status='401'))
         response_body = "Failed to get token"
-        client.request(url + "/v2.0/tokens", "POST", headers=IgnoreArg(),
+        client.request(urlparse.urljoin(url, "/v2.0/tokens"), "POST",
+                       headers=IgnoreArg(),
                        body=IgnoreArg()).AndReturn((res, response_body))
 
         self.mock.ReplayAll()

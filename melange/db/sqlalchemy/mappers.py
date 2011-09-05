@@ -50,6 +50,7 @@ def map(engine, models):
 
 
 class IpNat(object):
+
     def __setitem__(self, key, value):
         setattr(self, key, value)
 

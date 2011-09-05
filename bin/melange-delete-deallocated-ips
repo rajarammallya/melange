@@ -16,7 +16,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import gettext
 import logging
 import optparse
 import os
@@ -30,7 +29,6 @@ possible_topdir = os.path.normpath(os.path.join(os.path.abspath(sys.argv[0]),
 if os.path.exists(os.path.join(possible_topdir, 'melange', '__init__.py')):
     sys.path.insert(0, possible_topdir)
 
-gettext.install('melange', unicode=1)
 
 from melange.db import db_api
 from melange.common import config

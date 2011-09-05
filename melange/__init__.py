@@ -15,7 +15,10 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import gettext
 import os
+
+gettext.install('melange', unicode=1)
 
 
 def melange_root_path():

@@ -16,7 +16,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import gettext
 import optparse
 import os
 import re
@@ -31,8 +30,8 @@ possible_topdir = os.path.normpath(os.path.join(os.path.abspath(sys.argv[0]),
 if os.path.exists(os.path.join(possible_topdir, 'melange', '__init__.py')):
     sys.path.insert(0, possible_topdir)
 
-gettext.install('melange', unicode=1)
 
+from melange import version
 from melange.common import config
 from melange.common import wsgi
 from melange.db import db_api
@@ -53,7 +52,8 @@ def create_options(parser):
 
 
 if __name__ == '__main__':
-    oparser = optparse.OptionParser(version='%%prog VERSION')
+    oparser = optparse.OptionParser(version="%%prog %s"
+                                    % version.version_string())
     create_options(oparser)
     (options, args) = config.parse_options(oparser)
     try:

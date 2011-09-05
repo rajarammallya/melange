@@ -61,5 +61,5 @@ class HTTPClient(object):
             response = connection.getresponse()
             return response
         except (socket.error, IOError) as error:
-            raise Exception(_("Unable to connect to "
-                            "server. Got error: %s") % error)
+            raise Exception(_("Error while communicating with server. "
+                              "Got error: %s") % error)

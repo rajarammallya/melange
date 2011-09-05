@@ -20,13 +20,14 @@ import json
 import re
 from webob import exc
 import wsgi
+import urlparse
 
 from melange.common import utils
 
 
 class AuthorizationMiddleware(wsgi.Middleware):
 
-    def __init__(self, application, *auth_providers, **local_config):
+    def __init__(self, application, auth_providers, **local_config):
         self.auth_providers = auth_providers
         super(AuthorizationMiddleware, self).__init__(application,
                                                       **local_config)
@@ -42,7 +43,7 @@ class AuthorizationMiddleware(wsgi.Middleware):
         def _factory(app):
             url_auth_factory = utils.import_class(
                 local_config['url_auth_factory'])
-            return cls(app, url_auth_factory(), TenantBasedAuth(),
+            return cls(app, [url_auth_factory(), TenantBasedAuth()],
                        **local_config)
         return _factory
 
@@ -51,7 +52,7 @@ class TenantBasedAuth(object):
     tenant_scoped_url = re.compile(".*/tenants/(?P<tenant_id>.*?)/.*")
 
     def authorize(self, request, tenant_id, roles):
-        if('Admin' in roles):
+        if('admin' in [role.lower() for role in roles]):
             return True
         match = self.tenant_scoped_url.match(request.path_info)
         if match and tenant_id != match.group('tenant_id'):
@@ -66,7 +67,7 @@ class RoleBasedAuth(object):
         self.mapper = mapper
 
     def authorize(self, request, tenant_id, roles):
-        if('Admin' in roles):
+        if('admin' in [role.lower() for role in roles]):
             return True
         match = self.mapper.match(request.path_info, request.environ)
         if match and match['action'] in match['controller'].admin_actions:
@@ -79,7 +80,7 @@ class KeystoneClient(httplib2.Http):
 
     def __init__(self, url, username, access_key, auth_token=None):
         super(KeystoneClient, self).__init__()
-        self.url = str(url) + "/v2.0/tokens"
+        self.url = urlparse.urljoin(url, "/v2.0/tokens")
         self.username = username
         self.access_key = access_key
         self.auth_token = auth_token

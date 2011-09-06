@@ -24,11 +24,10 @@ DatabaseMigrationError = openstack_exception.DatabaseMigrationError
 InvalidContentType = openstack_exception.InvalidContentType
 
 
-class MelangeError(Error):
+class MelangeError(openstack_exception.OpenstackException):
     """Base exception that all custom melange app exceptions inherit from."""
 
-    def __init__(self, message=None):
-        super(MelangeError, self).__init__(message or self._error_message())
-
-    def _error_message(self):
-        pass
+    def __init__(self, message=None, **kwargs):
+        if message is not None:
+            self.message = message
+        super(MelangeError, self).__init__(**kwargs)

@@ -43,7 +43,7 @@ class BaseTest(unittest.TestCase):
             self.fail("Expected {0} to raise {1}".format(func,
                                                          repr(exception)))
         except exception as error:
-            self.assertIn(message, error.message)
+            self.assertIn(message, str(error))
 
     def assertIn(self, expected, actual):
         """This is similar to assertIn in python 2.7"""

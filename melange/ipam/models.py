@@ -760,69 +760,55 @@ def persisted_models():
 
 class NoMoreAddressesError(exception.MelangeError):
 
-    def _error_message(self):
-        return _("no more addresses")
+    message = _("no more addresses")
 
 
 class DuplicateAddressError(exception.MelangeError):
 
-    def _error_message(self):
-        return _("Address is already allocated")
+    message = _("Address is already allocated")
 
 
 class AddressDoesNotBelongError(exception.MelangeError):
 
-    def _error_message(self):
-        return _("Address does not belong here")
+    message = _("Address does not belong here")
 
 
 class AddressLockedError(exception.MelangeError):
 
-    def _error_message(self):
-        return _("Address is locked")
+    message = _("Address is locked")
 
 
 class ModelNotFoundError(exception.MelangeError):
 
-    def _error_message(self):
-        return _("Not Found")
+    message = _("Not Found")
 
 
 class DataMissingError(exception.MelangeError):
 
-    def _error_message(self):
-        return _("Data Missing")
+    message = _("Data Missing")
 
 
 class AddressDisallowedByPolicyError(exception.MelangeError):
 
-    def _error_message(self):
-        return _("Policy does not allow this address")
+    message = _("Policy does not allow this address")
 
 
 class IpAllocationNotAllowedError(exception.MelangeError):
 
-    def _error_message(self):
-        return _("Ip Block can not allocate address")
+    message = _("Ip Block can not allocate address")
 
 
 class InvalidTenantError(exception.MelangeError):
 
-    def _error_message(self):
-        return _("Cannot access other tenant's block")
+    message = _("Cannot access other tenant's block")
 
 
 class InvalidModelError(exception.MelangeError):
 
+    message = _("The following values are invalid: %(errors)s")
+
     def __init__(self, errors, message=None):
-        self.errors = errors
-        super(InvalidModelError, self).__init__(message)
-
-    def __str__(self):
-        return _("The following values are invalid: %s") % str(self.errors)
-
-    def _error_message(self):
-        return str(self)
+        super(InvalidModelError, self).__init__(message, errors=errors)
 
 
 def sort(iterable):

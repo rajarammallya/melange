@@ -56,12 +56,11 @@ class PaginatedDataView(object):
         self.next_page_marker = next_page_marker
 
     def data_for_json(self):
-        links_dict = {}
+        json_dict = {self.collection_type: self.collection}
         if self._links():
             links_key = self.collection_type + "_links"
-            links_dict[links_key] = self._links()
-        return utils.merge_dicts({self.collection_type: self.collection},
-                                 links_dict)
+            json_dict[links_key] = self._links()
+        return json_dict
 
     def data_for_xml(self):
         atom_links = [AtomLink(link['rel'], link['href'])
@@ -91,8 +90,9 @@ class AppUrl(object):
     def change_query_params(self, **kwargs):
         parsed_url = urlparse.urlparse(self.url)
         query_params = dict(urlparse.parse_qsl(parsed_url.query))
-        new_query_params = urllib.urlencode(utils.merge_dicts(query_params,
-                                                              kwargs))
+        query_params.update(kwargs)
+
+        new_query_params = urllib.urlencode(query_params)
         return self.__class__(
             urlparse.ParseResult(parsed_url.scheme,
                                  parsed_url.netloc, parsed_url.path,

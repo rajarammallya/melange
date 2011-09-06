@@ -124,17 +124,6 @@ class TestFind(unittest.TestCase):
         self.assertEqual(item, None)
 
 
-class TestMergeDicts(unittest.TestCase):
-
-    def test_merge_given_dicts(self):
-        dict_1 = dict(a=1)
-        dict_2 = {'b': 2}
-        dict_3 = dict(c=3, a=4)
-
-        self.assertEqual(utils.merge_dicts(dict_1, dict_2, dict_3),
-                         dict(a=4, b=2, c=3))
-
-
 class TestMethodInspector(unittest.TestCase):
 
     def test_method_without_optional_args(self):

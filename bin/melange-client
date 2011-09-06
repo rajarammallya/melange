@@ -151,6 +151,14 @@ def methods_of(obj):
               if is_public_method(attr))
 
 
+def auth_client_factory(options):
+    if options.auth_url or options.auth_token:
+        return auth.KeystoneClient(options.auth_url,
+                                   options.username,
+                                   options.api_key,
+                                   options.auth_token)
+
+
 def main():
     oparser = optparse.OptionParser(version='%%prog %s'
                                     % version.version_string(),
@@ -163,13 +171,10 @@ def main():
     http_client = base_client.HTTPClient(options.host,
                                          options.port,
                                          options.timeout)
-    auth_client = auth.KeystoneClient(options.auth_url,
-                                      options.username,
-                                      options.api_key,
-                                      options.auth_token)
 
     category_client_class = lookup(category, categories)
-    client = category_client_class(http_client, auth_client, options.tenant)
+    client = category_client_class(http_client, auth_client_factory(options),
+                                   options.tenant)
     client_actions = methods_of(client)
     if len(args) < 1:
         print "Usage: " + script_name + " category action [<args>]"
@@ -185,7 +190,8 @@ def main():
         sys.exit(0)
     except TypeError:
         print _("Possible wrong number of arguments supplied")
-        print "Usage: %s %s %s" % (script_name, category, MethodInspector(fn))
+        print "Usage: %s %s %s" % (script_name, category,
+                                   utils.MethodInspector(fn))
         if options.verbose:
             raise
         sys.exit(2)

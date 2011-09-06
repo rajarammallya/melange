@@ -52,8 +52,9 @@ class Resource(object):
         return "{0}/{1}".format(self.path, id)
 
     def request(self, method, path, body_params=None, **kwargs):
-        kwargs['headers'] = {'X-AUTH-TOKEN': self.auth_client.get_token(),
-                             'Content-Type': "application/json"}
+        kwargs['headers'] = {'Content-Type': "application/json"}
+        if self.auth_client:
+            kwargs['headers']['X-AUTH-TOKEN'] = self.auth_client.get_token()
         response = self.client.do_request(method, path, **kwargs)
         return response.read()
 

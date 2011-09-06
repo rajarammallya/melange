@@ -15,9 +15,13 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from openstack.common.exception import (Error, ProcessExecutionError,
-                                        DatabaseMigrationError,
-                                        InvalidContentType)
+from openstack.common import exception as openstack_exception
+
+
+Error = openstack_exception.Error
+ProcessExecutionError = openstack_exception.ProcessExecutionError
+DatabaseMigrationError = openstack_exception.DatabaseMigrationError
+InvalidContentType = openstack_exception.InvalidContentType
 
 
 class MelangeError(Error):

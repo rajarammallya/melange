@@ -24,10 +24,14 @@ import os
 import subprocess
 import uuid
 
-from openstack.common.utils import (import_class, import_object,
-                                    bool_from_string)
+from openstack.common import utils as openstack_utils
 
 from melange.common import exception
+
+
+import_class = openstack_utils.import_class
+import_object = openstack_utils.import_object
+bool_from_string = openstack_utils.bool_from_string
 
 
 def parse_int(subject):

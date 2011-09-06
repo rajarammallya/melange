@@ -30,11 +30,14 @@ import webob.exc
 from xml.dom import minidom
 
 from openstack.common import wsgi as openstack_wsgi
-from openstack.common.wsgi import Router, Server, Middleware
 
 from melange.common import exception
 from melange.common import utils
 
+
+Router = openstack_wsgi.Router
+Server = openstack_wsgi.Server
+Middleware = openstack_wsgi.Middleware
 
 eventlet.patcher.monkey_patch(all=False, socket=True)
 

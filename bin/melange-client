@@ -47,6 +47,7 @@ def create_options(parser):
     """Sets up the CLI and config-file options.
 
     :param parser: The option parser
+    :returns: None
 
     """
     parser.add_option('-v', '--verbose', default=False, action="store_true",
@@ -89,6 +90,7 @@ def parse_options(parser, cli_args):
     with any same-named options found in a configuration file
 
     :param parser: The option parser
+    :returns: (options, args)
 
     """
     (options, args) = parser.parse_args(cli_args)

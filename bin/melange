@@ -40,6 +40,7 @@ def create_options(parser):
     """Sets up the CLI and config-file options
 
     :param parser: The option parser
+    :returns: None
 
     """
     parser.add_option('-p', '--port', dest="port", metavar="PORT",

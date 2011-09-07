@@ -420,3 +420,19 @@ class TestTenantUnusableIpOctetsCLI(TestUnusableIpRangesCLI):
 
     def _policy_factory(self, **kwargs):
         return factory_models.PolicyFactory(tenant_id="1234", **kwargs)
+
+
+class SmokeTestDBSyncCLI(tests.BaseTest):
+
+    def test_db_sync_executes(self):
+        exitcode, out, err = functional.execute("{0} db_sync".format(
+                melange.melange_bin_path('melange-manage')))
+        self.assertEqual(exitcode, 0)
+
+
+class SmokeTestDBUpgradeCLI(tests.BaseTest):
+
+    def test_db_upgrade_executes(self):
+        exitcode, out, err = functional.execute("{0} db_upgrade".format(
+                melange.melange_bin_path('melange-manage')))
+        self.assertEqual(exitcode, 0)

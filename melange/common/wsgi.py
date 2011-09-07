@@ -17,9 +17,7 @@
 
 """ Utility methods for working with WSGI servers """
 
-import datetime
 import eventlet.wsgi
-import json
 import logging
 import paste.urlmap
 import re
@@ -27,7 +25,7 @@ import traceback
 import webob
 import webob.dec
 import webob.exc
-from xml.dom import minidom
+
 
 from openstack.common import wsgi as openstack_wsgi
 
@@ -38,6 +36,7 @@ from melange.common import utils
 Router = openstack_wsgi.Router
 Server = openstack_wsgi.Server
 Middleware = openstack_wsgi.Middleware
+JSONDictSerializer = openstack_wsgi.JSONDictSerializer
 
 eventlet.patcher.monkey_patch(all=False, socket=True)
 
@@ -69,7 +68,7 @@ class VersionedURLMap(object):
 
 class Request(webob.Request):
 
-    def best_match_content_type(self):
+    def best_match_content_type(self, supported_content_types=None):
         """Determine the most acceptable content-type.
 
         Based on the query extension then the Accept header.
@@ -87,17 +86,17 @@ class Request(webob.Request):
                   'application/json': "application/json",
                   'application/xml': "application/xml"}
         bm = self.accept.best_match(ctypes.keys())
+
         return ctypes.get(bm, 'application/json')
 
     def get_content_type(self):
         allowed_types = ("application/xml", "application/json")
         self.content_type = self.content_type or "application/json"
-        type = self.content_type
-        if type in allowed_types:
-            return type
-        LOG.debug("Wrong Content-Type: %s" % type)
+        if self.content_type in allowed_types:
+            return self.content_type
+        LOG.debug("Wrong Content-Type: %s" % self.content_type)
         raise webob.exc.HTTPUnsupportedMediaType(
-            _("Content type %s not supported") % type)
+            _("Content type %s not supported") % self.content_type)
 
     @utils.cached_property
     def accept_version(self):
@@ -171,9 +170,6 @@ class Resource(openstack_wsgi.Resource):
         return self.model_exception_map.get(type(error),
                                             webob.exc.HTTPBadRequest)
 
-    def serialize_response(self, action, action_result, request):
-        return self.dispatch(self.serializer, action, action_result, request)
-
     def _invert_dict_list(self, exception_dict):
         """Flattens values of keys and inverts keys and values.
 
@@ -189,35 +185,6 @@ class Resource(openstack_wsgi.Resource):
         return inverted_dict
 
 
-class RequestDeserializer(object):
-
-    def __init__(self, deserializer):
-        self.deserializer = deserializer
-
-    def default(self, request):
-        if not request.body:
-            return {}
-        return dict(body=self.deserializer.deserialize(request.body,
-                                      request.get_content_type()))
-
-
-class ResponseSerializer(object):
-
-    def __init__(self, serializer):
-        self.serializer = serializer
-
-    def default(self, action_result, request):
-        if not isinstance(action_result, Result):
-            return action_result
-
-        content_type = request.best_match_content_type()
-        data = action_result.data(content_type)
-        serialized_data = self.serializer.serialize(data, content_type)
-        return webob.Response(body=serialized_data,
-                              status=action_result.status,
-                              content_type=request.best_match_content_type())
-
-
 class Controller(object):
     """Base controller that creates a Resource with default serializers."""
 
@@ -227,143 +194,42 @@ class Controller(object):
         self.admin_actions = admin_actions or []
 
     def create_resource(self):
-        return Resource(self, RequestDeserializer(Deserializer()),
-                        ResponseSerializer(Serializer()),
-                        self.admin_actions, self.exception_map)
+        serializer = MelangeResponseSerializer(
+            body_serializers={'application/xml': MelangeXMLDictSerializer()})
+        return Resource(self,
+                        openstack_wsgi.RequestDeserializer(),
+                        serializer,
+                        self.admin_actions,
+                        self.exception_map)
 
 
-class Serializer(object):
-    """Serializes a dictionary based on request content type."""
-
-    def __init__(self, metadata=None):
-        """ Create a serializer based on the given WSGI environment.
-
-        'metadata' is an optional dict mapping MIME types to information
-        needed to serialize a dictionary to that type.
-
-        """
-        self.metadata = metadata or {}
-        self._methods = {
-            'application/json': self._to_json,
-            'application/xml': self._to_xml}
-
-    def serialize(self, data, content_type):
-        """Serialize a dictionary into a string.
-
-        The format of the string will be decided based on the
-        Content Type requested in self.environ:
-        by Accept: header, or by URL suffix.
-
-        """
-        return self._methods.get(content_type, repr)(data)
-
-    def _to_json(self, data):
-        def sanitizer(obj):
-            if isinstance(obj, datetime.datetime):
-                _dtime = obj - datetime.timedelta(microseconds=obj.microsecond)
-                return _dtime.isoformat()
-            return obj
-
-        return json.dumps(data, default=sanitizer)
-
-    def _to_xml(self, data):
-        metadata = self.metadata.get('application/xml', {})
-        # We expect data to contain a single key which is the XML root.
-        root_key = data.keys()[0]
-        doc = minidom.Document()
-        node = self._to_xml_node(doc, metadata, root_key, data[root_key])
-        return node.toprettyxml(indent='    ')
+class MelangeXMLDictSerializer(openstack_wsgi.XMLDictSerializer):
 
     def _to_xml_node(self, doc, metadata, nodename, data):
-        """Recursive method to convert data members to XML nodes."""
-
-        if hasattr(data, 'to_xml'):
+        if hasattr(data, "to_xml"):
             return data.to_xml()
-        result = doc.createElement(nodename)
-        if type(data) is list:
-            singular = metadata.get('plurals', {}).get(nodename, None)
-            if singular is None:
-                if nodename.endswith('s'):
-                    singular = nodename[:-1]
-                else:
-                    singular = 'item'
-            for item in data:
-                node = self._to_xml_node(doc, metadata, singular, item)
-                result.appendChild(node)
-        elif type(data) is dict:
-            attrs = metadata.get('attributes', {}).get(nodename, {})
-            for k, v in data.items():
-                if k in attrs:
-                    result.setAttribute(k, str(v))
-                else:
-                    node = self._to_xml_node(doc, metadata, k, v)
-                    result.appendChild(node)
-        else:
-            node = doc.createTextNode(str(data))
-            result.appendChild(node)
-        return result
+        return super(MelangeXMLDictSerializer, self)._to_xml_node(doc,
+                                                                  metadata,
+                                                                  nodename,
+                                                                  data)
 
 
-class Deserializer(object):
-    """Deserializes a dictionary based on request accept content type."""
+class MelangeResponseSerializer(openstack_wsgi.ResponseSerializer):
 
-    def __init__(self, metadata=None):
-        """Create a deserializer based on the given WSGI environment.
+    def serialize_body(self, response, data, content_type, action):
+        if isinstance(data, Result):
+            data = data.data(content_type)
+        super(MelangeResponseSerializer, self).serialize_body(response,
+                                                              data,
+                                                              content_type,
+                                                              action)
 
-        'metadata' is an optional dict mapping MIME types to information
-        needed to serialize a dictionary to that type.
-
-        """
-        self.metadata = metadata or {}
-
-    def deserialize(self, datastring, content_type):
-        """Deserialize a string to a dictionary.
-
-        The string must be in the format of a supported MIME type.
-
-        """
-        return self.get_deserialize_handler(content_type)(datastring)
-
-    def get_deserialize_handler(self, content_type):
-        handlers = {
-            'application/json': self._from_json,
-            'application/xml': self._from_xml,
-        }
-
-        try:
-            return handlers[content_type]
-        except Exception:
-            raise webob.exc.InvalidContentType(content_type=content_type)
-
-    def _from_json(self, datastring):
-        return json.loads(datastring or "{}")
-
-    def _from_xml(self, datastring):
-        xmldata = self.metadata.get('application/xml', {})
-        plurals = set(xmldata.get('plurals', {}))
-        node = minidom.parseString(datastring).childNodes[0]
-        return {node.nodeName: self._from_xml_node(node, plurals)}
-
-    def _from_xml_node(self, node, listnames):
-        """Convert a minidom node to a simple Python type.
-
-        listnames is a collection of names of XML nodes whose subnodes should
-        be considered list items.
-
-        """
-        if len(node.childNodes) == 1 and node.childNodes[0].nodeType == 3:
-            return node.childNodes[0].nodeValue
-        elif node.nodeName in listnames:
-            return [self._from_xml_node(n, listnames) for n in node.childNodes]
-        else:
-            result = dict()
-            for attr in node.attributes.keys():
-                result[attr] = node.attributes[attr].nodeValue
-            for child in node.childNodes:
-                if child.nodeType != node.TEXT_NODE:
-                    result[child.nodeName] = self._from_xml_node(child,
-                                                                 listnames)
-            return result
+    def serialize_headers(self, response, data, action):
+        super(MelangeResponseSerializer, self).serialize_headers(response,
+                                                                 data,
+                                                                 action)
+        if isinstance(data, Result):
+            response.status = data.status
 
 
 class Fault(webob.exc.HTTPException):
@@ -391,9 +257,13 @@ class Fault(webob.exc.HTTPException):
             }
 
         # 'code' is an attribute on the fault tag itself
-        metadata = {'application/xml': {'attributes': {fault_name: 'code'}}}
-        serializer = Serializer(metadata)
+        metadata = {'attributes': {fault_name: 'code'}}
         content_type = req.best_match_content_type()
+        serializer = {
+            'application/xml': openstack_wsgi.XMLDictSerializer(metadata),
+            'application/json': openstack_wsgi.JSONDictSerializer(),
+        }[content_type]
+
         self.wrapped_exc.body = serializer.serialize(fault_data, content_type)
         self.wrapped_exc.content_type = content_type
         return self.wrapped_exc

@@ -57,7 +57,7 @@ class ResourceExtensionTest(unittest.TestCase):
 
         response = test_app.get("/tweedles")
         self.assertEqual(200, response.status_int)
-        self.assertEqual(response_body, response.body)
+        self.assertEqual(response_body, response.json)
 
 
 class ExtensionManagerTest(unittest.TestCase):
@@ -67,7 +67,7 @@ class ExtensionManagerTest(unittest.TestCase):
         response = test_app.get('/foxnsocks')
 
         self.assertEqual(200, response.status_int)
-        self.assertEqual(response_body, response.body)
+        self.assertEqual(response_body, response.json)
 
 
 class ActionExtensionTest(unittest.TestCase):
@@ -84,14 +84,14 @@ class ActionExtensionTest(unittest.TestCase):
         body = json.dumps(dict(add_tweedle=dict(name="test")))
         response = self.test_app.post('/dummy_resources/1/action', body,
                                       content_type='application/json')
-        self.assertEqual("Tweedle Beetle Added.", response.body)
+        self.assertEqual("Tweedle Beetle Added.", response.json)
 
         body = json.dumps(dict(delete_tweedle=dict(name="test")))
         response = self.test_app.post("/dummy_resources/1/action", body,
                                       content_type='application/json')
 
         self.assertEqual(200, response.status_int)
-        self.assertEqual("Tweedle Beetle Deleted.", response.body)
+        self.assertEqual("Tweedle Beetle Deleted.", response.json)
 
     def test_invalid_action_body(self):
         body = json.dumps(dict(blah=dict(name="test")))  # Doesn't exist

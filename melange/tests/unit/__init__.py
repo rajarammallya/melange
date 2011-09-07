@@ -35,8 +35,8 @@ def test_config_path():
 
 
 def sanitize(data):
-    serializer = wsgi.Serializer()
-    return json.loads(serializer._to_json(data))
+    serializer = wsgi.JSONDictSerializer()
+    return json.loads(serializer.serialize(data))
 
 
 class StubConfig():

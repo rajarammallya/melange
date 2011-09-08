@@ -104,22 +104,6 @@ class VersionedURLMapTest(tests.BaseTest):
 
 class RequestTest(tests.BaseTest):
 
-    def test_content_type_missing_defaults_to_json(self):
-        request = wsgi.Request.blank('/tests/123')
-        self.assertEqual(request.get_content_type(), "application/json")
-
-    def test_content_type_unsupported(self):
-        request = wsgi.Request.blank('/tests/123')
-        request.headers["Content-Type"] = "text/html"
-        self.assertRaises(webob.exc.HTTPUnsupportedMediaType,
-                          request.get_content_type)
-
-    def test_content_type_with_charset(self):
-        request = wsgi.Request.blank('/tests/123')
-        request.headers["Content-Type"] = "application/json; charset=UTF-8"
-        result = request.get_content_type()
-        self.assertEqual(result, "application/json")
-
     def test_content_type_from_accept_header(self):
         request = wsgi.Request.blank('/tests/123')
         request.headers["Accept"] = "application/xml"

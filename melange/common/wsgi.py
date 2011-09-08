@@ -66,7 +66,7 @@ class VersionedURLMap(object):
         return app(environ, start_response)
 
 
-class Request(webob.Request):
+class Request(openstack_wsgi.Request):
 
     def best_match_content_type(self, supported_content_types=None):
         """Determine the most acceptable content-type.
@@ -88,15 +88,6 @@ class Request(webob.Request):
         bm = self.accept.best_match(ctypes.keys())
 
         return ctypes.get(bm, 'application/json')
-
-    def get_content_type(self):
-        allowed_types = ("application/xml", "application/json")
-        self.content_type = self.content_type or "application/json"
-        if self.content_type in allowed_types:
-            return self.content_type
-        LOG.debug("Wrong Content-Type: %s" % self.content_type)
-        raise webob.exc.HTTPUnsupportedMediaType(
-            _("Content type %s not supported") % self.content_type)
 
     @utils.cached_property
     def accept_version(self):
@@ -163,8 +154,8 @@ class Resource(openstack_wsgi.Resource):
             return Fault(http_error)
         except Exception as error:
             LOG.exception(error)
-            return Fault(webob.exc.HTTPInternalServerError(error.message,
-                                                 request=request))
+            return Fault(webob.exc.HTTPInternalServerError(str(error),
+                                                           request=request))
 
     def _get_http_error(self, error):
         return self.model_exception_map.get(type(error),

@@ -53,7 +53,7 @@ paste.app_factory = melange.versions:app_factory
 pipeline = extensions melangeapp
 
 [filter:extensions]
-paste.filter_factory = melange.common.extensions:ExtensionMiddleware.factory
+paste.filter_factory = melange.common.extensions:factory
 
 [filter:tokenauth]
 paste.filter_factory = keystone.middleware.auth_token:filter_factory

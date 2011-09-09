@@ -14,217 +14,38 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import json
+from lxml import etree
 import routes
 import unittest
 import webtest
 
 from melange.common import config
-from melange.common import extensions
 from melange.common import wsgi
 from melange.tests import unit
 
 
-response_body = "Try to say this Mr. Knox, sir..."
+class TestExtensions(unittest.TestCase):
 
+    def test_extension_loads_with_melange_xmlns(self):
+        options = {'config_file': unit.test_config_path()}
+        conf, app = config.load_paste_app('extensions_app_with_filter',
+                                          options, None)
+        test_app = webtest.TestApp(app)
 
-class ExtensionControllerTest(unittest.TestCase):
-
-    def setUp(self):
-        super(ExtensionControllerTest, self).setUp()
-        self.test_app = setup_extensions_test_app()
-
-    def test_index(self):
-        response = self.test_app.get("/extensions")
-        self.assertEqual(200, response.status_int)
-
-    def test_get_by_alias(self):
-        response = self.test_app.get("/extensions/FOXNSOX")
-        self.assertEqual(200, response.status_int)
-
-
-class ResourceExtensionTest(unittest.TestCase):
-
-    def test_no_extension_present(self):
-        test_app = setup_extensions_test_app(StubExtensionManager(None))
-        response = test_app.get("/blah", status='*')
-        self.assertEqual(404, response.status_int)
-
-    def test_get_resources(self):
-        res_ext = extensions.ResourceExtension('tweedles',
-                                               StubController(response_body))
-        test_app = setup_extensions_test_app(StubExtensionManager(res_ext))
-
-        response = test_app.get("/tweedles")
-        self.assertEqual(200, response.status_int)
-        self.assertEqual(response_body, response.json)
-
-
-class ExtensionManagerTest(unittest.TestCase):
-
-    def test_get_resources(self):
-        test_app = setup_extensions_test_app()
-        response = test_app.get('/foxnsocks')
-
-        self.assertEqual(200, response.status_int)
-        self.assertEqual(response_body, response.json)
-
-
-class ActionExtensionTest(unittest.TestCase):
-
-    def setUp(self):
-        super(ActionExtensionTest, self).setUp()
-        self.test_app = setup_extensions_test_app()
-
-    def _send_server_action_request(self, url, body):
-        return self.test_app.post(url, json.dumps(body),
-                                  content_type='application/json', status='*')
-
-    def test_extended_action(self):
-        body = json.dumps(dict(add_tweedle=dict(name="test")))
-        response = self.test_app.post('/dummy_resources/1/action', body,
-                                      content_type='application/json')
-        self.assertEqual("Tweedle Beetle Added.", response.json)
-
-        body = json.dumps(dict(delete_tweedle=dict(name="test")))
-        response = self.test_app.post("/dummy_resources/1/action", body,
-                                      content_type='application/json')
-
-        self.assertEqual(200, response.status_int)
-        self.assertEqual("Tweedle Beetle Deleted.", response.json)
-
-    def test_invalid_action_body(self):
-        body = json.dumps(dict(blah=dict(name="test")))  # Doesn't exist
-        response = self.test_app.post("/dummy_resources/1/action", body,
-                                      content_type='application/json',
-                                      status='*')
-        self.assertEqual(404, response.status_int)
-
-    def test_invalid_action(self):
-        body = json.dumps(dict(blah=dict(name="test")))
-        response = self.test_app.post("/asdf/1/action",
-                                      body, content_type='application/json',
-                                      status='*')
-        self.assertEqual(404, response.status_int)
-
-
-class RequestExtensionTest(unittest.TestCase):
-
-    def test_get_resources_with_stub_mgr(self):
-
-        def _req_handler(req, res):
-            # only handle JSON responses
-            data = json.loads(res.body)
-            data['googoose'] = req.GET.get('chewing')
-            res.body = json.dumps(data)
-            return res
-
-        req_ext = extensions.RequestExtension('GET',
-                                                '/dummy_resources/:(id)',
-                                                _req_handler)
-
-        manager = StubExtensionManager(None, None, req_ext)
-        app = setup_extensions_test_app(manager)
-
-        response = app.get("/dummy_resources/1?chewing=bluegoos",
-                           extra_environ={'api.version': '1.1'})
-
-        self.assertEqual(200, response.status_int)
-        response_data = json.loads(response.body)
-        self.assertEqual('bluegoos', response_data['googoose'])
-        self.assertEqual('knox', response_data['fort'])
-
-    def test_get_resources_with_mgr(self):
-        app = setup_extensions_test_app()
-
-        response = app.get("/dummy_resources/1?"
-                                            "chewing=newblue", status='*')
-
-        self.assertEqual(200, response.status_int)
-        response_data = json.loads(response.body)
-        self.assertEqual('newblue', response_data['googoose'])
-        self.assertEqual("Pig Bands!", response_data['big_bands'])
-
-
-class TestExtensionMiddlewareFactory(unittest.TestCase):
-
-    def test_app_configured_with_extensions_as_filter(self):
-        conf, melange_app = config.load_paste_app('extensions_app_with_filter',
-                                                  {"config_file":
-                                                   unit.test_config_path()},
-                                                  None)
-
-        response = webtest.TestApp(melange_app).get("/extensions")
-        self.assertEqual(response.status_int, 200)
+        response = test_app.get("/extensions.xml")
+        root = etree.XML(response.body)
+        self.assertEqual(root.tag.split('extensions')[0],
+                         "{http://docs.openstack.org/melange}")
 
 
 class ExtensionsTestApp(wsgi.Router):
 
     def __init__(self):
         mapper = routes.Mapper()
-        controller = StubController(response_body)
-        mapper.resource("dummy_resource", "/dummy_resources",
-                        controller=controller.create_resource())
         super(ExtensionsTestApp, self).__init__(mapper)
-
-
-class StubController(wsgi.Controller):
-
-    def __init__(self, body):
-        self.body = body
-        super(StubController, self).__init__()
-
-    def index(self, request):
-        return self.body
-
-    def show(self, request, id):
-        return {'fort': 'knox'}
 
 
 def app_factory(global_conf, **local_conf):
     conf = global_conf.copy()
     conf.update(local_conf)
     return ExtensionsTestApp()
-
-
-def setup_extensions_test_app(extension_manager=None):
-    options = {'config_file': unit.test_config_path(),
-               'extension_manager': extension_manager}
-    conf, app = config.load_paste_app('extensions_test_app', options, None)
-    extended_app = extensions.ExtensionMiddleware(app, conf, extension_manager)
-    return webtest.TestApp(extended_app)
-
-
-class StubExtensionManager(object):
-
-    def __init__(self, resource_ext=None, action_ext=None, request_ext=None):
-        self.resource_ext = resource_ext
-        self.action_ext = action_ext
-        self.request_ext = request_ext
-
-    def get_name(self):
-        return "Tweedle Beetle Extension"
-
-    def get_alias(self):
-        return "TWDLBETL"
-
-    def get_description(self):
-        return "Provides access to Tweedle Beetles"
-
-    def get_resources(self):
-        resource_exts = []
-        if self.resource_ext:
-            resource_exts.append(self.resource_ext)
-        return resource_exts
-
-    def get_actions(self):
-        action_exts = []
-        if self.action_ext:
-            action_exts.append(self.action_ext)
-        return action_exts
-
-    def get_request_extensions(self):
-        request_extensions = []
-        if self.request_ext:
-            request_extensions.append(self.request_ext)
-        return request_extensions

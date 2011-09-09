@@ -6,7 +6,7 @@ verbose = False
 debug = False
 
 # Path to the extensions
-api_extensions_path = unit/extensions
+api_extensions_path = ../../melange/extensions
 
 # Address to bind the API server
 bind_host = 0.0.0.0
@@ -44,7 +44,7 @@ nameserver = "ns.example.com"
 pipeline = extensions extensions_test_app
 
 [filter:extensions]
-paste.filter_factory = melange.common.extensions:ExtensionMiddleware.factory
+paste.filter_factory = melange.common.extensions:factory
 
 [app:extensions_test_app]
 paste.app_factory = melange.tests.unit.test_extensions:app_factory

@@ -180,7 +180,7 @@ class TestIpv6AddressGeneratorFactory(tests.BaseTest):
                                    mock_generator.MockIpV6Generator))
 
     def test_loads_default_ipv6_generator_when_not_configured(self):
-        args = dict(tenant_id="1", mac_address="00:11:22:33:44:55")
+        args = dict(used_by_tenant="1", mac_address="00:11:22:33:44:55")
 
         ip_generator = models.ipv6_address_generator_factory("fe::/64", **args)
 
@@ -519,11 +519,15 @@ class TestIpBlock(tests.BaseTest):
     def test_allocate_ip(self):
         block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.0/31")
         block = models.IpBlock.find(block.id)
-        ip = block.allocate_ip(interface_id="1234")
+        ip = block.allocate_ip(interface_id="1234",
+                               used_by_tenant="ip_leasee_tenant",
+                               used_by_device="instance_id")
 
         saved_ip = models.IpAddress.find(ip.id)
         self.assertEqual(ip.address, saved_ip.address)
         self.assertEqual(ip.interface_id, "1234")
+        self.assertEqual(ip.used_by_tenant, "ip_leasee_tenant")
+        self.assertEqual(ip.used_by_device, "instance_id")
 
     def test_allocate_ip_from_non_leaf_block_fails(self):
         parent_block = factory_models.IpBlockFactory(cidr="10.0.0.0/28")
@@ -540,14 +544,6 @@ class TestIpBlock(tests.BaseTest):
                           block.allocate_ip,
                           address="192.1.1.1")
 
-    def test_allocate_ip_for_another_tenant_fails(self):
-        block = factory_models.PrivateIpBlockFactory(cidr="10.1.1.1/28",
-                                                     tenant_id="123")
-
-        self.assertRaises(models.InvalidTenantError,
-                          block.allocate_ip,
-                          tenant_id="456")
-
     def test_allocating_duplicate_address_fails(self):
         block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.0/29")
         block.allocate_ip(address='10.0.0.0')
@@ -562,6 +558,15 @@ class TestIpBlock(tests.BaseTest):
         ip_address = block.allocate_ip()
 
         self.assertEqual(ip_address.address, "10.0.0.1")
+
+    def test_allocate_ips_defaults_used_by_tenant_to_blocks_tenant(self):
+        block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.0/29",
+                                                     gateway="10.0.0.0",
+                                                     tenant_id="RAX")
+        ip_address = block.allocate_ip(used_by_tenant=None)
+
+        self.assertEqual(ip_address.address, "10.0.0.1")
+        self.assertEqual(ip_address.used_by_tenant, "RAX")
 
     def test_allocate_ips_skips_broadcast_address(self):
         block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.0/30")
@@ -1042,7 +1047,7 @@ class TestIpAddress(tests.BaseTest):
 
         self.assertEqual(global_ip.inside_locals(), [])
 
-    def test_ip_address_data(self):
+    def test_data(self):
         ip_block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.1/8")
         ip = factory_models.IpAddressFactory(ip_block_id=ip_block.id)
 
@@ -1050,6 +1055,8 @@ class TestIpAddress(tests.BaseTest):
 
         self.assertEqual(data['id'], ip.id)
         self.assertEqual(data['interface_id'], ip.interface_id)
+        self.assertEqual(data['used_by_tenant'], ip.used_by_tenant)
+        self.assertEqual(data['used_by_device'], ip.used_by_device)
         self.assertEqual(data['ip_block_id'], ip.ip_block_id)
         self.assertEqual(data['address'], ip.address)
         self.assertEqual(data['version'], ip.version)
@@ -1449,7 +1456,7 @@ class TestNetwork(tests.BaseTest):
         network = models.Network.find_by(id=1)
 
         allocated_ips = network.allocate_ips(mac_address="aa:bb:cc:dd:ee:ff",
-                                            tenant_id="123")
+                                            used_by_tenant="123")
         allocated_ip_blocks_ids = [ip.ip_block_id for ip in allocated_ips]
         self.assertEqual(len(allocated_ips), 2)
         self.assertItemsEqual(allocated_ip_blocks_ids,
@@ -1519,7 +1526,7 @@ class TestNetwork(tests.BaseTest):
         ip_block2 = factory_models.IpBlockFactory(network_id=1,
                                                   cidr="fe80::/64")
         network = models.Network(id=1, ip_blocks=[ip_block1, ip_block2])
-        ips = network.allocate_ips(interface_id="123", tenant_id="111",
+        ips = network.allocate_ips(interface_id="123", used_by_tenant="111",
                                    mac_address="00:22:11:77:88:22")
 
         network.deallocate_ips(interface_id="123")

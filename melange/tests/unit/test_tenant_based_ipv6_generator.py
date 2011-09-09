@@ -26,7 +26,7 @@ class TestTenantBasedIpV6Generator(tests.BaseTest):
     def test_next_ip_generates_last_4_segments_for_slash_64_block(self):
         generator = tenant_based_generator.TenantBasedIpV6Generator(
             cidr="fe::/64",
-            tenant_id="1234",
+            used_by_tenant="1234",
             mac_address="00:ff:12:89:67:34")
 
         ip = generator.next_ip()
@@ -37,7 +37,7 @@ class TestTenantBasedIpV6Generator(tests.BaseTest):
     def test_next_ip_increments_address_in_subsequent_calls(self):
         generator = tenant_based_generator.TenantBasedIpV6Generator(
             cidr="fe::/64",
-            tenant_id="1234",
+            used_by_tenant="1234",
             mac_address="00:ff:12:89:67:34")
 
         ip_1 = generator.next_ip()
@@ -49,7 +49,7 @@ class TestTenantBasedIpV6Generator(tests.BaseTest):
     def test_next_ip_generates_ip_for_block_smaller_than_slash_64(self):
         generator = tenant_based_generator.TenantBasedIpV6Generator(
             cidr="fe::/72",
-            tenant_id="1234",
+            used_by_tenant="1234",
             mac_address="00:ff:12:89:67:34")
 
         ip = generator.next_ip()

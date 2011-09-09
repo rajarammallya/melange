@@ -244,6 +244,7 @@ def ipv6_address_generator_factory(cidr, **kwargs):
     ip_generator = utils.import_class(ip_generator_class_name)
     required_params = ip_generator.required_params\
         if hasattr(ip_generator, "required_params") else []
+
     missing_params = set(required_params) - set(kwargs.keys())
     if missing_params:
         raise DataMissingError(_("Required params are missing: %s")
@@ -332,11 +333,10 @@ class IpBlock(ModelBase):
     def parent(self):
         return IpBlock.get(self.parent_id)
 
-    def allocate_ip(self, interface_id=None, address=None, **kwargs):
-        tenant_id = kwargs.get('tenant_id', None)
-        if self.tenant_id and tenant_id and self.tenant_id != tenant_id:
-            raise InvalidTenantError(_("Cannot allocate ip address "
-                                       "from differnt tenant's block"))
+    def allocate_ip(self, interface_id=None, address=None,
+                    used_by_tenant=None, used_by_device=None, **kwargs):
+        used_by_tenant = used_by_tenant or self.tenant_id
+
         if self.subnets():
             raise IpAllocationNotAllowedError(
                 _("Non Leaf block can not allocate IPAddress"))
@@ -344,7 +344,8 @@ class IpBlock(ModelBase):
             raise NoMoreAddressesError(_("IpBlock is full"))
 
         if address is None:
-            address = self._generate_ip_address(**kwargs)
+            address = self._generate_ip_address(used_by_tenant=used_by_tenant,
+                                                **kwargs)
         else:
             self._validate_address(address)
 
@@ -354,7 +355,9 @@ class IpBlock(ModelBase):
 
         return IpAddress.create(address=address,
                                 interface_id=interface_id,
-                                ip_block_id=self.id)
+                                ip_block_id=self.id,
+                                used_by_tenant=used_by_tenant,
+                                used_by_device=used_by_device)
 
     def _generate_ip_address(self, **kwargs):
         if(self.is_ipv6()):
@@ -539,7 +542,8 @@ class IpBlock(ModelBase):
 
 class IpAddress(ModelBase):
 
-    _data_fields = ['ip_block_id', 'address', 'interface_id', 'version']
+    _data_fields = ['ip_block_id', 'address', 'interface_id', 'version',
+                    'used_by_tenant', 'used_by_device']
 
     @classmethod
     def _get_conditions(cls, raw_conditions):

@@ -21,11 +21,11 @@ import netaddr
 
 class TenantBasedIpV6Generator(object):
 
-    required_params = ["tenant_id", "mac_address"]
+    required_params = ["used_by_tenant", "mac_address"]
 
     def __init__(self, cidr, **kwargs):
         self._cidr = cidr
-        self._tenant_id = kwargs['tenant_id']
+        self._tenant_id = kwargs['used_by_tenant']
         self._mac_address = netaddr.EUI(kwargs['mac_address'])
 
     def next_ip(self):

@@ -469,6 +469,24 @@ class IpAddressControllerBase(object):
         allocated_address = models.IpAddress.find_by(ip_block_id=block.id)
         self.assertEqual(allocated_address.interface_id, "1111")
 
+    def test_create_given_the_tenant_using_the_ip(self):
+        block = self.ip_block_factory()
+
+        self.app.post_json(self.address_path(block),
+                           {'ip_address': {"tenant_id": "RAX"}})
+
+        allocated_address = models.IpAddress.find_by(ip_block_id=block.id)
+        self.assertEqual(allocated_address.used_by_tenant, "RAX")
+
+    def test_create_given_the_device_using_the_ip(self):
+        block = self.ip_block_factory()
+
+        self.app.post_json(self.address_path(block),
+                           {'ip_address': {"used_by_device": "instance_id"}})
+
+        allocated_address = models.IpAddress.find_by(ip_block_id=block.id)
+        self.assertEqual(allocated_address.used_by_device, "instance_id")
+
     def test_create_ipv6_address_fails_when_mac_address_not_given(self):
         block = self.ip_block_factory(cidr="ff::/64")
 
@@ -489,7 +507,8 @@ class IpAddressControllerBase(object):
         self.mock.StubOutWithMock(models.IpBlock, "allocate_ip")
         models.IpBlock.allocate_ip(interface_id="123",
                                    mac_address="10:23:56:78:90:01",
-                                   tenant_id="111").AndReturn(generated_ip)
+                                   used_by_tenant="111"
+                                   ).AndReturn(generated_ip)
 
         self.mock.ReplayAll()
         response = self.app.post_json(self.address_path(block), params)
@@ -1520,18 +1539,6 @@ class NetworksControllerBase(object):
                          response.json['ip_addresses'])
         self.assertEqual(ip_address.interface_id, "123")
 
-    def test_allocate_ip_address_for_a_interface(self):
-        ip_block = self._ip_block_factory(network_id=1)
-
-        response = self.app.post("{0}/networks/1/interfaces/123/"
-                                 "ip_allocations".format(self.network_path))
-
-        ip_address = models.IpAddress.find_by(ip_block_id=ip_block.id,
-                                              interface_id=123)
-        self.assertEqual(response.status_int, 201)
-        self.assertEqual([_data(ip_address, with_ip_block=True)],
-                         response.json['ip_addresses'])
-
     def test_allocate_ip_with_given_address(self):
         ip_block = self._ip_block_factory(network_id=1, cidr="10.0.0.0/24")
 
@@ -1545,6 +1552,21 @@ class NetworksControllerBase(object):
         self.assertEqual([_data(ip_address, with_ip_block=True)],
                          response.json['ip_addresses'])
 
+    def test_allocate_ip_with_optional_params(self):
+        ip_block = self._ip_block_factory(network_id=1, cidr="10.0.0.0/24")
+
+        response = self.app.post_json("{0}/networks/1/interfaces/123"
+                                 "/ip_allocations".format(self.network_path),
+                                 {'network': {
+                                          'tenant_id': "RAX",
+                                          'used_by_device': "instance_id"
+                                          }
+                                  })
+
+        ip_address = models.IpAddress.find_by(ip_block_id=ip_block.id)
+        self.assertEqual(ip_address.used_by_tenant, "RAX")
+        self.assertEqual(ip_address.used_by_device, "instance_id")
+
     def test_allocate_ip_allocates_v6_address_with_given_params(self):
         mac_address = "11:22:33:44:55:66"
         ipv6_generator = mock_generator.MockIpV6Generator("fe::/96")
@@ -1553,7 +1575,7 @@ class NetworksControllerBase(object):
         tenant_id = ipv6_block.tenant_id or "456"
         models.ipv6_address_generator_factory("fe::/96",
                                               mac_address=mac_address,
-                                              tenant_id=tenant_id).\
+                                              used_by_tenant=tenant_id).\
                                               AndReturn(ipv6_generator)
 
         self.mock.ReplayAll()
@@ -1596,7 +1618,7 @@ class NetworksControllerBase(object):
         tenant_id = ipv6_block.tenant_id or "456"
         ip_3 = ipv6_block.allocate_ip(interface_id="123",
                                       mac_address="aa:bb:cc:dd:ee:ff",
-                                      tenant_id=tenant_id)
+                                      used_by_tenant=tenant_id)
 
         response = self.app.get("{0}/networks/1/interfaces/123/"
                                 "ip_allocations".format(self.network_path))

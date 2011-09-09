@@ -147,7 +147,7 @@ class IpAddressController(BaseController):
     def create(self, request, ip_block_id, body=None, tenant_id=None):
         ip_block = self._find_block(id=ip_block_id, tenant_id=tenant_id)
         params = self._extract_required_params(body, 'ip_address')
-        params['tenant_id'] = tenant_id or params.get('tenant_id', None)
+        params['used_by_tenant'] = params.pop('tenant_id', None)
         ip_address = ip_block.allocate_ip(**params)
         return wsgi.Result(dict(ip_address=ip_address.data()), 201)
 
@@ -292,7 +292,9 @@ class NetworksController(BaseController):
                                                    tenant_id=tenant_id)
         params = self._extract_required_params(body, 'network')
         options = utils.filter_dict(params, "addresses", "mac_address",
-                                    "tenant_id")
+                                    "used_by_device")
+        options['used_by_tenant'] = params.get('tenant_id', None)
+
         ips = network.allocate_ips(interface_id=interface_id, **options)
         return wsgi.Result(dict(ip_addresses=[ip.data(with_ip_block=True)
                                   for ip in ips]), 201)

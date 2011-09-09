@@ -19,8 +19,6 @@ import urllib
 import urlparse
 from xml.dom import minidom
 
-from melange.common import utils
-
 
 class AtomLink(object):
 

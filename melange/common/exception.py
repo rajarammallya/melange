@@ -18,10 +18,8 @@
 from openstack.common import exception as openstack_exception
 
 
-Error = openstack_exception.Error
 ProcessExecutionError = openstack_exception.ProcessExecutionError
 DatabaseMigrationError = openstack_exception.DatabaseMigrationError
-InvalidContentType = openstack_exception.InvalidContentType
 
 
 class MelangeError(openstack_exception.OpenstackException):

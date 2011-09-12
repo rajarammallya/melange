@@ -600,6 +600,12 @@ class TestIpAddressController(BaseTestController):
 
 class TestInsideGlobalsController(BaseTestController):
 
+    def _nat_path(self, block, address):
+        return ("/ipam/tenants/{0}/ip_blocks/{1}/ip_addresses/{2}"
+                "/inside_globals".format(block.tenant_id,
+                                         block.id,
+                                         address))
+
     def test_index(self):
         local_block = factory_models.PrivateIpBlockFactory(cidr="10.1.1.1/30")
         public_factory = factory_models.PublicIpBlockFactory
@@ -612,9 +618,7 @@ class TestInsideGlobalsController(BaseTestController):
 
         local_ip.add_inside_globals([global_ip1, global_ip2])
 
-        response = self.app.get("/ipam/ip_blocks/%s/ip_addresses/%s/"
-                                "inside_globals"
-                                 % (local_block.id, local_ip.address))
+        response = self.app.get(self._nat_path(local_block, local_ip.address))
 
         self.assertItemsEqual(response.json['ip_addresses'],
                               _data([global_ip1, global_ip2]))
@@ -627,27 +631,37 @@ class TestInsideGlobalsController(BaseTestController):
                                                (global_block, 5))
         local_ip.add_inside_globals(global_ips)
 
-        response = self.app.get("/ipam/ip_blocks/%s/ip_addresses/%s/"
-                                "inside_globals?limit=2&marker=%s"
-                                % (local_block.id, local_ip.address,
-                                   global_ips[1].id))
+        response = self.app.get("{0}?limit=2&marker={1}".
+                                format(self._nat_path(local_block,
+                                                      local_ip.address),
+                                       global_ips[1].id))
 
         self.assertEqual(response.json['ip_addresses'],
                          _data([global_ips[2], global_ips[3]]))
 
     def test_index_for_nonexistent_block(self):
         non_existant_block_id = 12122
-        url = "/ipam/ip_blocks/%s/ip_addresses/%s/inside_globals"
+        url = "/ipam/tenants/tnt/ip_blocks/%s/ip_addresses/%s/inside_globals"
         response = self.app.get(url % (non_existant_block_id, "10.1.1.2"),
                                 status='*')
 
         self.assertErrorResponse(response, webob.exc.HTTPNotFound,
                                  "IpBlock Not Found")
 
+    def test_index_for_nonexistent_block_for_given_tenant(self):
+        block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.0/24",
+                                                     tenant_id="tnt_id")
+
+        url = ("/ipam/tenants/bad_tenant_id/ip_blocks/%s"
+               "/ip_addresses/%s/inside_globals")
+        response = self.app.get(url % (block.id, "10.1.1.2"), status='*')
+
+        self.assertErrorResponse(response, webob.exc.HTTPNotFound,
+                                 "IpBlock Not Found")
+
     def test_index_for_nonexistent_address(self):
         ip_block = factory_models.PrivateIpBlockFactory(cidr="191.1.1.1/10")
-        url = "/ipam/ip_blocks/%s/ip_addresses/%s/inside_globals"
-        response = self.app.get(url % (ip_block.id, '10.1.1.2'),
+        response = self.app.get(self._nat_path(ip_block, '10.1.1.2'),
                                 status='*')
 
         self.assertErrorResponse(response, webob.exc.HTTPNotFound,
@@ -659,13 +673,11 @@ class TestInsideGlobalsController(BaseTestController):
 
         global_ip = global_block.allocate_ip()
         local_ip = local_block.allocate_ip()
-
-        response = self.app.post_json("/ipam/ip_blocks/%s/ip_addresses/%s/"
-                                      "inside_globals" % (local_block.id,
-                                                          local_ip.address),
-                                      {"ip_addresses": [{
-                                          "ip_block_id": global_block.id,
-                                          "ip_address": global_ip.address
+        response = self.app.post_json(self._nat_path(local_block,
+                                                     local_ip.address),
+                                      {'ip_addresses': [{
+                                          'ip_block_id': global_block.id,
+                                          'ip_address': global_ip.address
                                           }]
                                        })
 
@@ -675,6 +687,57 @@ class TestInsideGlobalsController(BaseTestController):
         self.assertEqual(global_ip.id, local_ip.inside_globals()[0].id)
         self.assertEqual(local_ip.id, global_ip.inside_locals()[0].id)
 
+    def test_create_throws_error_for_ips_of_other_tenants_blocks(self):
+        local_block = factory_models.PublicIpBlockFactory(cidr="77.1.1.0/28")
+        other_tenant_global_block = factory_models.PrivateIpBlockFactory(
+            cidr="10.1.1.0/28", tenant_id="other_tenant_id")
+
+        json_data = [{
+            'ip_block_id': other_tenant_global_block.id,
+             'ip_address': "10.1.1.2",
+            }]
+        request_data = {'ip_addresses': json_data}
+
+        response = self.app.post_json(self._nat_path(local_block, "77.1.1.0"),
+                                      request_data, status="*")
+
+        self.assertEqual(response.status_int, 404)
+        self.assertErrorResponse(response, webob.exc.HTTPNotFound,
+                                 "IpBlock Not Found")
+
+    def test_create_for_nonexistent_block(self):
+        non_existant_block_id = 1234
+
+        url = "/ipam/tenants/tnt/ip_blocks/%s/ip_addresses/%s/inside_globals"
+        response = self.app.post_json(url % (non_existant_block_id,
+                                             "10.1.1.2"),
+                                      {'ip_addresses': [{
+                                          'ip_block_id': "5678",
+                                          'ip_address': "10.0.0.0",
+                                          }]
+                                       },
+                                      status='*')
+
+        self.assertErrorResponse(response, webob.exc.HTTPNotFound,
+                                 "IpBlock Not Found")
+
+    def test_create_for_nonexistent_block_for_given_tenant(self):
+        block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.0/24",
+                                                     tenant_id="tnt_id")
+
+        url = ("/ipam/tenants/bad_tenant_id/ip_blocks/%s"
+               "/ip_addresses/%s/inside_globals")
+        response = self.app.post_json(url % (block.id, "10.1.1.2"),
+                                      {'ip_addresses': [{
+                                          'ip_block_id': "5678",
+                                          'ip_address': "10.0.0.0",
+                                          }]
+                                       },
+                                      status='*')
+
+        self.assertErrorResponse(response, webob.exc.HTTPNotFound,
+                                 "IpBlock Not Found")
+
     def test_delete(self):
         local_block = factory_models.PrivateIpBlockFactory(cidr="10.1.1.1/24")
         global_block = factory_models.PublicIpBlockFactory(cidr="77.1.1.1/24")
@@ -683,9 +746,8 @@ class TestInsideGlobalsController(BaseTestController):
         local_ip = local_block.allocate_ip()
         local_ip.add_inside_globals([global_ip])
 
-        response = self.app.delete("/ipam/ip_blocks/%s/ip_addresses/%s/"
-                                   "inside_globals" % (local_block.id,
-                                                       local_ip.address))
+        response = self.app.delete(self._nat_path(local_block,
+                                                  local_ip.address))
 
         self.assertEqual(response.status, "200 OK")
         self.assertEqual(local_ip.inside_globals(), [])
@@ -698,10 +760,9 @@ class TestInsideGlobalsController(BaseTestController):
         local_ip = local_block.allocate_ip()
         local_ip.add_inside_globals(global_ips)
 
-        self.app.delete("/ipam/ip_blocks/%s/ip_addresses/%s/"
-                        "inside_globals/%s" % (local_block.id,
-                                               local_ip.address,
-                                               global_ips[1].address))
+        self.app.delete("%s/%s" % (self._nat_path(local_block,
+                                                  local_ip.address),
+                                   global_ips[1].address))
 
         globals_left = [ip.address for ip in local_ip.inside_globals()]
         self.assertEqual(globals_left, [global_ips[0].address,
@@ -709,17 +770,27 @@ class TestInsideGlobalsController(BaseTestController):
 
     def test_delete_for_nonexistent_block(self):
         non_existant_block_id = 12122
-        url = "/ipam/ip_blocks/%s/ip_addresses/%s/inside_globals"
+        url = "/ipam/tenants/tnt/ip_blocks/%s/ip_addresses/%s/inside_globals"
         response = self.app.delete(url % (non_existant_block_id, '10.1.1.2'),
                                    status='*')
 
         self.assertErrorResponse(response, webob.exc.HTTPNotFound,
                                  "IpBlock Not Found")
 
+    def test_delete_for_nonexistent_block_for_given_tenant(self):
+        block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.0/24",
+                                                     tenant_id="tnt_id")
+
+        url = ("/ipam/tenants/bad_tenant_id/ip_blocks/%s"
+               "/ip_addresses/%s/inside_globals")
+        response = self.app.delete(url % (block.id, "10.1.1.2"), status='*')
+
+        self.assertErrorResponse(response, webob.exc.HTTPNotFound,
+                                 "IpBlock Not Found")
+
     def test_delete_for_nonexistent_address(self):
         ip_block = factory_models.PrivateIpBlockFactory(cidr="191.1.1.1/10")
-        url = "/ipam/ip_blocks/%s/ip_addresses/%s/inside_globals"
-        response = self.app.delete(url % (ip_block.id, '10.1.1.2'),
+        response = self.app.delete(self._nat_path(ip_block, '10.1.1.2'),
                                    status='*')
 
         self.assertErrorResponse(response, webob.exc.HTTPNotFound,
@@ -727,6 +798,12 @@ class TestInsideGlobalsController(BaseTestController):
 
 
 class TestInsideLocalsController(BaseTestController):
+
+    def _nat_path(self, block, address):
+        return ("/ipam/tenants/{0}/ip_blocks/{1}/ip_addresses/{2}"
+                "/inside_locals".format(block.tenant_id,
+                                         block.id,
+                                         address))
 
     def test_index(self):
         local_block = factory_models.PrivateIpBlockFactory(cidr="10.1.1.1/24")
@@ -736,9 +813,8 @@ class TestInsideLocalsController(BaseTestController):
                                                (local_block, 5))
         global_ip.add_inside_locals(local_ips)
 
-        response = self.app.get("/ipam/ip_blocks/%s/ip_addresses/%s/"
-                                "inside_locals" % (global_block.id,
-                                                   global_ip.address))
+        response = self.app.get(self._nat_path(global_block,
+                                               global_ip.address))
 
         self.assertEqual(response.json['ip_addresses'], _data(local_ips))
 
@@ -750,28 +826,37 @@ class TestInsideLocalsController(BaseTestController):
                                                (local_block, 5))
         global_ip.add_inside_locals(local_ips)
 
-        response = self.app.get("/ipam/ip_blocks/%s/ip_addresses/%s/"
-                                "inside_locals?limit=2&marker=%s"
-                                % (global_block.id,
-                                   global_ip.address,
-                                   local_ips[1].id))
+        response = self.app.get("{0}?limit=2&marker={1}".
+                                format(self._nat_path(global_block,
+                                                      global_ip.address),
+                                       local_ips[1].id))
 
         self.assertEqual(response.json['ip_addresses'],
                          _data([local_ips[2], local_ips[3]]))
 
     def test_index_for_nonexistent_block(self):
         non_existant_block_id = 12122
-        url = "/ipam/ip_blocks/%s/ip_addresses/%s/inside_locals"
+        url = "/ipam/tenants/tnt/ip_blocks/%s/ip_addresses/%s/inside_locals"
         response = self.app.get(url % (non_existant_block_id, "10.1.1.2"),
                                 status='*')
 
         self.assertErrorResponse(response, webob.exc.HTTPNotFound,
                                  "IpBlock Not Found")
 
+    def test_index_for_nonexistent_block_for_given_tenant(self):
+        block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.0/24",
+                                                     tenant_id="tnt_id")
+
+        url = ("/ipam/tenants/bad_tenant_id/ip_blocks/%s"
+               "/ip_addresses/%s/inside_locals")
+        response = self.app.get(url % (block.id, "10.1.1.2"), status='*')
+
+        self.assertErrorResponse(response, webob.exc.HTTPNotFound,
+                                 "IpBlock Not Found")
+
     def test_index_for_nonexistent_address(self):
         ip_block = factory_models.PrivateIpBlockFactory(cidr="191.1.1.1/10")
-        url = "/ipam/ip_blocks/%s/ip_addresses/%s/inside_locals"
-        response = self.app.get(url % (ip_block.id, '10.1.1.2'),
+        response = self.app.get(self._nat_path(ip_block, '10.1.1.2'),
                                 status='*')
 
         self.assertErrorResponse(response, webob.exc.HTTPNotFound,
@@ -782,13 +867,13 @@ class TestInsideLocalsController(BaseTestController):
         local_block1 = factory_models.PrivateIpBlockFactory(cidr="10.1.1.0/28")
         local_block2 = factory_models.PrivateIpBlockFactory(cidr="10.0.0.0/28")
 
-        url = "/ipam/ip_blocks/%s/ip_addresses/77.1.1.0/inside_locals"
         json_data = [
             {'ip_block_id': local_block1.id, 'ip_address': "10.1.1.2"},
             {'ip_block_id': local_block2.id, 'ip_address': "10.0.0.2"},
         ]
         request_data = {'ip_addresses': json_data}
-        response = self.app.post_json(url % global_block.id, request_data)
+        response = self.app.post_json(self._nat_path(global_block, "77.1.1.0"),
+                                      request_data)
 
         self.assertEqual(response.status, "200 OK")
         ips = global_block.find_allocated_ip("77.1.1.0").inside_locals()
@@ -801,6 +886,41 @@ class TestInsideLocalsController(BaseTestController):
                                             address="10.1.1.2")
         self.assertEqual(local_ip.inside_globals()[0].address, "77.1.1.0")
 
+    def test_create_throws_error_for_ips_of_other_tenants_blocks(self):
+        global_block = factory_models.PublicIpBlockFactory(cidr="77.1.1.0/28")
+        other_tenant_local_block = factory_models.PrivateIpBlockFactory(
+            cidr="10.1.1.0/28", tenant_id="other_tenant_id")
+
+        json_data = [{
+            'ip_block_id': other_tenant_local_block.id,
+             'ip_address': "10.1.1.2",
+            }]
+        request_data = {'ip_addresses': json_data}
+
+        response = self.app.post_json(self._nat_path(global_block, "77.1.1.0"),
+                                      request_data, status="*")
+
+        self.assertEqual(response.status_int, 404)
+        self.assertErrorResponse(response, webob.exc.HTTPNotFound,
+                                 "IpBlock Not Found")
+
+    def test_create_for_nonexistent_block_for_given_tenant(self):
+        block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.0/24",
+                                                     tenant_id="tnt_id")
+
+        url = ("/ipam/tenants/bad_tenant_id/ip_blocks/%s"
+               "/ip_addresses/%s/inside_locals")
+        response = self.app.post_json(url % (block.id, "10.1.1.2"),
+                                      {'ip_addresses': [{
+                                          'ip_block_id': "5678",
+                                          'ip_address': "10.0.0.0",
+                                          }]
+                                       },
+                                      status='*')
+
+        self.assertErrorResponse(response, webob.exc.HTTPNotFound,
+                                 "IpBlock Not Found")
+
     def test_delete_for_specific_address(self):
         local_block = factory_models.PrivateIpBlockFactory(cidr="10.1.1.1/24")
         global_block = factory_models.PublicIpBlockFactory(cidr="77.1.1.1/24")
@@ -809,10 +929,9 @@ class TestInsideLocalsController(BaseTestController):
         global_ip = global_block.allocate_ip()
         global_ip.add_inside_locals(local_ips)
 
-        self.app.delete("/ipam/ip_blocks/%s/ip_addresses/%s/"
-                        "inside_locals/%s" % (global_block.id,
-                                              global_ip.address,
-                                              local_ips[1].address))
+        self.app.delete("{0}/{1}".format(self._nat_path(global_block,
+                                                        global_ip.address),
+                                         local_ips[1].address))
 
         locals_left = [ip.address for ip in global_ip.inside_locals()]
         self.assertEqual(locals_left,
@@ -826,26 +945,35 @@ class TestInsideLocalsController(BaseTestController):
         local_ip = local_block.allocate_ip()
         global_ip.add_inside_locals([local_ip])
 
-        response = self.app.delete("/ipam/ip_blocks/%s/ip_addresses/%s/"
-                                   "inside_locals" % (global_block.id,
-                                                      global_ip.address))
+        response = self.app.delete(self._nat_path(global_block,
+                                                  global_ip.address))
 
         self.assertEqual(response.status, "200 OK")
         self.assertEqual(global_ip.inside_locals(), [])
 
     def test_delete_for_nonexistent_block(self):
         non_existant_block_id = 12122
-        url = "/ipam/ip_blocks/%s/ip_addresses/%s/inside_locals"
-        response = self.app.delete(url % (non_existant_block_id,
-                                          '10.1.1.2'), status='*')
+        url = "/ipam/tenants/tnt/ip_blocks/%s/ip_addresses/%s/inside_locals"
+        response = self.app.delete(url % (non_existant_block_id, '10.1.1.2'),
+                                   status='*')
 
         self.assertErrorResponse(response, webob.exc.HTTPNotFound,
-                                     "IpBlock Not Found")
+                                 "IpBlock Not Found")
+
+    def test_delete_for_nonexistent_block_for_given_tenant(self):
+        block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.0/24",
+                                                     tenant_id="tnt_id")
+
+        url = ("/ipam/tenants/bad_tenant_id/ip_blocks/%s"
+               "/ip_addresses/%s/inside_locals")
+        response = self.app.delete(url % (block.id, "10.1.1.2"), status='*')
+
+        self.assertErrorResponse(response, webob.exc.HTTPNotFound,
+                                 "IpBlock Not Found")
 
     def test_delete_for_nonexistent_address(self):
         ip_block = factory_models.PrivateIpBlockFactory(cidr="191.1.1.1/10")
-        url = "/ipam/ip_blocks/%s/ip_addresses/%s/inside_locals"
-        response = self.app.delete(url % (ip_block.id, '10.1.1.2'),
+        response = self.app.delete(self._nat_path(ip_block, '10.1.1.2'),
                                    status='*')
 
         self.assertErrorResponse(response, webob.exc.HTTPNotFound,

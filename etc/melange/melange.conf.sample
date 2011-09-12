@@ -67,7 +67,6 @@ admin_token = 999888777666
 
 [filter:authorization]
 paste.filter_factory = melange.common.auth:AuthorizationMiddleware.factory
-url_auth_factory = melange.ipam.service.UrlAuthorizationFactory
 
 [app:melangeapp]
 paste.app_factory = melange.ipam.service:app_factory

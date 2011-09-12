@@ -18,7 +18,6 @@
 import routes
 import webob.exc
 
-from melange.common import auth
 from melange.common import config
 from melange.common import pagination
 from melange.common import utils
@@ -57,9 +56,10 @@ class BaseController(wsgi.Controller):
         return dict([(key, params[key]) for key in params.keys()
                      if key in ["limit", "marker"]])
 
-    def _parse_ips(self, addresses):
+    def _parse_ips(self, addresses, tenant_id):
         return [models.IpBlock.find_or_allocate_ip(address["ip_block_id"],
-                                                   address["ip_address"])
+                                                   address["ip_address"],
+                                                   tenant_id)
                 for address in addresses]
 
     def _get_addresses(self, ips):
@@ -159,37 +159,45 @@ class IpAddressController(BaseController):
 
 class InsideGlobalsController(BaseController):
 
-    def create(self, request, ip_block_id, address, body=None,):
-        local_ip = models.IpBlock.find_or_allocate_ip(ip_block_id, address)
-        global_ips = self._parse_ips(body["ip_addresses"])
+    def create(self, request, ip_block_id, address, tenant_id, body=None):
+        local_ip = models.IpBlock.find_or_allocate_ip(ip_block_id,
+                                                      address,
+                                                      tenant_id)
+        global_ips = self._parse_ips(body["ip_addresses"], tenant_id)
         local_ip.add_inside_globals(global_ips)
 
-    def index(self, request, ip_block_id, address):
-        ip = models.IpBlock.find(ip_block_id).find_allocated_ip(address)
+    def index(self, request, ip_block_id, tenant_id, address):
+        ip_block = models.IpBlock.find_by(id=ip_block_id, tenant_id=tenant_id)
+        ip = ip_block.find_allocated_ip(address)
         return self._get_addresses(ip.inside_globals(
                                       **self._extract_limits(request.params)))
 
-    def delete(self, request, ip_block_id, address,
+    def delete(self, request, ip_block_id, address, tenant_id,
                inside_globals_address=None):
-        local_ip = models.IpBlock.find(ip_block_id).find_allocated_ip(address)
+        ip_block = models.IpBlock.find_by(id=ip_block_id, tenant_id=tenant_id)
+        local_ip = ip_block.find_allocated_ip(address)
         local_ip.remove_inside_globals(inside_globals_address)
 
 
 class InsideLocalsController(BaseController):
 
-    def create(self, request, ip_block_id, address, body=None):
-        global_ip = models.IpBlock.find_or_allocate_ip(ip_block_id, address)
-        local_ips = self._parse_ips(body["ip_addresses"])
+    def create(self, request, ip_block_id, address, tenant_id, body=None):
+        global_ip = models.IpBlock.find_or_allocate_ip(ip_block_id,
+                                                       address,
+                                                       tenant_id)
+        local_ips = self._parse_ips(body["ip_addresses"], tenant_id)
         global_ip.add_inside_locals(local_ips)
 
-    def index(self, request, ip_block_id, address):
-        ip = models.IpBlock.find(ip_block_id).find_allocated_ip(address)
+    def index(self, request, ip_block_id, address, tenant_id):
+        ip_block = models.IpBlock.find_by(id=ip_block_id, tenant_id=tenant_id)
+        ip = ip_block.find_allocated_ip(address)
         return self._get_addresses(ip.inside_locals(
                                     **self._extract_limits(request.params)))
 
-    def delete(self, request, ip_block_id, address,
+    def delete(self, request, ip_block_id, address, tenant_id,
                inside_locals_address=None):
-        global_ip = models.IpBlock.find(ip_block_id).find_allocated_ip(address)
+        ip_block = models.IpBlock.find_by(id=ip_block_id, tenant_id=tenant_id)
+        global_ip = ip_block.find_allocated_ip(address)
         global_ip.remove_inside_locals(inside_locals_address)
 
 
@@ -409,9 +417,10 @@ class API(wsgi.Router):
                           conditions=dict(method=["GET"]))
 
     def _natting_mapper(self, mapper, nat_type, nat_controller):
+        path_prefix = ("/ipam/tenants/{tenant_id}/ip_blocks/{ip_block_id}/"
+                       "ip_addresses/{address:.+?}/")
         with mapper.submapper(controller=nat_controller,
-                              path_prefix="/ipam/ip_blocks/{ip_block_id}/"
-                              "ip_addresses/{address:.+?}/") as submap:
+                              path_prefix=path_prefix) as submap:
             self._connect(submap, nat_type, action="create",
                           conditions=dict(method=["POST"]))
             self._connect(submap, nat_type, action="index",

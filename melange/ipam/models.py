@@ -273,8 +273,8 @@ class IpBlock(ModelBase):
                     'broadcast', 'netmask']
 
     @classmethod
-    def find_or_allocate_ip(cls, ip_block_id, address):
-        block = IpBlock.find(ip_block_id)
+    def find_or_allocate_ip(cls, ip_block_id, address, tenant_id):
+        block = IpBlock.find_by(id=ip_block_id, tenant_id=tenant_id)
         allocated_ip = IpAddress.get_by(ip_block_id=block.id, address=address)
 
         if allocated_ip and allocated_ip.locked():

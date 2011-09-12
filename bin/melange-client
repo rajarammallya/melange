@@ -60,7 +60,8 @@ def create_options(parser):
                       help="Port the Melange API host listens on. "
                            "Default: %default")
     parser.add_option('-t', '--tenant', dest="tenant", metavar="TENANT",
-                      type=str, help="tenant id in case of tenant resources")
+                      type=str, default=env.get('MELANGE_TENANT', None),
+                      help="tenant id in case of tenant resources")
     parser.add_option('--auth-token', dest="auth_token",
                       metavar="MELANGE_AUTH_TOKEN",
                       default=env.get('MELANGE_AUTH_TOKEN', None),
@@ -173,7 +174,8 @@ def main():
                                          options.timeout)
 
     category_client_class = lookup(category, categories)
-    client = category_client_class(http_client, auth_client_factory(options),
+    client = category_client_class(http_client,
+                                   auth_client_factory(options),
                                    options.tenant)
     client_actions = methods_of(client)
     if len(args) < 1:

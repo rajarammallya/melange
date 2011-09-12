@@ -32,8 +32,7 @@ class TestServiceConf(functional.FunctionalTest):
         self.assertTrue("extensions" in response.read())
 
     def test_ipam_service_can_be_accessed(self):
-        response = self.client.get("/v0.1/ipam/ip_blocks",
-                                   headers={'X_ROLE': 'Admin'})
+        response = self.client.get("/v0.1/ipam/tenants/123/ip_blocks")
 
         self.assertEqual(response.status, 200)
         self.assertTrue("ip_blocks" in response.read())
@@ -43,12 +42,12 @@ class TestMimeTypeVersioning(functional.FunctionalTest):
 
     def test_ipam_service_can_be_accessed_with_mime_type_versioning(self):
         headers = {
-            'X_ROLE': 'Admin',
             'Accept': "application/vnd.openstack.melange+xml;"
             "version=0.1",
             }
 
-        response = self.client.get("/ipam/ip_blocks", headers=headers)
+        response = self.client.get("/ipam/tenants/123/ip_blocks",
+                                   headers=headers)
 
         self.assertEqual(response.status, 200)
         self.assertIn("application/xml", response.getheader('content-type'))
@@ -61,7 +60,8 @@ class TestMimeTypeVersioning(functional.FunctionalTest):
             "version=99.1",
             }
 
-        response = self.client.get("/ipam/ip_blocks", headers=headers)
+        response = self.client.get("/ipam/tenants/123/ip_blocks",
+                                   headers=headers)
 
         self.assertEqual(response.status, 406)
         self.assertTrue("version not supported" in response.read())

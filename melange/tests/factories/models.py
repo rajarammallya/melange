@@ -26,16 +26,15 @@ class IpBlockFactory(factory.Factory):
     type = "private"
     dns1 = "ns1.example.com"
     dns2 = "ns2.example.com"
+    tenant_id = "tenant_id"
 
 
 class PublicIpBlockFactory(IpBlockFactory):
     type = "public"
-    tenant_id = None
 
 
 class PrivateIpBlockFactory(IpBlockFactory):
     type = "private"
-    tenant_id = "xxx"
 
 
 class IpV6IpBlockFactory(IpBlockFactory):
@@ -64,6 +63,7 @@ class IpOctetFactory(factory.Factory):
 class PolicyFactory(factory.Factory):
     FACTORY_FOR = models.Policy
     name = 'default policy'
+    tenant_id = "tenant_id"
 
 
 def factory_create(model_to_create, **kwargs):

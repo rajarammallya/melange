@@ -30,8 +30,8 @@ class TestModelBase(tests.BaseTest):
 
     def test_create_ignores_inputs_for_auto_generated_attrs(self):
         model = factory_models.PublicIpBlockFactory(id="input_id",
-                                                      created_at="input_time",
-                                                      updated_at="input_time")
+                                                    created_at="input_time",
+                                                    updated_at="input_time")
 
         self.assertNotEqual(model.id, "input_id")
         self.assertNotEqual(model.created_at, "input_time")
@@ -229,13 +229,21 @@ class TestIpBlock(tests.BaseTest):
         block = factory.build(cidr="10.1.1.1////", network_id=111)
 
         self.assertFalse(block.is_valid())
-        self.assertEqual(block.errors, {'cidr': ['cidr is invalid']})
+        self.assertEqual(block.errors, {'cidr': ["cidr is invalid"]})
         self.assertRaises(models.InvalidModelError, block.save)
         self.assertRaises(models.InvalidModelError, models.IpBlock.create,
                           cidr="10.1.0.0/33", network_id=111)
 
         block.cidr = "10.1.1.1/8"
         self.assertTrue(block.is_valid())
+
+    def test_presence_of_tenant_id(self):
+        factory = factory_models.PrivateIpBlockFactory
+        block = factory.build(cidr="10.1.1.1/8", tenant_id=None)
+
+        self.assertFalse(block.is_valid())
+        self.assertEqual(block.errors,
+                         {'tenant_id': ["tenant_id should be present"]})
 
     def test_validates_overlapping_cidr_for_public_ip_blocks(self):
         factory = factory_models.PublicIpBlockFactory
@@ -265,6 +273,13 @@ class TestIpBlock(tests.BaseTest):
         self.assertFalse(block_of_different_type.is_valid())
         self.assertEqual(block_of_different_type.errors,
                          {'type': ['type should be same within a network']})
+
+    def test_different_types_of_blocks_can_be_created_when_no_network(self):
+        private_block = factory_models.PrivateIpBlockFactory(network_id=None)
+        public_block = factory_models.PublicIpBlockFactory.build(
+            network_id=None)
+
+        self.assertTrue(public_block.is_valid())
 
     def test_save_validates_cidr_belongs_to_parent_block_cidr(self):
         factory = factory_models.PrivateIpBlockFactory
@@ -305,26 +320,6 @@ class TestIpBlock(tests.BaseTest):
         self.assertRaisesExcMessage(models.InvalidModelError, expected_msg,
                                     parent.subnet, cidr="10.0.0.0/30")
 
-    def test_validates_subnet_has_same_tenant_as_parent(self):
-        factory = factory_models.PrivateIpBlockFactory
-        parent = factory(cidr="10.0.0.0/28", tenant_id="1")
-        subnet = factory.build(cidr="10.0.0.0/29",
-                               tenant_id="2",
-                               parent_id=parent.id)
-
-        self.assertFalse(subnet.is_valid())
-        self.assertEqual(subnet.errors['tenant_id'],
-                         ["tenant_id should be same as that of parent"])
-
-    def test_subnet_of_parent_with_no_tenant_can_have_tenant(self):
-        factory = factory_models.PrivateIpBlockFactory
-        parent = factory(cidr="10.0.0.0/28", tenant_id=None)
-        subnet = factory.build(cidr="10.0.0.0/29",
-                               tenant_id="2",
-                               parent_id=parent.id)
-
-        self.assertTrue(subnet.is_valid())
-
     def test_subnets_cidr_can_not_overlap_with_siblings(self):
         parent = factory_models.IpBlockFactory(cidr="10.0.0.0/29")
         parent.subnet(cidr="10.0.0.0/30")
@@ -343,8 +338,7 @@ class TestIpBlock(tests.BaseTest):
         factory = factory_models.IpBlockFactory
         factory(cidr="10.0.0.0/29", network_id="1")
         factory(cidr="20.0.0.0/29", network_id="1")
-        overlapping_block = factory.build(cidr="10.0.0.0/31",
-                                          network_id="1")
+        overlapping_block = factory.build(cidr="10.0.0.0/31", network_id="1")
 
         self.assertFalse(overlapping_block.is_valid())
         self.assertEqual(overlapping_block.errors['cidr'],
@@ -400,7 +394,7 @@ class TestIpBlock(tests.BaseTest):
 
     def test_subnet_creates_child_block_with_the_given_params(self):
         ip_block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.0/28",
-                                                        tenant_id=None)
+                                                        tenant_id="2")
 
         subnet = ip_block.subnet("10.0.0.0/29",
                                  network_id="1",
@@ -1406,23 +1400,10 @@ class TestIpOctet(tests.BaseTest):
 class TestNetwork(tests.BaseTest):
 
     def test_find_when_ip_blocks_for_given_network_exist(self):
-        ip_block1 = factory_models.PublicIpBlockFactory(network_id=1)
-        ip_block2 = factory_models.PublicIpBlockFactory(network_id=1)
-        noise_ip_block = factory_models.PublicIpBlockFactory(network_id=9999)
-
-        network = models.Network.find_by(id=1)
-
-        self.assertEqual(network.id, 1)
-        self.assertItemsEqual([block.cidr for block in network.ip_blocks],
-                              [ip_block1.cidr, ip_block2.cidr])
-
-    def test_find_when_ip_blocks_for_given_tenant_network_exist(self):
         ip_block1 = factory_models.PublicIpBlockFactory(network_id=1,
                                                         tenant_id=123)
         noise_ip_block1 = factory_models.PublicIpBlockFactory(network_id=1,
                                                               tenant_id=321)
-        noise_ip_block2 = factory_models.PublicIpBlockFactory(
-                                                            network_id=9999)
 
         network = models.Network.find_by(id=1, tenant_id=123)
 
@@ -1433,7 +1414,8 @@ class TestNetwork(tests.BaseTest):
         noise_ip_block = factory_models.PublicIpBlockFactory(network_id=9999)
 
         self.assertRaises(models.ModelNotFoundError,
-                          models.Network.find_by, id=1)
+                          models.Network.find_by,
+                          id=1)
 
     def test_find_or_create_when_no_ip_blocks_for_given_network_exist(self):
         noise_ip_block = factory_models.PublicIpBlockFactory(network_id=9999)
@@ -1450,10 +1432,12 @@ class TestNetwork(tests.BaseTest):
 
     def test_allocate_ip_to_allocate_both_ipv4_and_ipv6_addresses(self):
         ipv4_block = factory_models.PublicIpBlockFactory(network_id=1,
-                                                         cidr="10.0.0.0/24")
+                                                         cidr="10.0.0.0/24",
+                                                         tenant_id="111")
         ipv6_block = factory_models.PublicIpBlockFactory(network_id=1,
-                                                         cidr="ff::00/120")
-        network = models.Network.find_by(id=1)
+                                                         cidr="ff::00/120",
+                                                         tenant_id="111")
+        network = models.Network.find_by(id=1, tenant_id="111")
 
         allocated_ips = network.allocate_ips(mac_address="aa:bb:cc:dd:ee:ff",
                                             used_by_tenant="123")
@@ -1468,6 +1452,7 @@ class TestNetwork(tests.BaseTest):
         free_ip_block = factory_models.PublicIpBlockFactory(network_id=1,
                                                             is_full=False)
         network = models.Network(ip_blocks=[full_ip_block, free_ip_block])
+
         [allocated_ipv4] = network.allocate_ips()
 
         ip_address = models.IpAddress.find_by(ip_block_id=free_ip_block.id)
@@ -1475,18 +1460,19 @@ class TestNetwork(tests.BaseTest):
 
     def test_allocate_ip_raises_error_when_all_ip_blocks_are_full(self):
         full_ip_block = factory_models.PublicIpBlockFactory(network_id=1,
-                                                            is_full=True)
+                                                            is_full=True,
+                                                            tenant_id="111")
 
-        network = models.Network.find_by(id=1)
+        network = models.Network.find_by(id=1, tenant_id="111")
 
         self.assertRaises(models.NoMoreAddressesError, network.allocate_ips)
 
     def test_allocate_ip_assigns_given_interface_and_addresses(self):
         factory_models.PublicIpBlockFactory(network_id=1, cidr="10.0.0.0/24")
-        factory_models.PublicIpBlockFactory(network_id=1,
-                                            cidr="169.0.0.0/24")
+        block = factory_models.PublicIpBlockFactory(network_id=1,
+                                                    cidr="169.0.0.0/24")
         addresses = ["10.0.0.7", "169.0.0.2", "10.0.0.3"]
-        network = models.Network.find_by(id=1)
+        network = models.Network.find_by(id=1, tenant_id=block.tenant_id)
 
         allocated_ips = network.allocate_ips(addresses=addresses,
                                              interface_id=123)

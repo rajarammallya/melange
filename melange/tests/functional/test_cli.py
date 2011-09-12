@@ -30,67 +30,6 @@ def run(command):
 
 class TestIpBlockCLI(tests.BaseTest):
 
-    def test_create_public_block(self):
-        policy = factory_models.PolicyFactory()
-        exitcode, out, err = run("ip_block create public 10.1.1.0/29 net1 "
-                                 "%s" % (policy.id))
-
-        self.assertEqual(exitcode, 0)
-        ip_block = models.IpBlock.get_by(cidr="10.1.1.0/29", type='public')
-        self.assertTrue(ip_block is not None)
-        self.assertEqual(ip_block.network_id, "net1")
-        self.assertEqual(ip_block.policy_id, policy.id)
-        self.assertEqual(ip_block.tenant_id, None)
-
-    def test_create(self):
-        policy = factory_models.PolicyFactory()
-        exitcode, out, err = run("ip_block create private 10.1.1.0/29 net1"
-                                 " %s" % (policy.id))
-
-        self.assertEqual(exitcode, 0)
-        ip_block = models.IpBlock.get_by(cidr="10.1.1.0/29", type='private')
-        self.assertTrue(ip_block is not None)
-        self.assertEqual(ip_block.network_id, "net1")
-        self.assertEqual(ip_block.policy_id, policy.id)
-        self.assertEqual(ip_block.tenant_id, None)
-
-    def test_list(self):
-        exitcode, out, err = run("ip_block list")
-
-        self.assertEqual(exitcode, 0)
-        self.assertIn("ip_blocks", out)
-
-    def test_show(self):
-        ip_block = factory_models.PublicIpBlockFactory()
-
-        exitcode, out, err = run("ip_block show %s" % ip_block.id)
-
-        self.assertEqual(exitcode, 0)
-        self.assertIn(ip_block.cidr, out)
-
-    def test_update(self):
-        ip_block = factory_models.PublicIpBlockFactory()
-        policy = factory_models.PolicyFactory()
-
-        exitcode, out, err = run("ip_block update %s new_net %s"
-                                 % (ip_block.id, policy.id))
-
-        self.assertEqual(exitcode, 0)
-        updated_block = models.IpBlock.find(ip_block.id)
-        self.assertEqual(updated_block.network_id, "new_net")
-        self.assertEqual(updated_block.policy_id, policy.id)
-
-    def test_delete(self):
-        ip_block = factory_models.PublicIpBlockFactory()
-
-        exitcode, out, err = run("ip_block delete %s" % ip_block.id)
-
-        self.assertEqual(exitcode, 0)
-        self.assertTrue(models.IpBlock.get(ip_block.id) is None)
-
-
-class TestTenantBasedIpBlockCLI(tests.BaseTest):
-
     def test_create(self):
         policy = factory_models.PolicyFactory(tenant_id=123)
 
@@ -106,7 +45,7 @@ class TestTenantBasedIpBlockCLI(tests.BaseTest):
         self.assertEqual(ip_block.policy_id, policy.id)
 
     def test_list(self):
-        exitcode, out, err = run("ip_block list -t=123")
+        exitcode, out, err = run("ip_block list -t 123")
 
         self.assertEqual(exitcode, 0)
         self.assertIn("ip_blocks", out)
@@ -141,33 +80,7 @@ class TestTenantBasedIpBlockCLI(tests.BaseTest):
         self.assertTrue(models.IpBlock.get(ip_block.id) is None)
 
 
-class TestGlobalSubnetCLI(tests.BaseTest):
-
-    def test_create(self):
-        block = factory_models.IpBlockFactory(cidr="10.0.0.0/28")
-        exitcode, out, err = run("subnet create {0} 10.0.0.0/29".format(
-                                 block.id))
-
-        self.assertEqual(exitcode, 0)
-        subnet = models.IpBlock.get_by(parent_id=block.id)
-        self.assertTrue(subnet is not None)
-        self.assertEqual(subnet.tenant_id, None)
-
-    def test_index(self):
-        block = factory_models.IpBlockFactory(cidr="10.0.0.0/28")
-        block.subnet("10.0.0.0/30")
-        block.subnet("10.0.0.4/30")
-        block.subnet("10.0.0.8/30")
-        exitcode, out, err = run("subnet list {0}".format(block.id))
-
-        self.assertEqual(exitcode, 0)
-        self.assertIn("subnets", out)
-        self.assertIn("10.0.0.0/30", out)
-        self.assertIn("10.0.0.4/30", out)
-        self.assertIn("10.0.0.8/30", out)
-
-
-class TestTenantBasedSubnetCLI(tests.BaseTest):
+class TestSubnetCLI(tests.BaseTest):
 
     def test_create(self):
         block = factory_models.IpBlockFactory(cidr="10.0.0.0/28",
@@ -197,25 +110,12 @@ class TestTenantBasedSubnetCLI(tests.BaseTest):
 
 class TestPolicyCLI(tests.BaseTest):
 
-    def _run(self, command):
-        return run(command)
-
-    def _policy_factory(self, **kwargs):
-        return factory_models.PolicyFactory(**kwargs)
-
-    def test_create(self):
-        exitcode, out, err = self._run("policy create policy_name policy_desc")
-
-        self.assertEqual(exitcode, 0)
-        policy = models.Policy.get_by(name="policy_name",
-                                      description="policy_desc")
-        self.assertTrue(policy is not None)
-        self.assertEqual(policy.tenant_id, None)
-
     def test_update(self):
-        policy = self._policy_factory(name='name', description='desc')
-        exitcode, out, err = self._run("policy update"
-                                       " {0} new_name".format(policy.id))
+        policy = factory_models.PolicyFactory(tenant_id="1234",
+                                              name='name',
+                                              description='desc')
+        exitcode, out, err = run("policy update -t 1234"
+                                 " {0} new_name".format(policy.id))
 
         self.assertEqual(exitcode, 0)
         updated_policy = models.Policy.get(policy.id)
@@ -223,37 +123,29 @@ class TestPolicyCLI(tests.BaseTest):
         self.assertEqual(updated_policy.description, "desc")
 
     def test_list(self):
-        exitcode, out, err = self._run("policy list")
+        exitcode, out, err = run("policy list -t 1234")
 
         self.assertEqual(exitcode, 0)
         self.assertIn("policies", out)
 
     def test_show(self):
-        policy = self._policy_factory(name="blah")
+        policy = factory_models.PolicyFactory(tenant_id="1234", name="blah")
 
-        exitcode, out, err = self._run("policy show %s" % policy.id)
+        exitcode, out, err = run("policy show %s -t 1234" % policy.id)
 
         self.assertEqual(exitcode, 0)
         self.assertIn(policy.name, out)
 
     def test_delete(self):
-        policy = self._policy_factory()
-        exitcode, out, err = self._run("policy delete %s" % policy.id)
+        policy = factory_models.PolicyFactory(tenant_id="1234", name="blah")
+        exitcode, out, err = run("policy delete %s -t 1234" % policy.id)
 
         self.assertEqual(exitcode, 0)
         self.assertTrue(models.Policy.get(policy.id) is None)
 
-
-class TestTenantPolicyCLI(TestPolicyCLI):
-
-    def _run(self, command):
-        return run(command + " -t 1234")
-
-    def _policy_factory(self, **kwargs):
-        return factory_models.PolicyFactory(tenant_id=1234, **kwargs)
-
     def test_create(self):
-        exitcode, out, err = self._run("policy create policy_name policy_desc")
+        command = "policy create policy_name policy_desc -t 1234"
+        exitcode, out, err = run(command)
 
         self.assertEqual(exitcode, 0)
         policy = models.Policy.get_by(name="policy_name",
@@ -264,16 +156,10 @@ class TestTenantPolicyCLI(TestPolicyCLI):
 
 class TestUnusableIpRangesCLI(tests.BaseTest):
 
-    def _run(self, command):
-        return run(command)
-
-    def _policy_factory(self, **kwargs):
-        return factory_models.PolicyFactory(**kwargs)
-
     def test_create(self):
-        policy = self._policy_factory()
-        exitcode, out, err = self._run("unusable_ip_range create"
-                                       " {0} 1 2".format(policy.id))
+        policy = factory_models.PolicyFactory(tenant_id="1234")
+        exitcode, out, err = run("unusable_ip_range create"
+                                 " {0} 1 2 -t 1234".format(policy.id))
 
         self.assertEqual(exitcode, 0)
         ip_range = models.IpRange.get_by(policy_id=policy.id,
@@ -282,12 +168,13 @@ class TestUnusableIpRangesCLI(tests.BaseTest):
         self.assertTrue(ip_range is not None)
 
     def test_update(self):
-        policy = self._policy_factory()
+        policy = factory_models.PolicyFactory(tenant_id="1234")
         ip_range = factory_models.IpRangeFactory(policy_id=policy.id,
                                                  offset=0,
                                                  length=1)
-        exitcode, out, err = self._run("unusable_ip_range update"
-                             " {0} {1} 10 122".format(policy.id, ip_range.id))
+        exitcode, out, err = run("unusable_ip_range update"
+                                 " {0} {1} 10 122 -t 1234".format(policy.id,
+                                                                  ip_range.id))
 
         updated_ip_range = models.IpRange.find(ip_range.id)
 
@@ -296,12 +183,13 @@ class TestUnusableIpRangesCLI(tests.BaseTest):
         self.assertEqual(updated_ip_range.length, 122)
 
     def test_update_with_optional_params(self):
-        policy = self._policy_factory()
+        policy = factory_models.PolicyFactory(tenant_id="1234")
         ip_range = factory_models.IpRangeFactory(policy_id=policy.id,
                                                  offset=0,
                                                  length=1)
-        exitcode, out, err = self._run("unusable_ip_range update"
-                                 " {0} {1} 10".format(policy.id, ip_range.id))
+        exitcode, out, err = run("unusable_ip_range update"
+                                 " {0} {1} 10 -t 1234".format(policy.id,
+                                                              ip_range.id))
 
         updated_ip_range = models.IpRange.find(ip_range.id)
 
@@ -310,64 +198,52 @@ class TestUnusableIpRangesCLI(tests.BaseTest):
         self.assertEqual(updated_ip_range.length, 1)
 
     def test_list(self):
-        policy = self._policy_factory()
-        exitcode, out, err = self._run("unusable_ip_range list"
-                                       " {0}".format(policy.id))
+        policy = factory_models.PolicyFactory(tenant_id="1234")
+        exitcode, out, err = run("unusable_ip_range list"
+                                 " {0} -t 1234".format(policy.id))
 
         self.assertEqual(exitcode, 0)
         self.assertIn("ip_ranges", out)
 
     def test_show(self):
-        policy = self._policy_factory()
+        policy = factory_models.PolicyFactory(tenant_id="1234")
         ip_range = factory_models.IpRangeFactory(policy_id=policy.id)
-        exitcode, out, err = self._run("unusable_ip_range show"
-                                    " {0} {1}".format(policy.id, ip_range.id))
+        exitcode, out, err = run("unusable_ip_range show"
+                                 " {0} {1} -t 1234".format(policy.id,
+                                                           ip_range.id))
 
         self.assertEqual(exitcode, 0)
         self.assertIn(ip_range.policy_id, out)
 
     def test_delete(self):
-        policy = self._policy_factory()
+        policy = factory_models.PolicyFactory(tenant_id="1234")
         ip_range = factory_models.IpRangeFactory(policy_id=policy.id)
-        exitcode, out, err = self._run("unusable_ip_range delete"
-                                     " {0} {1}".format(policy.id, ip_range.id))
+        exitcode, out, err = run("unusable_ip_range delete"
+                                 " {0} {1} -t 1234".format(policy.id,
+                                                           ip_range.id))
 
         self.assertEqual(exitcode, 0)
         self.assertTrue(models.IpRange.get(ip_range.id) is None)
 
 
-class TestTenantUnusableIpRangesCLI(TestUnusableIpRangesCLI):
-
-    def _run(self, command):
-        return run(command + " -t 1234")
-
-    def _policy_factory(self, **kwargs):
-        return factory_models.PolicyFactory(tenant_id="1234", **kwargs)
-
-
 class TestUnusableIpOctetsCLI(tests.BaseTest):
 
-    def _run(self, command):
-        return run(command)
-
-    def _policy_factory(self, **kwargs):
-        return factory_models.PolicyFactory(**kwargs)
-
     def test_create(self):
-        policy = self._policy_factory()
+        policy = factory_models.PolicyFactory(tenant_id="1234")
         exitcode, out, err = run("unusable_ip_octet create"
-                                 " {0} 255".format(policy.id))
+                                 " {0} 255 -t 1234".format(policy.id))
 
         self.assertEqual(exitcode, 0)
         ip_octet = models.IpOctet.get_by(policy_id=policy.id, octet=255)
         self.assertTrue(ip_octet is not None)
 
     def test_update(self):
-        policy = self._policy_factory()
+        policy = factory_models.PolicyFactory(tenant_id="1234")
         ip_octet = factory_models.IpOctetFactory(policy_id=policy.id,
                                                  octet=222)
-        exitcode, out, err = run("unusable_ip_octet update"
-                                 " {0} {1} 255".format(policy.id, ip_octet.id))
+        exitcode, out, err = run("unusable_ip_octet update {0} {1} 255"
+                                 " -t 1234".format(policy.id,
+                                                   ip_octet.id))
 
         updated_ip_octet = models.IpOctet.find(ip_octet.id)
 
@@ -375,11 +251,12 @@ class TestUnusableIpOctetsCLI(tests.BaseTest):
         self.assertEqual(updated_ip_octet.octet, 255)
 
     def test_update_with_optional_params(self):
-        policy = self._policy_factory()
+        policy = factory_models.PolicyFactory(tenant_id="1234")
         ip_octet = factory_models.IpOctetFactory(policy_id=policy.id,
                                                  octet=222)
         exitcode, out, err = run("unusable_ip_octet update"
-                                 " {0} {1}".format(policy.id, ip_octet.id))
+                                 " {0} {1} -t 1234".format(policy.id,
+                                                           ip_octet.id))
 
         updated_ip_octet = models.IpOctet.find(ip_octet.id)
 
@@ -387,42 +264,35 @@ class TestUnusableIpOctetsCLI(tests.BaseTest):
         self.assertEqual(updated_ip_octet.octet, 222)
 
     def test_list(self):
-        policy = self._policy_factory()
+        policy = factory_models.PolicyFactory(tenant_id="1234")
         exitcode, out, err = run("unusable_ip_octet"
-                                 " list {0}".format(policy.id))
+                                 " list {0} -t 1234".format(policy.id))
 
         self.assertEqual(exitcode, 0)
         self.assertIn("ip_octets", out)
 
     def test_show(self):
-        policy = self._policy_factory()
+        policy = factory_models.PolicyFactory(tenant_id="1234")
         ip_octet = factory_models.IpOctetFactory(policy_id=policy.id)
         exitcode, out, err = run("unusable_ip_octet show"
-                                 " {0} {1}".format(policy.id, ip_octet.id))
+                                 " {0} {1} -t 1234".format(policy.id,
+                                                           ip_octet.id))
 
         self.assertEqual(exitcode, 0)
         self.assertIn(ip_octet.policy_id, out)
 
     def test_delete(self):
-        policy = self._policy_factory()
+        policy = factory_models.PolicyFactory(tenant_id="1234")
         ip_octet = factory_models.IpOctetFactory(policy_id=policy.id)
         exitcode, out, err = run("unusable_ip_octet delete"
-                                 " {0} {1}".format(policy.id, ip_octet.id))
+                                 " {0} {1} -t 1234".format(policy.id,
+                                                           ip_octet.id))
 
         self.assertEqual(exitcode, 0)
         self.assertTrue(models.IpOctet.get(ip_octet.id) is None)
 
 
-class TestTenantUnusableIpOctetsCLI(TestUnusableIpRangesCLI):
-
-    def _run(self, command):
-        return run(command + " -t 1234")
-
-    def _policy_factory(self, **kwargs):
-        return factory_models.PolicyFactory(tenant_id="1234", **kwargs)
-
-
-class SmokeTestDBSyncCLI(tests.BaseTest):
+class TestDBSyncCLI(tests.BaseTest):
 
     def test_db_sync_executes(self):
         exitcode, out, err = functional.execute("{0} db_sync".format(
@@ -430,7 +300,7 @@ class SmokeTestDBSyncCLI(tests.BaseTest):
         self.assertEqual(exitcode, 0)
 
 
-class SmokeTestDBUpgradeCLI(tests.BaseTest):
+class TestDBUpgradeCLI(tests.BaseTest):
 
     def test_db_upgrade_executes(self):
         exitcode, out, err = functional.execute("{0} db_upgrade".format(

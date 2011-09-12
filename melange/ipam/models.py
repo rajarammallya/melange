@@ -126,11 +126,12 @@ class ModelBase(object):
         self._validate()
         return self.errors == {}
 
-    def _validate_presence_of(self, attribute_name):
-        if (self[attribute_name] in [None, ""]):
-            self._add_error(attribute_name,
-                            _("%(attribute_name)s should be present")
-                              % locals())
+    def _validate_presence_of(self, *attribute_names):
+        for attribute_name in attribute_names:
+            if (self[attribute_name] in [None, ""]):
+                self._add_error(attribute_name,
+                                _("%(attribute_name)s should be present")
+                                % locals())
 
     def _validate_existence_of(self, attribute, model_class, **conditions):
         model_id = self[attribute]
@@ -425,8 +426,10 @@ class IpBlock(ModelBase):
     def subnet(self, cidr, network_id=None, tenant_id=None):
         network_id = network_id or self.network_id
         tenant_id = tenant_id or self.tenant_id
-        return IpBlock.create(cidr=cidr, network_id=network_id,
-                              parent_id=self.id, type=self.type,
+        return IpBlock.create(cidr=cidr,
+                              network_id=network_id,
+                              parent_id=self.id,
+                              type=self.type,
                               tenant_id=tenant_id)
 
     def _validate_cidr_format(self):
@@ -501,18 +504,14 @@ class IpBlock(ModelBase):
             self._add_error('network_id',
                             _("network_id should be same as that of parent"))
 
-    def _validate_belongs_to_supernet_tenant(self):
-        if(self.parent and self.parent.tenant_id and
-           self.parent.tenant_id != self.tenant_id):
-            self._add_error('tenant_id',
-                            _("tenant_id should be same as that of parent"))
-
     def _validate_parent_is_subnettable(self):
         if (self.parent and self.parent.addresses()):
             msg = _("parent is not subnettable since it has allocated ips")
             self._add_error('parent_id', msg)
 
     def _validate_type_is_same_within_network(self):
+        if not self.network_id:
+            return
         block = IpBlock.get_by(network_id=self.network_id)
         if(block and block.type != self.type):
             self._add_error('type', _("type should be same within a network"))
@@ -520,9 +519,9 @@ class IpBlock(ModelBase):
     def _validate(self):
         self._validate_type()
         self._validate_cidr()
+        self._validate_presence_of('tenant_id')
         self._validate_existence_of('parent_id', IpBlock, type=self.type)
         self._validate_belongs_to_supernet_network()
-        self._validate_belongs_to_supernet_tenant()
         self._validate_parent_is_subnettable()
         self._validate_existence_of('policy_id', Policy)
         self._validate_type_is_same_within_network()
@@ -622,7 +621,7 @@ class Policy(ModelBase):
     _data_fields = ['name', 'description', 'tenant_id']
 
     def _validate(self):
-        self._validate_presence_of('name')
+        self._validate_presence_of('name', 'tenant_id')
 
     def delete(self):
         IpRange.find_all(policy_id=self.id).delete()
@@ -694,14 +693,14 @@ class IpOctet(ModelBase):
 class Network(ModelBase):
 
     @classmethod
-    def find_by(cls, id, tenant_id=None):
-        ip_blocks = IpBlock.find_all(network_id=id, tenant_id=tenant_id).all()
+    def find_by(cls, id, **conditions):
+        ip_blocks = IpBlock.find_all(network_id=id, **conditions).all()
         if(len(ip_blocks) == 0):
             raise ModelNotFoundError(_("Network %s not found") % id)
         return cls(id=id, ip_blocks=ip_blocks)
 
     @classmethod
-    def find_or_create_by(cls, id, tenant_id=None):
+    def find_or_create_by(cls, id, tenant_id):
         try:
             return cls.find_by(id=id, tenant_id=tenant_id)
         except ModelNotFoundError:

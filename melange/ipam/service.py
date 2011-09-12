@@ -83,27 +83,27 @@ class IpBlockController(BaseController):
     def _find_block(self, **kwargs):
         return models.IpBlock.find_by(**kwargs)
 
-    def index(self, request, tenant_id=None):
+    def index(self, request, tenant_id):
         type_dict = utils.filter_dict(request.params, 'type')
         all_blocks = models.IpBlock.find_all(tenant_id=tenant_id, **type_dict)
         return self._paginated_response('ip_blocks', all_blocks, request)
 
-    def create(self, request, body=None, tenant_id=None):
+    def create(self, request, tenant_id, body=None):
         params = self._extract_required_params(body, 'ip_block')
         block = models.IpBlock.create(tenant_id=tenant_id, **params)
         return wsgi.Result(dict(ip_block=block.data()), 201)
 
-    def update(self, request, id, body=None, tenant_id=None):
+    def update(self, request, id, tenant_id, body=None):
         ip_block = self._find_block(id=id, tenant_id=tenant_id)
         params = self._extract_required_params(body, 'ip_block')
         ip_block.update(**utils.exclude(params, 'cidr', 'type'))
         return wsgi.Result(dict(ip_block=ip_block.data()), 200)
 
-    def show(self, request, id, tenant_id=None):
+    def show(self, request, id, tenant_id):
         ip_block = self._find_block(id=id, tenant_id=tenant_id)
         return dict(ip_block=ip_block.data())
 
-    def delete(self, request, id, tenant_id=None):
+    def delete(self, request, id, tenant_id):
         self._find_block(id=id, tenant_id=tenant_id).delete()
 
 
@@ -112,11 +112,11 @@ class SubnetController(BaseController):
     def _find_block(self, id, tenant_id):
         return models.IpBlock.find_by(id=id, tenant_id=tenant_id)
 
-    def index(self, request, ip_block_id, tenant_id=None):
+    def index(self, request, ip_block_id, tenant_id):
         ip_block = self._find_block(id=ip_block_id, tenant_id=tenant_id)
         return dict(subnets=[subnet.data() for subnet in ip_block.subnets()])
 
-    def create(self, request, ip_block_id, body=None, tenant_id=None):
+    def create(self, request, ip_block_id, tenant_id, body=None):
         ip_block = self._find_block(id=ip_block_id, tenant_id=tenant_id)
         params = self._extract_required_params(body, 'subnet')
         subnet = ip_block.subnet(**utils.filter_dict(params,
@@ -131,30 +131,29 @@ class IpAddressController(BaseController):
     def _find_block(self, id, tenant_id):
         return models.IpBlock.find_by(id=id, tenant_id=tenant_id)
 
-    def index(self, request, ip_block_id, tenant_id=None):
+    def index(self, request, ip_block_id, tenant_id):
         ip_block = self._find_block(id=ip_block_id, tenant_id=tenant_id)
         addresses = models.IpAddress.find_all(ip_block_id=ip_block.id)
         return self._paginated_response('ip_addresses', addresses, request)
 
-    def show(self, request, address, ip_block_id, tenant_id=None):
+    def show(self, request, address, ip_block_id, tenant_id):
         ip_block = self._find_block(id=ip_block_id, tenant_id=tenant_id)
         return dict(ip_address=ip_block.find_allocated_ip(address).data())
 
-    def delete(self, request, address, ip_block_id, tenant_id=None):
-        self._find_block(id=ip_block_id,
-                        tenant_id=tenant_id).deallocate_ip(address)
+    def delete(self, request, address, ip_block_id, tenant_id):
+        ip_block = self._find_block(id=ip_block_id, tenant_id=tenant_id)
+        ip_block.deallocate_ip(address)
 
-    def create(self, request, ip_block_id, body=None, tenant_id=None):
+    def create(self, request, ip_block_id, tenant_id, body=None):
         ip_block = self._find_block(id=ip_block_id, tenant_id=tenant_id)
         params = self._extract_required_params(body, 'ip_address')
         params['used_by_tenant'] = params.pop('tenant_id', None)
         ip_address = ip_block.allocate_ip(**params)
         return wsgi.Result(dict(ip_address=ip_address.data()), 201)
 
-    def restore(self, request, ip_block_id, address, body=None,
-                tenant_id=None):
-        ip_address = self._find_block(id=ip_block_id, tenant_id=tenant_id).\
-                             find_allocated_ip(address)
+    def restore(self, request, ip_block_id, address, tenant_id, body=None):
+        ip_block = self._find_block(id=ip_block_id, tenant_id=tenant_id)
+        ip_address = ip_block.find_allocated_ip(address)
         ip_address.restore()
 
 
@@ -196,64 +195,63 @@ class InsideLocalsController(BaseController):
 
 class UnusableIpRangesController(BaseController):
 
-    def create(self, request, policy_id,  body=None, tenant_id=None):
+    def create(self, request, policy_id,  tenant_id, body=None):
         policy = models.Policy.find_by(id=policy_id, tenant_id=tenant_id)
         params = self._extract_required_params(body, 'ip_range')
         ip_range = policy.create_unusable_range(**params)
         return wsgi.Result(dict(ip_range=ip_range.data()), 201)
 
-    def show(self, request, policy_id, id, tenant_id=None):
-        ip_range = models.Policy.find_by(id=policy_id,
-                                  tenant_id=tenant_id).find_ip_range(id)
+    def show(self, request, policy_id, id, tenant_id):
+        policy = models.Policy.find_by(id=policy_id, tenant_id=tenant_id)
+        ip_range = policy.find_ip_range(id)
         return dict(ip_range=ip_range.data())
 
-    def index(self, request, policy_id, tenant_id=None):
-        policy = models.Policy.find_by(id=policy_id,
-                                      tenant_id=tenant_id)
+    def index(self, request, policy_id, tenant_id):
+        policy = models.Policy.find_by(id=policy_id, tenant_id=tenant_id)
         ip_ranges = models.IpRange.find_all(policy_id=policy.id)
         return self._paginated_response('ip_ranges', ip_ranges, request)
 
-    def update(self, request, policy_id, id,  body=None, tenant_id=None):
-        ip_range = models.Policy.find_by(id=policy_id,
-                                  tenant_id=tenant_id).find_ip_range(id)
+    def update(self, request, policy_id, id,  tenant_id, body=None):
+        policy = models.Policy.find_by(id=policy_id, tenant_id=tenant_id)
+        ip_range = policy.find_ip_range(id)
         params = self._extract_required_params(body, 'ip_range')
         ip_range.update(**utils.exclude(params, 'policy_id'))
         return dict(ip_range=ip_range.data())
 
-    def delete(self, request, policy_id, id, tenant_id=None):
-        ip_range = models.Policy.find_by(id=policy_id,
-                                  tenant_id=tenant_id).find_ip_range(id)
+    def delete(self, request, policy_id, id, tenant_id):
+        policy = models.Policy.find_by(id=policy_id, tenant_id=tenant_id)
+        ip_range = policy.find_ip_range(id)
         ip_range.delete()
 
 
 class UnusableIpOctetsController(BaseController):
 
-    def index(self, request, policy_id, tenant_id=None):
+    def index(self, request, policy_id, tenant_id):
         policy = models.Policy.find_by(id=policy_id, tenant_id=tenant_id)
         ip_octets = models.IpOctet.find_all(policy_id=policy.id)
         return self._paginated_response('ip_octets', ip_octets, request)
 
-    def create(self, request, policy_id,  body=None, tenant_id=None):
+    def create(self, request, policy_id,  tenant_id, body=None):
         policy = models.Policy.find_by(id=policy_id, tenant_id=tenant_id)
         params = self._extract_required_params(body, 'ip_octet')
         ip_octet = policy.create_unusable_ip_octet(**params)
         return wsgi.Result(dict(ip_octet=ip_octet.data()), 201)
 
-    def show(self, request, policy_id, id, tenant_id=None):
-        ip_octet = models.Policy.find_by(id=policy_id,
-                                  tenant_id=tenant_id).find_ip_octet(id)
+    def show(self, request, policy_id, id, tenant_id):
+        policy = models.Policy.find_by(id=policy_id, tenant_id=tenant_id)
+        ip_octet = policy.find_ip_octet(id)
         return dict(ip_octet=ip_octet.data())
 
-    def update(self, request, policy_id, id, body=None, tenant_id=None):
-        ip_octet = models.Policy.find_by(id=policy_id,
-                                  tenant_id=tenant_id).find_ip_octet(id)
+    def update(self, request, policy_id, id, tenant_id, body=None):
+        policy = models.Policy.find_by(id=policy_id, tenant_id=tenant_id)
+        ip_octet = policy.find_ip_octet(id)
         params = self._extract_required_params(body, 'ip_octet')
         ip_octet.update(**utils.exclude(params, 'policy_id'))
         return dict(ip_octet=ip_octet.data())
 
-    def delete(self, request, policy_id, id, tenant_id=None):
-        ip_octet = models.Policy.find_by(id=policy_id,
-                                  tenant_id=tenant_id).find_ip_octet(id)
+    def delete(self, request, policy_id, id, tenant_id):
+        policy = models.Policy.find_by(id=policy_id, tenant_id=tenant_id)
+        ip_octet = policy.find_ip_octet(id)
         ip_octet.delete()
 
 
@@ -261,25 +259,25 @@ class PoliciesController(BaseController):
 
     exclude_attr = ['tenant_id']
 
-    def index(self, request, tenant_id=None):
+    def index(self, request, tenant_id):
         policies = models.Policy.find_all(tenant_id=tenant_id)
         return self._paginated_response('policies', policies, request)
 
-    def show(self, request, id, tenant_id=None):
+    def show(self, request, id, tenant_id):
         policy = models.Policy.find_by(id=id, tenant_id=tenant_id).data()
         return dict(policy=policy)
 
-    def create(self, request, body=None, tenant_id=None):
+    def create(self, request, tenant_id, body=None):
         params = self._extract_required_params(body, 'policy')
         policy = models.Policy.create(tenant_id=tenant_id, **params)
         return wsgi.Result(dict(policy=policy.data()), 201)
 
-    def update(self, request, id, body=None, tenant_id=None):
+    def update(self, request, id, tenant_id, body=None):
         policy = models.Policy.find_by(id=id, tenant_id=tenant_id)
         policy.update(**self._extract_required_params(body, 'policy'))
         return dict(policy=policy.data())
 
-    def delete(self, request, id, tenant_id=None):
+    def delete(self, request, id, tenant_id):
         policy = models.Policy.find_by(id=id, tenant_id=tenant_id)
         policy.delete()
 
@@ -287,9 +285,8 @@ class PoliciesController(BaseController):
 class NetworksController(BaseController):
 
     def allocate_ips(self, request, network_id, interface_id,
-                     body=None, tenant_id=None):
-        network = models.Network.find_or_create_by(id=network_id,
-                                                   tenant_id=tenant_id)
+                     tenant_id, body=None):
+        network = models.Network.find_or_create_by(network_id, tenant_id)
         params = self._extract_required_params(body, 'network')
         options = utils.filter_dict(params, "addresses", "mac_address",
                                     "used_by_device")
@@ -299,15 +296,13 @@ class NetworksController(BaseController):
         return wsgi.Result(dict(ip_addresses=[ip.data(with_ip_block=True)
                                   for ip in ips]), 201)
 
-    def deallocate_ips(self, request, network_id, interface_id,
-                       tenant_id=None):
+    def deallocate_ips(self, request, network_id, interface_id, tenant_id):
         network = models.Network.find_by(id=network_id, tenant_id=tenant_id)
         network.deallocate_ips(interface_id)
 
-    def get_allocated_ips(self, request, network_id, interface_id,
-                          tenant_id=None):
+    def get_allocated_ips(self, request, network_id, interface_id, tenant_id):
         ip_blocks = models.IpBlock.find_all(network_id=network_id,
-                                     tenant_id=tenant_id)
+                                            tenant_id=tenant_id)
         addresses = [models.IpAddress.find_all(interface_id=interface_id,
                                                ip_block_id=ip_block.id)
                      for ip_block in ip_blocks]
@@ -321,75 +316,72 @@ class API(wsgi.Router):
     def __init__(self):
         mapper = routes.Mapper()
         super(API, self).__init__(mapper)
-        self._natting_mapper(mapper, "inside_globals",
+        self._natting_mapper(mapper,
+                             "inside_globals",
                              InsideGlobalsController().create_resource())
-        self._natting_mapper(mapper, "inside_locals",
+        self._natting_mapper(mapper,
+                             "inside_locals",
                              InsideLocalsController().create_resource())
-        global_block_resource = IpBlockController(
-            admin_actions=['create', 'delete']).create_resource()
-        self. _block_and_nested_resource_mapper(mapper, "ip_block",
-                                                "/ipam/ip_blocks",
-                                                global_block_resource)
-        self. _block_and_nested_resource_mapper(mapper,
-                                 "ip_block",
-                                 "/ipam/tenants/{tenant_id}/ip_blocks",
-                                 IpBlockController().create_resource())
-        self._policy_and_rules_mapper(mapper, "/ipam/policies")
-        self._policy_and_rules_mapper(mapper,
-                                      "/ipam/tenants/{tenant_id}/policies")
-        self._network_mapper(mapper, "/ipam/networks/{network_id}/"
-                             "interfaces/{interface_id}")
-        self._network_mapper(mapper, "/ipam/tenants/{tenant_id}/networks"
-                             "/{network_id}/interfaces/{interface_id}")
+        self._block_and_nested_resource_mapper(mapper)
+        self._policy_and_rules_mapper(mapper)
+        self._network_mapper(mapper)
 
-    def _network_mapper(self, mapper, resource_path):
+    def _network_mapper(self, mapper):
+        resource_path = ("/ipam/tenants/{tenant_id}/networks"
+                         "/{network_id}/interfaces/{interface_id}")
         network_controller = NetworksController().create_resource()
         with mapper.submapper(controller=network_controller,
                               path_prefix=resource_path) as submap:
             self._connect(submap, "/ip_allocations", action='allocate_ips',
                           conditions=dict(method=['POST']))
-            self._connect(submap, "/ip_allocations",
+            self._connect(submap,
+                          "/ip_allocations",
                           action='get_allocated_ips',
                           conditions=dict(method=['GET']))
             self._connect(submap, "/ip_allocations", action='deallocate_ips',
                           conditions=dict(method=['DELETE']))
 
-    def _policy_and_rules_mapper(self, mapper, policy_path):
+    def _policy_and_rules_mapper(self, mapper):
+        policy_path = "/ipam/tenants/{tenant_id}/policies"
         ip_ranges_resource = UnusableIpRangesController().create_resource()
         ip_octets_resource = UnusableIpOctetsController().create_resource()
         mapper.resource("policy", policy_path,
                         controller=PoliciesController().create_resource())
-        mapper.resource("unusable_ip_range", "unusable_ip_ranges",
+        mapper.resource("unusable_ip_range",
+                        "unusable_ip_ranges",
                         controller=ip_ranges_resource,
                         parent_resource=dict(member_name="policy",
-                                           collection_name=policy_path))
-        mapper.resource("unusable_ip_octet", "unusable_ip_octets",
+                                             collection_name=policy_path))
+        mapper.resource("unusable_ip_octet",
+                        "unusable_ip_octets",
                         controller=ip_octets_resource,
                         parent_resource=dict(member_name="policy",
-                                           collection_name=policy_path))
+                                             collection_name=policy_path))
 
-    def _block_and_nested_resource_mapper(self, mapper, block_resource,
-                                  block_resource_path, block_controller):
-        mapper.resource(block_resource, block_resource_path,
-                        controller=block_controller)
+    def _block_and_nested_resource_mapper(self, mapper):
+        block_resource_path = "/ipam/tenants/{tenant_id}/ip_blocks"
+        mapper.resource("ip_blocks", block_resource_path,
+                        controller=IpBlockController().create_resource())
         block_as_parent = dict(member_name="ip_block",
-                            collection_path=block_resource_path)
+                               collection_path=block_resource_path)
         self._ip_address_mapper(mapper,
                                 IpAddressController().create_resource(),
                                 block_as_parent)
         self._subnet_mapper(mapper, SubnetController().create_resource(),
-                                block_as_parent)
+                            block_as_parent)
 
     def _subnet_mapper(self, mapper, subnet_controller,
-                           parent_resource):
+                       parent_resource):
         path_prefix = "%s/{%s_id}" % (parent_resource["collection_path"],
                                       parent_resource["member_name"])
         with mapper.submapper(controller=subnet_controller,
                               path_prefix=path_prefix) as submap:
             self._connect(submap, "/subnets",
-                          action="index", conditions=dict(method=["GET"]))
+                          action="index",
+                          conditions=dict(method=["GET"]))
             self._connect(submap, "/subnets",
-                          action="create", conditions=dict(method=["POST"]))
+                          action="create",
+                          conditions=dict(method=["POST"]))
 
     def _ip_address_mapper(self, mapper, ip_address_controller,
                            parent_resource):
@@ -397,37 +389,42 @@ class API(wsgi.Router):
                                       parent_resource["member_name"])
         with mapper.submapper(controller=ip_address_controller,
                               path_prefix=path_prefix) as submap:
-            self._connect(submap, "/ip_addresses/{address:.+?}",
-                           action="show", conditions=dict(method=["GET"]))
-            self._connect(submap, "/ip_addresses/{address:.+?}",
-                           action="delete", conditions=dict(method=["DELETE"]))
-            self._connect(submap, "/ip_addresses/{address:.+?}""/restore",
-                          action="restore", conditions=dict(method=["PUT"]))
+            self._connect(submap,
+                          "/ip_addresses/{address:.+?}",
+                          action="show",
+                          conditions=dict(method=["GET"]))
+            self._connect(submap,
+                          "/ip_addresses/{address:.+?}",
+                          action="delete",
+                          conditions=dict(method=["DELETE"]))
+            self._connect(submap,
+                          "/ip_addresses/{address:.+?}""/restore",
+                          action="restore",
+                          conditions=dict(method=["PUT"]))
 
             #mapper.resource here for ip addresses was slowing down the tests
-            self._connect(submap, "/ip_addresses",
-                           action="create", conditions=dict(method=["POST"]))
-            self._connect(submap, "/ip_addresses",
-                           action="index", conditions=dict(method=["GET"]))
+            self._connect(submap, "/ip_addresses", action="create",
+                          conditions=dict(method=["POST"]))
+            self._connect(submap, "/ip_addresses", action="index",
+                          conditions=dict(method=["GET"]))
 
     def _natting_mapper(self, mapper, nat_type, nat_controller):
         with mapper.submapper(controller=nat_controller,
                               path_prefix="/ipam/ip_blocks/{ip_block_id}/"
                               "ip_addresses/{address:.+?}/") as submap:
             self._connect(submap, nat_type, action="create",
-                           conditions=dict(method=["POST"]))
+                          conditions=dict(method=["POST"]))
             self._connect(submap, nat_type, action="index",
-                           conditions=dict(method=["GET"]))
+                          conditions=dict(method=["GET"]))
             self._connect(submap, nat_type, action="delete",
-                           conditions=dict(method=["DELETE"]))
+                          conditions=dict(method=["DELETE"]))
             self._connect(submap,
-                "%(nat_type)s/{%(nat_type)s_address:.+?}" % locals(),
-                action="delete",
-                conditions=dict(method=["DELETE"]))
+                          "%(nat_type)s/{%(nat_type)s_address:.+?}" % locals(),
+                          action="delete",
+                          conditions=dict(method=["DELETE"]))
 
     def _connect(self, mapper, path, *args, **kwargs):
-        return mapper.connect(path + "{.format:(json|xml)?}",
-                              *args, **kwargs)
+        return mapper.connect(path + "{.format:(json|xml)?}", *args, **kwargs)
 
 
 def UrlAuthorizationFactory():

@@ -23,9 +23,8 @@ from melange.common.utils import remove_nones
 
 class Resource(object):
 
-    def __init__(self, path, name, client, auth_client, tenant_id=None):
-        if tenant_id:
-            path = "tenants/{0}/{1}".format(tenant_id, path)
+    def __init__(self, path, name, client, auth_client, tenant_id):
+        path = "tenants/{0}/{1}".format(tenant_id, path)
         self.path = urlparse.urljoin("/v0.1/ipam/", path)
         self.name = name
         self.client = client
@@ -61,7 +60,7 @@ class Resource(object):
 
 class IpBlockClient(object):
 
-    def __init__(self, client, auth_client, tenant_id=None):
+    def __init__(self, client, auth_client, tenant_id):
         self.resource = Resource("ip_blocks", "ip_block",
                                 client, auth_client, tenant_id)
 
@@ -85,7 +84,7 @@ class IpBlockClient(object):
 
 class SubnetClient(object):
 
-    def __init__(self, client, auth_client, tenant_id=None):
+    def __init__(self, client, auth_client, tenant_id):
         self.tenant_id = tenant_id
         self.client = client
         self.auth_client = auth_client
@@ -104,7 +103,7 @@ class SubnetClient(object):
 
 class PolicyClient(object):
 
-    def __init__(self, client, auth_client, tenant_id=None):
+    def __init__(self, client, auth_client, tenant_id):
         self.resource = Resource("policies", "policy", client,
                                  auth_client, tenant_id)
 
@@ -126,7 +125,7 @@ class PolicyClient(object):
 
 class UnusableIpRangesClient(object):
 
-    def __init__(self, client, auth_client, tenant_id=None):
+    def __init__(self, client, auth_client, tenant_id):
         self.client = client
         self.auth_client = auth_client
         self.tenant_id = tenant_id
@@ -155,7 +154,7 @@ class UnusableIpRangesClient(object):
 
 class UnusableIpOctetsClient(object):
 
-    def __init__(self, client, auth_client, tenant_id=None):
+    def __init__(self, client, auth_client, tenant_id):
         self.client = client
         self.auth_client = auth_client
         self.tenant_id = tenant_id

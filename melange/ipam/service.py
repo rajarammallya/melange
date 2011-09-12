@@ -427,10 +427,6 @@ class API(wsgi.Router):
         return mapper.connect(path + "{.format:(json|xml)?}", *args, **kwargs)
 
 
-def UrlAuthorizationFactory():
-    return auth.RoleBasedAuth(API().map)
-
-
 def app_factory(global_conf, **local_conf):
     conf = global_conf.copy()
     conf.update(local_conf)

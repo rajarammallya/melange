@@ -22,8 +22,6 @@ import urlparse
 from webob import exc
 import wsgi
 
-from melange.common import utils
-
 
 class AuthorizationMiddleware(wsgi.Middleware):
 
@@ -41,9 +39,7 @@ class AuthorizationMiddleware(wsgi.Middleware):
     @classmethod
     def factory(cls, global_config, **local_config):
         def _factory(app):
-            url_auth_factory = utils.import_class(
-                local_config['url_auth_factory'])
-            return cls(app, [url_auth_factory(), TenantBasedAuth()],
+            return cls(app, [TenantBasedAuth()],
                        **local_config)
         return _factory
 
@@ -58,21 +54,6 @@ class TenantBasedAuth(object):
         if match and tenant_id != match.group('tenant_id'):
             raise exc.HTTPForbidden(_("User with tenant id %s cannot access "
                                   "this resource") % tenant_id)
-        return True
-
-
-class RoleBasedAuth(object):
-
-    def __init__(self, mapper):
-        self.mapper = mapper
-
-    def authorize(self, request, tenant_id, roles):
-        if('admin' in [role.lower() for role in roles]):
-            return True
-        match = self.mapper.match(request.path_info, request.environ)
-        if match and match['action'] in match['controller'].admin_actions:
-            raise exc.HTTPForbidden(_("User with roles %s cannot access "
-                                "admin actions") % ', '.join(roles))
         return True
 
 

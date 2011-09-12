@@ -81,8 +81,7 @@ class DecoratorTestApp(wsgi.Router):
 
 def mapper():
     mapper = routes.Mapper()
-    admin_actions = ['create']
-    controller = StubController(admin_actions=admin_actions)
+    controller = StubController()
     mapper.resource("resource", "/resources",
                     controller=controller.create_resource())
     return mapper
@@ -95,53 +94,6 @@ class StubController(wsgi.Controller):
 
     def unrestricted(self, request):
         pass
-
-
-class TestRoleBasedAuth(tests.BaseTest):
-
-    def setUp(self):
-        super(TestRoleBasedAuth, self).setUp()
-        self.auth_provider = auth.RoleBasedAuth(mapper())
-        self.request = webob.Request.blank("/resources")
-
-    def test_authorizes_admin_accessing_admin_actions(self):
-        self.request.method = "POST"
-
-        self.assertTrue(self.auth_provider.authorize(self.request,
-                                                     tenant_id='foo',
-                                                     roles=['admin']))
-
-        self.assertTrue(self.auth_provider.authorize(self.request,
-                                                     tenant_id='foo',
-                                                     roles=['ADMIN']))
-
-    def test_forbids_non_admin_accessing_admin_actions(self):
-        self.request.method = "POST"
-
-        self.assertRaises(webob.exc.HTTPForbidden,
-                          self.auth_provider.authorize,
-                          self.request, tenant_id='foo', roles=[])
-
-        msg = "User with roles Member, Viewer cannot access admin actions"
-        self.assertRaisesExcMessage(webob.exc.HTTPForbidden,
-                                    msg,
-                                    self.auth_provider.authorize,
-                                    self.request,
-                                    tenant_id='foo',
-                                    roles=['Member', 'Viewer'])
-
-    def test_authorizes_any_user_accessing_unrestricted_url(self):
-        self.request.method = "GET"
-
-        self.assertTrue(self.auth_provider.authorize(self.request,
-                                                     tenant_id='foo',
-                                                     roles=['Member']))
-        self.assertTrue(self.auth_provider.authorize(self.request,
-                                                     tenant_id='foo',
-                                                     roles=['Admin']))
-        self.assertTrue(self.auth_provider.authorize(self.request,
-                                                     tenant_id='foo',
-                                                     roles=[]))
 
 
 class TestTenantBasedAuth(tests.BaseTest):

@@ -124,10 +124,9 @@ class Result(object):
 class Resource(openstack_wsgi.Resource):
 
     def __init__(self, controller, deserializer, serializer,
-                 admin_actions=None, exception_map=None):
+                 exception_map=None):
         exception_map = exception_map or {}
         self.model_exception_map = self._invert_dict_list(exception_map)
-        self.admin_actions = admin_actions or []
         super(Resource, self).__init__(controller, deserializer, serializer)
 
     @webob.dec.wsgify(RequestClass=Request)
@@ -181,16 +180,12 @@ class Controller(object):
 
     exception_map = {}
 
-    def __init__(self, admin_actions=None):
-        self.admin_actions = admin_actions or []
-
     def create_resource(self):
         serializer = MelangeResponseSerializer(
             body_serializers={'application/xml': MelangeXMLDictSerializer()})
         return Resource(self,
                         openstack_wsgi.RequestDeserializer(),
                         serializer,
-                        self.admin_actions,
                         self.exception_map)
 
 

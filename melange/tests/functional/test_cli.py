@@ -292,6 +292,35 @@ class TestUnusableIpOctetsCLI(tests.BaseTest):
         self.assertTrue(models.IpOctet.get(ip_octet.id) is None)
 
 
+class TestAllocatedIpAddressCLI(tests.BaseTest):
+
+    def test_list(self):
+        factory_models.IpAddressFactory(address="10.1.1.1",
+                                        used_by_device="device_id")
+        factory_models.IpAddressFactory(address="20.1.1.1",
+                                        used_by_device="other_device_id")
+
+        exitcode, out, err = run("allocated_ips list device_id")
+
+        self.assertEqual(exitcode, 0)
+        self.assertIn("ip_addresses", out)
+        self.assertIn('"address": "10.1.1.1"', out)
+        self.assertNotIn('"address": "20.1.1.1"', out)
+
+    def test_list_with_tenant(self):
+        factory_models.IpAddressFactory(address="10.1.1.1",
+                                        used_by_tenant="tenant_id")
+        factory_models.IpAddressFactory(address="20.1.1.1",
+                                        used_by_tenant="other_tenant_id")
+
+        exitcode, out, err = run("allocated_ips list -t tenant_id")
+
+        self.assertEqual(exitcode, 0)
+        self.assertIn("ip_addresses", out)
+        self.assertIn('"address": "10.1.1.1"', out)
+        self.assertNotIn('"address": "20.1.1.1"', out)
+
+
 class TestDBSyncCLI(tests.BaseTest):
 
     def test_db_sync_executes(self):

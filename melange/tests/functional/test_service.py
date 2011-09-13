@@ -15,10 +15,19 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from melange import tests
+from melange.common import client
 from melange.tests import functional
 
 
-class TestServiceConf(functional.FunctionalTest):
+class FunctionalTest(tests.BaseTest):
+
+    def setUp(self):
+        super(FunctionalTest, self).setUp()
+        self.client = client.HTTPClient(port=functional.get_api_port())
+
+
+class TestServiceConf(FunctionalTest):
 
     def test_root_url_returns_versions(self):
         response = self.client.get("/")
@@ -38,7 +47,7 @@ class TestServiceConf(functional.FunctionalTest):
         self.assertTrue("ip_blocks" in response.read())
 
 
-class TestMimeTypeVersioning(functional.FunctionalTest):
+class TestMimeTypeVersioning(FunctionalTest):
 
     def test_ipam_service_can_be_accessed_with_mime_type_versioning(self):
         headers = {

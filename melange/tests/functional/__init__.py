@@ -21,21 +21,12 @@ import socket
 import subprocess
 
 import melange
-from melange import tests
 from melange.common import config
-from melange.common import client
 from melange.db import db_api
 from melange.tests.functional import server
 
 
 _PORT = None
-
-
-class FunctionalTest(tests.BaseTest):
-
-    def setUp(self):
-        super(FunctionalTest, self).setUp()
-        self.client = client.HTTPClient(port=get_api_port())
 
 
 def setup():

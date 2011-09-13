@@ -157,6 +157,16 @@ class IpAddressController(BaseController):
         ip_address.restore()
 
 
+class AllocatedIpAddressesController(BaseController):
+
+    def index(self, request, tenant_id=None):
+        filter_conditions = utils.filter_dict(request.params, 'used_by_device')
+        if tenant_id is not None:
+            filter_conditions['used_by_tenant'] = tenant_id
+        ips = models.IpAddress.find_all(**filter_conditions)
+        return self._paginated_response('ip_addresses', ips, request)
+
+
 class InsideGlobalsController(BaseController):
 
     def create(self, request, ip_block_id, address, tenant_id, body=None):
@@ -333,6 +343,16 @@ class API(wsgi.Router):
         self._block_and_nested_resource_mapper(mapper)
         self._policy_and_rules_mapper(mapper)
         self._network_mapper(mapper)
+        self._allocated_ips_mapper(mapper)
+
+    def _allocated_ips_mapper(self, mapper):
+        allocated_ips_res = AllocatedIpAddressesController().create_resource()
+        mapper.connect("/ipam/allocated_ip_addresses",
+                       controller=allocated_ips_res,
+                       action="index", conditions=dict(method=['GET']))
+        mapper.connect("/ipam/tenants/{tenant_id}/allocated_ip_addresses",
+                       controller=allocated_ips_res,
+                       action="index", conditions=dict(method=['GET']))
 
     def _network_mapper(self, mapper):
         resource_path = ("/ipam/tenants/{tenant_id}/networks"

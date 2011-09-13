@@ -598,6 +598,71 @@ class TestIpAddressController(BaseTestController):
                                  "IpBlock Not Found")
 
 
+class TestAllocatedIpAddressController(BaseTestController):
+
+    def test_index_returns_allocated_ips_as_paginated_set(self):
+        ip_block1 = factory_models.IpBlockFactory(cidr="10.0.0.0/24")
+        ip_block2 = factory_models.IpBlockFactory(cidr="20.0.0.0/24")
+
+        block1_ips, block2_ips = _allocate_ips((ip_block1, 3), (ip_block2, 4))
+
+        allocated_ips = models.sort(block1_ips + block2_ips)
+        response = self.app.get("/ipam/allocated_ip_addresses?"
+                                "limit=4&marker=%s" % allocated_ips[1].id)
+        self.assertEqual(response.status_int, 200)
+        self.assertEqual(len(response.json['ip_addresses']), 4)
+        self.assertEqual(response.json['ip_addresses'],
+                         _data(allocated_ips[2:6]))
+
+    def test_index_returns_allocated_ips_for_tenant(self):
+        tenant1_block1 = factory_models.IpBlockFactory(cidr="10.0.0.0/24",
+                                                       tenant_id="1")
+        block2 = factory_models.IpBlockFactory(cidr="20.0.0.0/24",
+                                               tenant_id="2")
+        tenant1_ip1 = tenant1_block1.allocate_ip()
+        tenant1_ip2 = block2.allocate_ip(used_by_tenant="1")
+        tenant2_ip1 = block2.allocate_ip()
+
+        response = self.app.get("/ipam/tenants/1/allocated_ip_addresses")
+
+        self.assertItemsEqual(response.json['ip_addresses'],
+                              _data([tenant1_ip1, tenant1_ip2]))
+
+    def test_index_returns_allocated_ips_by_device(self):
+        block1 = factory_models.IpBlockFactory(cidr="10.0.0.0/24",
+                                               tenant_id="1")
+        block2 = factory_models.IpBlockFactory(cidr="20.0.0.0/24",
+                                               tenant_id="2")
+
+        instance1_ip1 = block1.allocate_ip(used_by_device="1")
+        instance1_ip2 = block2.allocate_ip(used_by_device="1")
+        instance2_ip1 = block2.allocate_ip(used_by_device="2")
+
+        response = self.app.get("/ipam/allocated_ip_addresses?"
+                                "used_by_device=1")
+
+        self.assertItemsEqual(response.json['ip_addresses'],
+                              _data([instance1_ip1, instance1_ip2]))
+
+    def test_index_returns_allocated_ips_by_device_for_tenant(self):
+        block1 = factory_models.IpBlockFactory(cidr="10.0.0.0/24",
+                                               tenant_id="1")
+        block2 = factory_models.IpBlockFactory(cidr="20.0.0.0/24",
+                                               tenant_id="2")
+
+        tnt1_device1_ip1 = block1.allocate_ip(used_by_device="1")
+        tnt1_device1_ip2 = block2.allocate_ip(used_by_device="1",
+                                              used_by_tenant="1")
+        tnt1_device2_ip1 = block1.allocate_ip(used_by_device="2")
+        tnt2_device1_ip1 = block2.allocate_ip(used_by_device="1")
+
+        response = self.app.get("/ipam/tenants/1/allocated_ip_addresses?"
+                                "used_by_device=1")
+
+        self.assertItemsEqual(response.json['ip_addresses'],
+                              _data([tnt1_device1_ip1, tnt1_device1_ip2]))
+
+
 class TestInsideGlobalsController(BaseTestController):
 
     def _nat_path(self, block, address):

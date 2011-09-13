@@ -119,6 +119,7 @@ categories = {
     'policy': client.PolicyClient,
     'unusable_ip_range': client.UnusableIpRangesClient,
     'unusable_ip_octet': client.UnusableIpOctetsClient,
+    'allocated_ips': client.AllocatedIpAddressesClient,
 }
 
 

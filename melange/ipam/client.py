@@ -18,13 +18,14 @@
 import json
 import urlparse
 
-from melange.common.utils import remove_nones
+from melange.common import utils
 
 
 class Resource(object):
 
-    def __init__(self, path, name, client, auth_client, tenant_id):
-        path = "tenants/{0}/{1}".format(tenant_id, path)
+    def __init__(self, path, name, client, auth_client, tenant_id=None):
+        if tenant_id:
+            path = "tenants/{0}/{1}".format(tenant_id, path)
         self.path = urlparse.urljoin("/v0.1/ipam/", path)
         self.name = name
         self.client = client
@@ -36,10 +37,13 @@ class Resource(object):
 
     def update(self, id, **kwargs):
         return self.request("PUT", self._member_path(id),
-                            body=json.dumps({self.name: remove_nones(kwargs)}))
+                            body=json.dumps(
+                                {self.name: utils.remove_nones(kwargs)}))
 
-    def all(self):
-        return self.request("GET", self.path)
+    def all(self, **params):
+        return self.request("GET",
+                            self.path,
+                            params=utils.remove_nones(params))
 
     def find(self, id):
         return self.request("GET", self._member_path(id))
@@ -50,7 +54,7 @@ class Resource(object):
     def _member_path(self, id):
         return "{0}/{1}".format(self.path, id)
 
-    def request(self, method, path, body_params=None, **kwargs):
+    def request(self, method, path, **kwargs):
         kwargs['headers'] = {'Content-Type': "application/json"}
         if self.auth_client:
             kwargs['headers']['X-AUTH-TOKEN'] = self.auth_client.get_token()
@@ -178,3 +182,16 @@ class UnusableIpOctetsClient(object):
 
     def delete(self, policy_id, id):
         return self._resource(policy_id).delete(id)
+
+
+class AllocatedIpAddressesClient(object):
+
+    def __init__(self, client, auth_client, tenant_id=None):
+        self._resource = Resource("allocated_ip_addresses",
+                                  "allocated_ip_addresses",
+                                  client,
+                                  auth_client,
+                                  tenant_id)
+
+    def list(self, used_by_device=None):
+        return self._resource.all(used_by_device=used_by_device)

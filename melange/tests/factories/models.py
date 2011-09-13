@@ -16,6 +16,7 @@
 #    under the License.
 
 import factory
+import netaddr
 
 from melange.ipam import models
 
@@ -45,8 +46,11 @@ class IpV6IpBlockFactory(IpBlockFactory):
 class IpAddressFactory(factory.Factory):
     FACTORY_FOR = models.IpAddress
     ip_block_id = factory.LazyAttribute(lambda a: PublicIpBlockFactory().id)
-    address = factory.LazyAttribute(
-        lambda ip: models.IpBlock.find(ip.ip_block_id).allocate_ip().address)
+
+    @factory.lazy_attribute_sequence
+    def address(ip, n):
+        ip_block = models.IpBlock.find(ip.ip_block_id)
+        return netaddr.IPNetwork(ip_block.cidr)[int(n)]
 
 
 class IpRangeFactory(factory.Factory):

@@ -321,6 +321,60 @@ class TestAllocatedIpAddressCLI(tests.BaseTest):
         self.assertNotIn('"address": "20.1.1.1"', out)
 
 
+class TestIpAddressCLI(tests.BaseTest):
+
+    def test_create(self):
+        block = factory_models.PrivateIpBlockFactory(cidr="10.1.1.0/24",
+                                                     tenant_id="123")
+        exitcode, out, err = run("ip_address create {0} 10.1.1.2 "
+                                 "used_by_tenant_id used_by_device_id "
+                                 "-t 123".format(block.id))
+
+        self.assertEqual(exitcode, 0)
+
+        ip = models.IpAddress.get_by(ip_block_id=block.id)
+
+        self.assertTrue(ip is not None)
+        self.assertEqual(ip.address, "10.1.1.2")
+        self.assertEqual(ip.used_by_tenant, "used_by_tenant_id")
+        self.assertEqual(ip.used_by_device, "used_by_device_id")
+
+    def test_list(self):
+        block = factory_models.PrivateIpBlockFactory(cidr="10.1.1.0/24",
+                                                     tenant_id="123")
+
+        ip1 = block.allocate_ip(address="10.1.1.2")
+        ip2 = block.allocate_ip(address="10.1.1.3")
+
+        exitcode, out, err = run("ip_address list {0} -t 123".format(block.id))
+
+        self.assertEqual(exitcode, 0)
+        self.assertIn("ip_addresses", out)
+        self.assertIn('"address": "10.1.1.2"', out)
+        self.assertIn('"address": "10.1.1.3"', out)
+
+    def test_show(self):
+        block = factory_models.PrivateIpBlockFactory(tenant_id="123")
+        ip = factory_models.IpAddressFactory(ip_block_id=block.id)
+
+        exitcode, out, err = run("ip_address show {0} {1} "
+                                 "-t 123".format(block.id, ip.address))
+
+        self.assertEqual(exitcode, 0)
+        self.assertIn(ip.address, out)
+
+    def test_delete(self):
+        block = factory_models.PrivateIpBlockFactory(tenant_id="123")
+        ip = factory_models.IpAddressFactory(ip_block_id=block.id)
+
+        exitcode, out, err = run("ip_address delete "
+                                 "{0} {1} -t 123".format(block.id, ip.address))
+        self.assertEqual(exitcode, 0)
+        print out
+        print models.IpAddress.find_all(id=ip.id).all()
+        self.assertTrue(models.IpAddress.get(ip.id).marked_for_deallocation)
+
+
 class TestDBSyncCLI(tests.BaseTest):
 
     def test_db_sync_executes(self):

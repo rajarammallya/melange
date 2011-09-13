@@ -195,3 +195,32 @@ class AllocatedIpAddressesClient(object):
 
     def list(self, used_by_device=None):
         return self._resource.all(used_by_device=used_by_device)
+
+
+class IpAddressesClient(object):
+
+    def __init__(self, client, auth_client, tenant_id):
+        self.client = client
+        self.auth_client = auth_client
+        self.tenant_id = tenant_id
+
+    def _resource(self, ip_block_id):
+        path = "ip_blocks/{0}/ip_addresses".format(ip_block_id)
+        return Resource(path, "ip_address",
+                        self.client, self.auth_client, self.tenant_id)
+
+    def create(self, ip_block_id, address=None, used_by_tenant=None,
+               used_by_device=None):
+        resource = self._resource(ip_block_id)
+        return resource.create(address=address,
+                               used_by_device=used_by_device,
+                               tenant_id=used_by_tenant)
+
+    def list(self, ip_block_id):
+        return self._resource(ip_block_id).all()
+
+    def show(self, ip_block_id, address):
+        return self._resource(ip_block_id).find(address)
+
+    def delete(self, ip_block_id, address):
+        return self._resource(ip_block_id).delete(address)

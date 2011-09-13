@@ -1522,6 +1522,7 @@ class TestNetwork(tests.BaseTest):
                                                   cidr="10.0.0.0/24")
         ip_block2 = factory_models.IpBlockFactory(network_id=1,
                                                   cidr="fe80::/64")
+
         network = models.Network(id=1, ip_blocks=[ip_block1, ip_block2])
         ips = network.allocate_ips(interface_id="123", used_by_tenant="111",
                                    mac_address="00:22:11:77:88:22")

@@ -118,11 +118,15 @@ class TestTenantBasedAuth(tests.BaseTest):
                                     tenant_id="blah",
                                     roles=["Member"])
 
-    def test_authorizes_tenant_accessing_resources_not_scoped_by_tenant(self):
+    def test_tenant_cannot_access_resources_not_scoped_by_tenant(self):
         request = webob.Request.blank("/xxxx/1/resources")
-        self.assertTrue(self.auth_provider.authorize(request,
-                                                     tenant_id="foo",
-                                                     roles=["Member"]))
+        expected_msg = "User with tenant id blah cannot access this resource"
+        self.assertRaisesExcMessage(webob.exc.HTTPForbidden,
+                                    expected_msg,
+                                    self.auth_provider.authorize,
+                                    request,
+                                    tenant_id="blah",
+                                    roles=["Member"])
 
     def test_authorizes_admin_accessing_own_tenant_resources(self):
         request = webob.Request.blank("/tenants/1/resources")

@@ -48,13 +48,14 @@ class TenantBasedAuth(object):
     tenant_scoped_url = re.compile(".*/tenants/(?P<tenant_id>.*?)/.*")
 
     def authorize(self, request, tenant_id, roles):
-        if('admin' in [role.lower() for role in roles]):
+        if 'admin' in [role.lower() for role in roles]:
             return True
-        match = self.tenant_scoped_url.match(request.path_info)
-        if match and tenant_id != match.group('tenant_id'):
-            raise exc.HTTPForbidden(_("User with tenant id %s cannot access "
+        match_for_tenant = self.tenant_scoped_url.match(request.path_info)
+        if (match_for_tenant and
+            tenant_id == match_for_tenant.group('tenant_id')):
+            return True
+        raise exc.HTTPForbidden(_("User with tenant id %s cannot access "
                                   "this resource") % tenant_id)
-        return True
 
 
 class KeystoneClient(httplib2.Http):

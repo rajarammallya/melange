@@ -19,6 +19,8 @@ import httplib
 import socket
 import urllib
 
+from melange.common import exception
+
 
 class HTTPClient(object):
 
@@ -27,19 +29,6 @@ class HTTPClient(object):
         self.port = port
         self.use_ssl = use_ssl
         self.timeout = timeout
-
-    def get(self, path, params=None, headers=None):
-        params = params or {}
-        headers = headers or {}
-        return self.do_request("GET", path, params=params, headers=headers)
-
-    def post(self, path, body=None, headers=None):
-        headers = headers or {}
-        return self.do_request("POST", path, body=body, headers=headers)
-
-    def delete(self, path, headers=None):
-        headers = headers or {}
-        return self.do_request("DELETE", path, headers=headers)
 
     def _get_connection(self):
         if self.use_ssl:
@@ -59,7 +48,10 @@ class HTTPClient(object):
             connection = self._get_connection()
             connection.request(method, url, body, headers)
             response = connection.getresponse()
+            if response.status >= 400:
+                raise exception.MelangeServiceResponseError(response.read())
             return response
         except (socket.error, IOError) as error:
-            raise Exception(_("Error while communicating with server. "
-                              "Got error: %s") % error)
+            raise exception.ClientConnectionError(
+                _("Error while communicating with server. "
+                  "Got error: %s") % error)

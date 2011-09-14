@@ -22,23 +22,14 @@ from xml.dom import minidom
 
 class AtomLink(object):
 
-    def __init__(self, rel, href, link_type=None, hreflang=None, title=None):
+    def __init__(self, rel, href):
         self.rel = rel
         self.href = href
-        self.link_type = link_type
-        self.hreflang = hreflang
-        self.title = title
 
     def to_xml(self):
         ATOM_NAMESPACE = "http://www.w3.org/2005/Atom"
         doc = minidom.Document()
         atom_elem = doc.createElementNS(ATOM_NAMESPACE, "link")
-        if self.link_type:
-            atom_elem.setAttribute("link_type", self.link_type)
-        if self.hreflang:
-            atom_elem.setAttribute("hreflang", self.hreflang)
-        if self.title:
-            atom_elem.setAttribute("title", self.title)
         atom_elem.setAttribute("rel", self.rel)
         atom_elem.setAttribute("href", self.href)
         return atom_elem

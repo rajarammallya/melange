@@ -319,14 +319,10 @@ class NetworksController(BaseController):
         network.deallocate_ips(interface_id)
 
     def get_allocated_ips(self, request, network_id, interface_id, tenant_id):
-        ip_blocks = models.IpBlock.find_all(network_id=network_id,
-                                            tenant_id=tenant_id)
-        addresses = [models.IpAddress.find_all(interface_id=interface_id,
-                                               ip_block_id=ip_block.id)
-                     for ip_block in ip_blocks]
-        return dict(ip_addresses=[item.data(with_ip_block=True)
-                                  for sublist in addresses
-                                  for item in sublist])
+        network = models.Network.find_by(id=network_id, tenant_id=tenant_id)
+        ips_on_interface = network.allocated_ips(interface_id=interface_id)
+        return dict(ip_addresses=[ip.data(with_ip_block=True)
+                                  for ip in ips_on_interface])
 
 
 class API(wsgi.Router):

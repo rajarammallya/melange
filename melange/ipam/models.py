@@ -187,10 +187,6 @@ class ModelBase(object):
     def __getitem__(self, key):
         return getattr(self, key)
 
-    def __iter__(self):
-        self._i = iter(db_api.columns_of(self))
-        return self
-
     def __eq__(self, other):
         if not hasattr(other, 'id'):
             return False
@@ -200,23 +196,7 @@ class ModelBase(object):
         return not self == other
 
     def __hash__(self):
-        return id.__hash__()
-
-    def next(self):
-        n = self._i.next().name
-        return n, getattr(self, n)
-
-    def keys(self):
-        return self.__dict__.keys()
-
-    def values(self):
-        return self.__dict__.values()
-
-    def items(self):
-        return self.__dict__.items()
-
-    def to_dict(self):
-        return self.__dict__()
+        return self.id.__hash__()
 
     def data(self, **options):
         data_fields = self._data_fields + self._auto_generated_attrs
@@ -232,9 +212,6 @@ class ModelBase(object):
     def _add_error(self, attribute_name, error_message):
         self.errors[attribute_name] = self.errors.get(attribute_name, [])
         self.errors[attribute_name].append(error_message)
-
-    def _has_error_on(self, attribute):
-        return self.errors.get(attribute, None) is not None
 
 
 def ipv6_address_generator_factory(cidr, **kwargs):
@@ -281,10 +258,6 @@ class IpBlock(ModelBase):
             raise AddressLockedError()
 
         return (allocated_ip or block.allocate_ip(address=address))
-
-    @classmethod
-    def find_all_by_policy(cls, policy_id):
-        return cls.find_all(policy_id=policy_id)
 
     @classmethod
     def allowed_by_policy(cls, ip_block, policy, address):
@@ -682,10 +655,6 @@ class IpOctet(ModelBase):
     _columns = {'octet': 'integer'}
     _data_fields = ['octet', 'policy_id']
 
-    @classmethod
-    def find_all_by_policy(cls, policy_id):
-        return cls.find_all(policy_id=policy_id)
-
     def applies_to(self, address):
         return self.octet == netaddr.IPAddress(address).words[-1]
 
@@ -709,6 +678,12 @@ class Network(ModelBase):
                                       tenant_id=tenant_id,
                                       type="private")
             return cls(id=id, ip_blocks=[ip_block])
+
+    def allocated_ips(self, interface_id):
+        ips_by_block = [IpAddress.find_all(interface_id=interface_id,
+                                           ip_block_id=ip_block.id).all()
+                        for ip_block in self.ip_blocks]
+        return [ip for sublist in ips_by_block for ip in sublist]
 
     def allocate_ips(self, addresses=None, **kwargs):
         if addresses:

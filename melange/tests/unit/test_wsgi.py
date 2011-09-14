@@ -237,9 +237,6 @@ class StubController(wsgi.Controller):
     def index(self, request, format=None):
         return  {'fort': 'knox'}
 
-    def show(self, request, id, format=None):
-        return {'fort': 'knox'}
-
 
 class TestController(tests.BaseTest):
 

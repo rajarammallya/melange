@@ -52,31 +52,45 @@ class TestAuthMiddleware(tests.BaseTest):
         self.request.headers = {'X_TENANT': "tenant_id", 'X_ROLE': "Member"}
 
     def test_forbids_based_on_auth_providers(self):
-        self.auth_provider1.authorize(self.request, "tenant_id", ['Member']).\
-            AndReturn(True)
+        self.auth_provider1.authorize(self.request,
+                                      "tenant_id",
+                                      ['Member']).AndReturn(True)
         self.auth_provider2.authorize(self.request, "tenant_id", ['Member']).\
             AndRaise(webob.exc.HTTPForbidden("Auth Failed"))
         self.mock.ReplayAll()
 
-        self.assertRaisesExcMessage(webob.exc.HTTPForbidden, "Auth Failed",
-                                    self.auth_middleware, self.request)
+        self.assertRaisesExcMessage(webob.exc.HTTPForbidden,
+                                    "Auth Failed",
+                                    self.auth_middleware,
+                                    self.request)
 
     def test_authorizes_based_on_auth_providers(self):
-        self.auth_provider1.authorize(self.request, "tenant_id", ['Member']).\
-            AndReturn(True)
-        self.auth_provider2.authorize(self.request, "tenant_id", ['Member']).\
-            AndReturn(True)
+        self.auth_provider1.authorize(self.request,
+                                      "tenant_id",
+                                      ['Member']).AndReturn(True)
+        self.auth_provider2.authorize(self.request,
+                                      "tenant_id",
+                                      ['Member']).AndReturn(True)
         self.mock.ReplayAll()
 
         response = self.auth_middleware(self.request)
 
         self.assertEqual(response.status_int, 200)
 
+    def test_factory_adds_tenant_based_auth_as_one_of_auth_providers(self):
+        factory = auth.AuthorizationMiddleware.factory({})
 
-class DecoratorTestApp(wsgi.Router):
+        self.mock.StubOutWithMock(auth, 'TenantBasedAuth')
+        tenant_auth = self.mock.CreateMockAnything()
+        tenant_auth.authorize(self.request,
+                              "tenant_id",
+                              ['Member']).AndReturn(True)
 
-    def __init__(self):
-        super(DecoratorTestApp, self).__init__(mapper())
+        auth.TenantBasedAuth().AndReturn(tenant_auth)
+        self.mock.ReplayAll()
+
+        auth_middleware = factory(self.dummy_app)
+        self.assertTrue(auth_middleware(self.request))
 
 
 def mapper():
@@ -88,9 +102,6 @@ def mapper():
 
 
 class StubController(wsgi.Controller):
-
-    def admin_action(self, request):
-        pass
 
     def unrestricted(self, request):
         pass
@@ -172,7 +183,8 @@ class TestKeyStoneClient(tests.BaseTest):
 
         response_body = json.dumps({'auth': {'token': {'id': "auth_token"}}})
         res = httplib2.Response(dict(status='200'))
-        client.request(urlparse.urljoin(url, "/v2.0/tokens"), "POST",
+        client.request(urlparse.urljoin(url, "/v2.0/tokens"),
+                       "POST",
                        headers=IgnoreArg(),
                        body=request_body).AndReturn((res, response_body))
 
@@ -185,12 +197,14 @@ class TestKeyStoneClient(tests.BaseTest):
         self.mock.StubOutWithMock(client, "request")
         res = httplib2.Response(dict(status='401'))
         response_body = "Failed to get token"
-        client.request(urlparse.urljoin(url, "/v2.0/tokens"), "POST",
+        client.request(urlparse.urljoin(url, "/v2.0/tokens"),
+                       "POST",
                        headers=IgnoreArg(),
                        body=IgnoreArg()).AndReturn((res, response_body))
 
         self.mock.ReplayAll()
         expected_error_msg = ("Error occured while retrieving token :"
                               " Failed to get token")
-        self.assertRaisesExcMessage(Exception, expected_error_msg,
+        self.assertRaisesExcMessage(Exception,
+                                    expected_error_msg,
                                     client.get_token)

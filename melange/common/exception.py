@@ -18,6 +18,7 @@
 from openstack.common import exception as openstack_exception
 
 
+ClientConnectionError = openstack_exception.ClientConnectionError
 ProcessExecutionError = openstack_exception.ProcessExecutionError
 DatabaseMigrationError = openstack_exception.DatabaseMigrationError
 
@@ -29,3 +30,8 @@ class MelangeError(openstack_exception.OpenstackException):
         if message is not None:
             self.message = message
         super(MelangeError, self).__init__(**kwargs)
+
+
+class MelangeServiceResponseError(MelangeError):
+
+    message = "Error while responding to service call"

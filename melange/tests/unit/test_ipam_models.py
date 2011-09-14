@@ -81,15 +81,21 @@ class TestModelBase(tests.BaseTest):
 
         self.assertEqual(model.foo, True)
 
-    def test_equals(self):
+    def test_equals_is_true_when_ids_and_class_are_equal(self):
         self.assertEqual(models.ModelBase(id=1), models.ModelBase(id=1))
         self.assertEqual(models.ModelBase(id=1, name="foo"),
                          models.ModelBase(id=1, name="bar"))
 
-    def test_not_equals(self):
+    def test_equals_is_false_when_id_or_class_differ(self):
         self.assertNotEqual(models.ModelBase(), models.ModelBase())
         self.assertNotEqual(models.ModelBase(id=1), models.ModelBase(id=2))
         self.assertNotEqual(models.IpBlock(id=1), models.IpAddress(id=1))
+
+    def test_hash_is_correct(self):
+        a = models.ModelBase(id="123", name="foo")
+        b = models.ModelBase(id="123", name="bar")
+
+        self.assertEqual(hash(a), hash(b))
 
 
 class TestQuery(tests.BaseTest):
@@ -492,9 +498,10 @@ class TestIpBlock(tests.BaseTest):
     def test_find_allocated_ip_for_nonexistent_address(self):
         block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.1/8")
 
-        self.assertRaises(models.ModelNotFoundError,
-                          block.find_allocated_ip,
-                         '10.0.0.1')
+        self.assertRaisesExcMessage(models.ModelNotFoundError,
+                                    "IpAddress Not Found",
+                                    block.find_allocated_ip,
+                                    "10.0.0.1")
 
     def test_policy(self):
         policy = factory_models.PolicyFactory(name="Some Policy")
@@ -1388,19 +1395,6 @@ class TestIpOctet(tests.BaseTest):
         self.assertEqual(data['created_at'], ip_octet.created_at)
         self.assertEqual(data['updated_at'], ip_octet.updated_at)
 
-    def test_find_all_by_policy(self):
-        policy1 = factory_models.PolicyFactory(name='blah')
-        policy2 = factory_models.PolicyFactory(name='blah')
-        ip_octet1 = factory_models.IpOctetFactory(octet=123,
-                                                  policy_id=policy1.id)
-        ip_octet2 = factory_models.IpOctetFactory(octet=123,
-                                                  policy_id=policy1.id)
-        noise_ip_octet = factory_models.IpOctetFactory(octet=123,
-                                                       policy_id=policy2.id)
-
-        actual_octets = models.IpOctet.find_all_by_policy(policy1.id).all()
-        self.assertModelsEqual(actual_octets, [ip_octet1, ip_octet2])
-
     def test_applies_to_is_true_if_address_last_octet_matches(self):
         ip_octet = factory_models.IpOctetFactory(octet=123)
         self.assertTrue(ip_octet.applies_to("10.0.0.123"))
@@ -1532,3 +1526,19 @@ class TestNetwork(tests.BaseTest):
         for ip in ips:
             ip_address = models.IpAddress.get(ip.id)
             self.assertTrue(ip_address.marked_for_deallocation)
+
+    def test_retrives_allocated_ips(self):
+        ip_block1 = factory_models.IpBlockFactory(network_id=1,
+                                                  cidr="10.0.0.0/24")
+        ip_block2 = factory_models.IpBlockFactory(network_id=1,
+                                                  cidr="20.0.0.0/24")
+
+        ip1 = ip_block1.allocate_ip(interface_id="123")
+        ip2 = ip_block1.allocate_ip(interface_id="123")
+        ip3 = ip_block2.allocate_ip(interface_id="321")
+        ip4 = ip_block2.allocate_ip(interface_id="123")
+
+        network = models.Network.find_by(id=1)
+
+        self.assertModelsEqual(network.allocated_ips(interface_id="123"),
+                              [ip1, ip2, ip4])

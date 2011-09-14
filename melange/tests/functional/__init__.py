@@ -33,10 +33,10 @@ def setup():
     print "Restarting melange server..."
     shutil.copyfile(melange.melange_etc_path("melange.conf.sample"),
                     os.path.expanduser("~/melange.conf"))
-    svr = server.Server("melange",
+    srv = server.Server("melange",
                          melange.melange_bin_path('melange'))
     _db_sync()
-    svr.restart(port=setup_unused_port())
+    srv.restart(port=setup_unused_port())
     _configure_db()
 
 

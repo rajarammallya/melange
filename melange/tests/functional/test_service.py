@@ -17,6 +17,7 @@
 
 from melange import tests
 from melange.common import client
+from melange.common import exception
 from melange.tests import functional
 
 
@@ -26,22 +27,28 @@ class FunctionalTest(tests.BaseTest):
         super(FunctionalTest, self).setUp()
         self.client = client.HTTPClient(port=functional.get_api_port())
 
+    def client_get(self, path, params=None, headers=None):
+        params = params or {}
+        headers = headers or {}
+        return self.client.do_request("GET", path, params=params,
+                                      headers=headers)
+
 
 class TestServiceConf(FunctionalTest):
 
     def test_root_url_returns_versions(self):
-        response = self.client.get("/")
+        response = self.client_get("/")
 
         self.assertEqual(response.status, 200)
         self.assertTrue("versions" in response.read())
 
     def test_extensions_are_loaded(self):
-        response = self.client.get("/v0.1/extensions")
+        response = self.client_get("/v0.1/extensions")
         self.assertEqual(response.status, 200)
         self.assertTrue("extensions" in response.read())
 
     def test_ipam_service_can_be_accessed(self):
-        response = self.client.get("/v0.1/ipam/tenants/123/ip_blocks")
+        response = self.client_get("/v0.1/ipam/tenants/123/ip_blocks")
 
         self.assertEqual(response.status, 200)
         self.assertTrue("ip_blocks" in response.read())
@@ -55,7 +62,7 @@ class TestMimeTypeVersioning(FunctionalTest):
             "version=0.1",
             }
 
-        response = self.client.get("/ipam/tenants/123/ip_blocks",
+        response = self.client_get("/ipam/tenants/123/ip_blocks",
                                    headers=headers)
 
         self.assertEqual(response.status, 200)
@@ -69,8 +76,8 @@ class TestMimeTypeVersioning(FunctionalTest):
             "version=99.1",
             }
 
-        response = self.client.get("/ipam/tenants/123/ip_blocks",
-                                   headers=headers)
-
-        self.assertEqual(response.status, 406)
-        self.assertTrue("version not supported" in response.read())
+        self.assertRaisesExcMessage(exception.MelangeServiceResponseError,
+                                    "version not supported",
+                                    self.client_get,
+                                    "/ipam/tenants/123/ip_blocks",
+                                    headers=headers)

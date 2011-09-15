@@ -16,7 +16,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-""" Routines for configuring Melange """
+"""Routines for configuring Melange."""
 
 from openstack.common import config as openstack_config
 

@@ -71,10 +71,11 @@ class BaseTest(unittest.TestCase):
 
     def assertUrlEqual(self, expected, actual):
         self.assertEqual(expected.partition("?")[0], actual.partition("?")[0])
+
+        #params ordering might be different in the urls
         self.assertEqual(urlparse.parse_qs(expected.partition("?")[2]),
                          urlparse.parse_qs(actual.partition("?")[2]))
 
     def assertErrorResponse(self, response, error_type, expected_error):
         self.assertEqual(response.status_int, error_type().code)
-        self.assertIn(expected_error,
-                        response.body)
+        self.assertIn(expected_error, response.body)

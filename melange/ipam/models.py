@@ -20,6 +20,7 @@
 import datetime
 import netaddr
 
+from melange import ipv6
 from melange.common import config
 from melange.common import exception
 from melange.common import utils
@@ -27,7 +28,13 @@ from melange.db import db_api
 
 
 class Query(object):
+    """Mimics sqlalchemy query object.
 
+    This class allows us to store query conditions and use them with
+    bulk updates and deletes just like sqlalchemy query object.
+    Using this class makes the models independent of sqlalchemy
+
+    """
     def __init__(self, model, **conditions):
         self._model = model
         self._conditions = conditions
@@ -45,8 +52,10 @@ class Query(object):
         db_api.delete_all(self._model, **self._conditions)
 
     def limit(self, limit=200, marker=None, marker_column=None):
-        return db_api.find_all_by_limit(self._model, self._conditions,
-                                        limit=limit, marker=marker,
+        return db_api.find_all_by_limit(self._model,
+                                        self._conditions,
+                                        limit=limit,
+                                        marker=marker,
                                         marker_column=marker_column)
 
     def paginated_collection(self, limit=200, marker=None, marker_column=None):
@@ -72,7 +81,7 @@ class Converter(object):
 
 class ModelBase(object):
 
-    _columns = {}
+    _fields_for_type_conversion = {}
     _auto_generated_attrs = ["id", "created_at", "updated_at"]
     _data_fields = []
 
@@ -98,12 +107,13 @@ class ModelBase(object):
         self.merge_attributes(kwargs)
 
     def _validate_columns_type(self):
-        for column_name, data_type in self._columns.iteritems():
+        fields = self._fields_for_type_conversion
+        for field_name, data_type in fields.iteritems():
             try:
-                Converter(data_type).convert(self[column_name])
+                Converter(data_type).convert(self[field_name])
             except (TypeError, ValueError):
-                self._add_error(column_name,
-                       _("%(column_name)s should be of type %(data_type)s")
+                self._add_error(field_name,
+                       _("%(field_name)s should be of type %(data_type)s")
                          % locals())
 
     def _validate(self):
@@ -116,8 +126,9 @@ class ModelBase(object):
         pass
 
     def _convert_columns_to_proper_type(self):
-        for column_name, data_type in self._columns.iteritems():
-            self[column_name] = Converter(data_type).convert(self[column_name])
+        fields = self._fields_for_type_conversion
+        for field_name, data_type in fields.iteritems():
+            self[field_name] = Converter(data_type).convert(self[field_name])
 
     def is_valid(self):
         self.errors = {}
@@ -128,7 +139,7 @@ class ModelBase(object):
 
     def _validate_presence_of(self, *attribute_names):
         for attribute_name in attribute_names:
-            if (self[attribute_name] in [None, ""]):
+            if self[attribute_name] in [None, ""]:
                 self._add_error(attribute_name,
                                 _("%(attribute_name)s should be present")
                                 % locals())
@@ -161,15 +172,16 @@ class ModelBase(object):
 
     @classmethod
     def get_by(cls, **kwargs):
-        return db_api.find_by(cls, **cls._get_conditions(kwargs))
+        return db_api.find_by(cls, **cls._process_conditions(kwargs))
 
     @classmethod
-    def _get_conditions(cls, raw_conditions):
+    def _process_conditions(cls, raw_conditions):
+        """Override in inheritors to format/modify any conditions."""
         return raw_conditions
 
     @classmethod
     def find_all(cls, **kwargs):
-        return Query(cls, **cls._get_conditions(kwargs))
+        return Query(cls, **cls._process_conditions(kwargs))
 
     def merge_attributes(self, values):
         """dict.update() behaviour."""
@@ -204,7 +216,7 @@ class ModelBase(object):
                     for field in data_fields])
 
     def _validate_positive_integer(self, attribute_name):
-        if(utils.parse_int(self[attribute_name]) < 0):
+        if utils.parse_int(self[attribute_name]) < 0:
             self._add_error(attribute_name,
                             _("%s should be a positive integer")
                               % attribute_name)
@@ -212,22 +224,6 @@ class ModelBase(object):
     def _add_error(self, attribute_name, error_message):
         self.errors[attribute_name] = self.errors.get(attribute_name, [])
         self.errors[attribute_name].append(error_message)
-
-
-def ipv6_address_generator_factory(cidr, **kwargs):
-    default_generator = "melange.ipv6.tenant_based_generator."\
-                        "TenantBasedIpV6Generator"
-    ip_generator_class_name = config.Config.get("ipv6_generator",
-                                                default_generator)
-    ip_generator = utils.import_class(ip_generator_class_name)
-    required_params = ip_generator.required_params\
-        if hasattr(ip_generator, "required_params") else []
-
-    missing_params = set(required_params) - set(kwargs.keys())
-    if missing_params:
-        raise DataMissingError(_("Required params are missing: %s")
-                                 % (', '.join(missing_params)))
-    return ip_generator(cidr, **kwargs)
 
 
 class IpAddressIterator(object):
@@ -244,10 +240,12 @@ class IpAddressIterator(object):
 
 class IpBlock(ModelBase):
 
-    _allowed_types = ["private", "public"]
+    PUBLIC_TYPE = "public"
+    PRIVATE_TYPE = "private"
+    _allowed_block_types = [PUBLIC_TYPE, PRIVATE_TYPE]
     _data_fields = ['cidr', 'network_id', 'policy_id', 'tenant_id', 'gateway',
-                    'parent_id', 'type', 'dns1', 'dns2',
-                    'broadcast', 'netmask']
+                    'parent_id', 'type', 'dns1', 'dns2', 'broadcast',
+                    'netmask']
 
     @classmethod
     def find_or_allocate_ip(cls, ip_block_id, address, tenant_id):
@@ -258,10 +256,6 @@ class IpBlock(ModelBase):
             raise AddressLockedError()
 
         return (allocated_ip or block.allocate_ip(address=address))
-
-    @classmethod
-    def allowed_by_policy(cls, ip_block, policy, address):
-        return policy == None or policy.allows(ip_block.cidr, address)
 
     @classmethod
     def delete_all_deallocated_ips(cls):
@@ -313,7 +307,7 @@ class IpBlock(ModelBase):
 
         if self.subnets():
             raise IpAllocationNotAllowedError(
-                _("Non Leaf block can not allocate IPAddress"))
+                _("Non Leaf block cannot allocate IPAddress"))
         if self.is_full:
             raise NoMoreAddressesError(_("IpBlock is full"))
 
@@ -334,22 +328,22 @@ class IpBlock(ModelBase):
                                 used_by_device=used_by_device)
 
     def _generate_ip_address(self, **kwargs):
-        if(self.is_ipv6()):
-            address_generator = ipv6_address_generator_factory(self.cidr,
+        if self.is_ipv6():
+            address_generator = ipv6.address_generator_factory(self.cidr,
                                                                **kwargs)
 
             return utils.find(lambda address:
                               self.get_address(address) is None,
                               IpAddressIterator(address_generator))
         else:
-            #TODO: very inefficient way to generate ips,
+            #TODO(vinkesh/rajaram): very inefficient way to generate ips,
             #will look at better algos for this
             allocated_addresses = [ip.address for ip in self.addresses()]
             unavailable_addresses = allocated_addresses + [self.gateway,
                                                            self.broadcast]
             policy = self.policy()
             for ip in netaddr.IPNetwork(self.cidr):
-                if (IpBlock.allowed_by_policy(self, policy, str(ip))
+                if (self._allowed_by_policy(policy, str(ip))
                     and (str(ip) not in unavailable_addresses)):
                     return str(ip)
             return None
@@ -365,9 +359,12 @@ class IpBlock(ModelBase):
                 _("Address does not belong to IpBlock"))
 
         policy = self.policy()
-        if not IpBlock.allowed_by_policy(self, policy, address):
+        if not self._allowed_by_policy(policy, address):
             raise AddressDisallowedByPolicyError(
                 _("Block policy does not allow this address"))
+
+    def _allowed_by_policy(self, policy, address):
+        return policy is None or policy.allows(self.cidr, address)
 
     def contains(self, address):
         return netaddr.IPAddress(address) in netaddr.IPNetwork(self.cidr)
@@ -424,9 +421,9 @@ class IpBlock(ModelBase):
                             _("cidr should be within parent block's cidr"))
 
     def _validate_type(self):
-        if not (self.type in self._allowed_types):
+        if self.type not in self._allowed_block_types:
             self._add_error('type', _("type should be one among %s") %
-                            ", ".join(self._allowed_types))
+                            ", ".join(self._allowed_block_types))
 
     def _validate_cidr(self):
         self._validate_cidr_format()
@@ -439,9 +436,9 @@ class IpBlock(ModelBase):
             self._validate_cidr_doesnt_overlap_with_networked_toplevel_blocks()
 
     def _validate_cidr_doesnt_overlap_for_root_public_ip_blocks(self):
-        if self.type != 'public':
+        if self.type != self.PUBLIC_TYPE:
             return
-        for block in IpBlock.find_all(type='public', parent_id=None):
+        for block in IpBlock.find_all(type=self.PUBLIC_TYPE, parent_id=None):
             if  self != block and self._overlaps(block):
                 msg = _("cidr overlaps with public block %s") % block.cidr
                 self._add_error('cidr', msg)
@@ -472,13 +469,13 @@ class IpBlock(ModelBase):
                 break
 
     def _validate_belongs_to_supernet_network(self):
-        if(self.parent and self.parent.network_id and
-           self.parent.network_id != self.network_id):
+        if (self.parent and self.parent.network_id and
+            self.parent.network_id != self.network_id):
             self._add_error('network_id',
                             _("network_id should be same as that of parent"))
 
     def _validate_parent_is_subnettable(self):
-        if (self.parent and self.parent.addresses()):
+        if self.parent and self.parent.addresses():
             msg = _("parent is not subnettable since it has allocated ips")
             self._add_error('parent_id', msg)
 
@@ -486,7 +483,7 @@ class IpBlock(ModelBase):
         if not self.network_id:
             return
         block = IpBlock.get_by(network_id=self.network_id)
-        if(block and block.type != self.type):
+        if block and block.type != self.type:
             self._add_error('type', _("type should be same within a network"))
 
     def _validate(self):
@@ -518,7 +515,7 @@ class IpAddress(ModelBase):
                     'used_by_tenant', 'used_by_device']
 
     @classmethod
-    def _get_conditions(cls, raw_conditions):
+    def _process_conditions(cls, raw_conditions):
         conditions = raw_conditions.copy()
         if 'address' in conditions:
             conditions['address'] = cls._formatted(conditions['address'])
@@ -545,7 +542,7 @@ class IpAddress(ModelBase):
             'inside_global_address_id': self.id,
             'inside_local_address_id': local_address.id,
             }
-        for local_address in ip_addresses])
+            for local_address in ip_addresses])
 
     def deallocate(self):
         return self.update(marked_for_deallocation=True,
@@ -558,9 +555,11 @@ class IpAddress(ModelBase):
         return db_api.find_inside_globals_for(self.id, **kwargs)
 
     def add_inside_globals(self, ip_addresses):
-        return db_api.save_nat_relationships([
-            {'inside_global_address_id': global_address.id,
-             'inside_local_address_id': self.id}
+        db_api.save_nat_relationships([
+            {
+            'inside_global_address_id': global_address.id,
+            'inside_local_address_id': self.id,
+            }
             for global_address in ip_addresses])
 
     def inside_locals(self, **kwargs):
@@ -581,7 +580,7 @@ class IpAddress(ModelBase):
 
     def data(self, **options):
         data = super(IpAddress, self).data(**options)
-        if options.get('with_ip_block', False):
+        if options.get('with_ip_block'):
             data['ip_block'] = self.ip_block().data()
         return data
 
@@ -619,8 +618,8 @@ class Policy(ModelBase):
         return IpOctet.find_all(policy_id=self.id).all()
 
     def allows(self, cidr, address):
-        if (any(ip_octet.applies_to(address)
-                       for ip_octet in self.unusable_ip_octets)):
+        if any(ip_octet.applies_to(address)
+                       for ip_octet in self.unusable_ip_octets):
             return False
         return not any(ip_range.contains(cidr, address)
                        for ip_range in self.unusable_ip_ranges)
@@ -634,7 +633,7 @@ class Policy(ModelBase):
 
 class IpRange(ModelBase):
 
-    _columns = {'offset': 'integer', 'length': 'integer'}
+    _fields_for_type_conversion = {'offset': 'integer', 'length': 'integer'}
     _data_fields = ['offset', 'length', 'policy_id']
 
     def contains(self, cidr, address):
@@ -652,7 +651,7 @@ class IpRange(ModelBase):
 
 class IpOctet(ModelBase):
 
-    _columns = {'octet': 'integer'}
+    _fields_for_type_conversion = {'octet': 'integer'}
     _data_fields = ['octet', 'policy_id']
 
     def applies_to(self, address):
@@ -664,7 +663,7 @@ class Network(ModelBase):
     @classmethod
     def find_by(cls, id, **conditions):
         ip_blocks = IpBlock.find_all(network_id=id, **conditions).all()
-        if(len(ip_blocks) == 0):
+        if len(ip_blocks) == 0:
             raise ModelNotFoundError(_("Network %s not found") % id)
         return cls(id=id, ip_blocks=ip_blocks)
 
@@ -676,7 +675,7 @@ class Network(ModelBase):
             ip_block = IpBlock.create(cidr=config.Config.get('default_cidr'),
                                       network_id=id,
                                       tenant_id=tenant_id,
-                                      type="private")
+                                      type=IpBlock.PRIVATE_TYPE)
             return cls(id=id, ip_blocks=[ip_block])
 
     def allocated_ips(self, interface_id):
@@ -688,7 +687,7 @@ class Network(ModelBase):
     def allocate_ips(self, addresses=None, **kwargs):
         if addresses:
             return filter(None, [self._allocate_specific_ip(address, **kwargs)
-                    for address in addresses])
+                                 for address in addresses])
 
         ips = [self._allocate_first_free_ip(blocks, **kwargs)
                for blocks in self._block_partitions()]
@@ -712,7 +711,7 @@ class Network(ModelBase):
     def _allocate_specific_ip(self, address, **kwargs):
         ip_block = utils.find(lambda ip_block: ip_block.contains(address),
                               self.ip_blocks)
-        if(ip_block is not None):
+        if ip_block is not None:
             try:
                 return ip_block.allocate_ip(address=address, **kwargs)
             except DuplicateAddressError:
@@ -759,11 +758,6 @@ class AddressLockedError(exception.MelangeError):
 class ModelNotFoundError(exception.MelangeError):
 
     message = _("Not Found")
-
-
-class DataMissingError(exception.MelangeError):
-
-    message = _("Data Missing")
 
 
 class AddressDisallowedByPolicyError(exception.MelangeError):

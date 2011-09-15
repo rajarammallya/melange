@@ -15,9 +15,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-_ENGINE = None
-_MAKER = None
-
 import contextlib
 import logging
 from sqlalchemy import create_engine
@@ -27,6 +24,9 @@ from sqlalchemy.orm import sessionmaker
 from melange import ipam
 from melange.common import config
 from melange.db.sqlalchemy import mappers
+
+_ENGINE = None
+_MAKER = None
 
 
 def configure_db(options):
@@ -38,10 +38,8 @@ def configure_db(options):
 
 
 def configure_sqlalchemy_log(options):
-    debug = config.get_option(options,
-                              'debug', type='bool', default=False)
-    verbose = config.get_option(options,
-                                'verbose', type='bool', default=False)
+    debug = config.get_option(options, 'debug', type='bool', default=False)
+    verbose = config.get_option(options, 'verbose', type='bool', default=False)
     logger = logging.getLogger('sqlalchemy.engine')
     if debug:
         logger.setLevel(logging.DEBUG)
@@ -50,14 +48,13 @@ def configure_sqlalchemy_log(options):
 
 
 def _create_engine(options):
-    timeout = config.get_option(options,
-                                'sql_idle_timeout', type='int', default=3600)
-    return create_engine(options['sql_connection'],
-                                pool_recycle=timeout)
+    timeout = config.get_option(options, 'sql_idle_timeout', type='int',
+                                default=3600)
+    return create_engine(options['sql_connection'], pool_recycle=timeout)
 
 
 def get_session(autocommit=True, expire_on_commit=False):
-    """Helper method to grab session"""
+    """Helper method to grab session."""
 
     global _MAKER, _ENGINE
     if not _MAKER:

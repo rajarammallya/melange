@@ -19,8 +19,10 @@ import string
 import unittest
 import webob.exc
 
+from melange import ipv6
 from melange import tests
 from melange.common import config
+from melange.common import exception
 from melange.common import utils
 from melange.common import wsgi
 from melange.ipam import models
@@ -63,12 +65,12 @@ class TestBaseController(unittest.TestCase):
 
     def test_exception_to_http_code_mapping(self):
         self._assert_mapping(models.InvalidModelError(None), 400)
-        self._assert_mapping(models.DataMissingError, 400)
         self._assert_mapping(models.ModelNotFoundError, 404)
         self._assert_mapping(models.NoMoreAddressesError, 422)
         self._assert_mapping(models.AddressDoesNotBelongError, 422)
         self._assert_mapping(models.AddressLockedError, 422)
         self._assert_mapping(models.DuplicateAddressError, 409)
+        self._assert_mapping(exception.ParamsMissingError, 400)
 
     def test_http_excpetions_are_bubbled_up(self):
         self._assert_mapping(webob.exc.HTTPUnprocessableEntity, 422)
@@ -1622,11 +1624,11 @@ class TestNetworksController(BaseTestController):
         ipv6_block = factory_models.PrivateIpBlockFactory(tenant_id="tnt_id",
                                                           network_id=1,
                                                           cidr="fe::/96")
-        self.mock.StubOutWithMock(models, "ipv6_address_generator_factory")
-        models.ipv6_address_generator_factory("fe::/96",
-                                              mac_address=mac_address,
-                                              used_by_tenant="tnt_id").\
-                                              AndReturn(ipv6_generator)
+        self.mock.StubOutWithMock(ipv6, "address_generator_factory")
+        ipv6.address_generator_factory("fe::/96",
+                                       mac_address=mac_address,
+                                       used_by_tenant="tnt_id").\
+                                       AndReturn(ipv6_generator)
 
         self.mock.ReplayAll()
 

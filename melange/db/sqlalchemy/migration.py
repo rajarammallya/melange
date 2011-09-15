@@ -33,7 +33,7 @@ logger = logging.getLogger('melange.db.migration')
 
 
 def db_version(options):
-    """Return the database's current migration number
+    """Return the database's current migration number.
 
     :param options: options dict
     :retval version number
@@ -50,7 +50,7 @@ def db_version(options):
 
 
 def upgrade(options, version=None):
-    """Upgrade the database's current migration level
+    """Upgrade the database's current migration level.
 
     :param options: options dict
     :param version: version to upgrade (defaults to latest)
@@ -67,7 +67,7 @@ def upgrade(options, version=None):
 
 
 def downgrade(options, version):
-    """Downgrade the database's current migration level
+    """Downgrade the database's current migration level.
 
     :param options: options dict
     :param version: version to downgrade to
@@ -83,7 +83,7 @@ def downgrade(options, version):
 
 
 def version_control(options):
-    """Place a database under migration control
+    """Place a database under migration control.
 
     :param options: options dict
 
@@ -98,7 +98,7 @@ def version_control(options):
 
 
 def _version_control(options):
-    """Place a database under migration control
+    """Place a database under migration control.
 
     :param options: options dict
 
@@ -109,7 +109,7 @@ def _version_control(options):
 
 
 def db_sync(options, version=None):
-    """Place a database under migration control and perform an upgrade
+    """Place a database under migration control and perform an upgrade.
 
     :param options: options dict
     :retval version number

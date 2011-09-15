@@ -32,6 +32,11 @@ class MelangeError(openstack_exception.OpenstackException):
         super(MelangeError, self).__init__(**kwargs)
 
 
+class ParamsMissingError(MelangeError):
+
+    message = _("Data Missing")
+
+
 class MelangeServiceResponseError(MelangeError):
 
-    message = "Error while responding to service call"
+    message = _("Error while responding to service call")

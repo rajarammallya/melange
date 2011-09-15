@@ -20,7 +20,6 @@ import datetime
 from melange import tests
 from melange.common import utils
 from melange.ipam import models
-from melange.ipv6 import tenant_based_generator
 from melange.tests import unit
 from melange.tests.factories import models as factory_models
 from melange.tests.unit import mock_generator
@@ -64,22 +63,6 @@ class TestModelBase(tests.BaseTest):
 
         updated_model = models.IpBlock.find(model.id)
         self.assertEqual(updated_model.updated_at, current_time)
-
-    def test_converts_column_to_integer(self):
-        model = models.ModelBase(foo=1)
-        model._columns = {'foo': 'integer'}
-
-        model._convert_columns_to_proper_type()
-
-        self.assertEqual(model.foo, 1)
-
-    def test_converts_column_to_boolean(self):
-        model = models.ModelBase(foo="true")
-        model._columns = {'foo': 'boolean'}
-
-        model._convert_columns_to_proper_type()
-
-        self.assertEqual(model.foo, True)
 
     def test_equals_is_true_when_ids_and_class_are_equal(self):
         self.assertEqual(models.ModelBase(id=1), models.ModelBase(id=1))
@@ -162,46 +145,11 @@ class TestConverter(tests.BaseTest):
 
     def test_converts_to_integer_value(self):
         self.assertEqual(models.Converter('integer').convert("123"), 123)
+        self.assertEqual(models.Converter('integer').convert(123), 123)
 
     def test_converts_to_boolean_value(self):
         self.assertEqual(models.Converter('boolean').convert("True"), True)
         self.assertEqual(models.Converter('boolean').convert("False"), False)
-
-
-class TestIpv6AddressGeneratorFactory(tests.BaseTest):
-
-    def setUp(self):
-        self.mock_generatore_name = \
-            "melange.tests.unit.mock_generator.MockIpV6Generator"
-        super(TestIpv6AddressGeneratorFactory, self).setUp()
-
-    def test_loads_ipv6_generator_factory_from_config_file(self):
-        args = dict(tenant_id="1", mac_address="00:11:22:33:44:55")
-        with unit.StubConfig(ipv6_generator=self.mock_generatore_name):
-            ip_generator = models.ipv6_address_generator_factory("fe::/64",
-                                                                 **args)
-
-        self.assertEqual(ip_generator.kwargs, args)
-        self.assertTrue(isinstance(ip_generator,
-                                   mock_generator.MockIpV6Generator))
-
-    def test_loads_default_ipv6_generator_when_not_configured(self):
-        args = dict(used_by_tenant="1", mac_address="00:11:22:33:44:55")
-
-        ip_generator = models.ipv6_address_generator_factory("fe::/64", **args)
-
-        self.assertTrue(isinstance(ip_generator,
-                              tenant_based_generator.TenantBasedIpV6Generator))
-
-    def test_raises_error_if_required_params_are_missing(self):
-        self.assertRaises(models.DataMissingError,
-                          models.ipv6_address_generator_factory, "fe::/64")
-
-    def test_does_not_raise_error_if_generator_does_not_require_params(self):
-        with unit.StubConfig(ipv6_generator=self.mock_generatore_name):
-            ip_generator = models.ipv6_address_generator_factory("fe::/64")
-
-        self.assertIsNotNone(ip_generator)
 
 
 class TestIpBlock(tests.BaseTest):
@@ -268,7 +216,7 @@ class TestIpBlock(tests.BaseTest):
 
         self.assertFalse(block.is_valid())
         self.assertEqual(block.errors, {'type':
-                            ["type should be one among private, public"]})
+                            ["type should be one among public, private"]})
 
     def test_different_types_of_blocks_cannot_be_created_within_network(self):
         factory = factory_models.IpBlockFactory
@@ -533,7 +481,7 @@ class TestIpBlock(tests.BaseTest):
     def test_allocate_ip_from_non_leaf_block_fails(self):
         parent_block = factory_models.IpBlockFactory(cidr="10.0.0.0/28")
         parent_block.subnet(cidr="10.0.0.0/28")
-        expected_msg = "Non Leaf block can not allocate IPAddress"
+        expected_msg = "Non Leaf block cannot allocate IPAddress"
         self.assertRaisesExcMessage(models.IpAllocationNotAllowedError,
                                     expected_msg,
                                     parent_block.allocate_ip)

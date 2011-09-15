@@ -15,7 +15,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-""" Utility methods for working with WSGI servers """
+"""Utility methods for working with WSGI servers."""
 
 import eventlet.wsgi
 import logging
@@ -232,7 +232,7 @@ class Fault(webob.exc.HTTPException):
 
         # Replace the body with fault details.
         fault_name = self.wrapped_exc.__class__.__name__
-        if(fault_name.startswith("HTTP")):
+        if fault_name.startswith("HTTP"):
             fault_name = fault_name[4:]
         fault_data = {
             fault_name: {

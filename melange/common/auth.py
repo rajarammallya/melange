@@ -45,6 +45,7 @@ class AuthorizationMiddleware(wsgi.Middleware):
 
 
 class TenantBasedAuth(object):
+
     tenant_scoped_url = re.compile(".*/tenants/(?P<tenant_id>.*?)/.*")
 
     def authorize(self, request, tenant_id, roles):

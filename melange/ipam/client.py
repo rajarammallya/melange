@@ -32,11 +32,13 @@ class Resource(object):
         self.auth_client = auth_client
 
     def create(self, **kwargs):
-        return self.request("POST", self.path,
+        return self.request("POST",
+                            self.path,
                             body=json.dumps({self.name: kwargs}))
 
     def update(self, id, **kwargs):
-        return self.request("PUT", self._member_path(id),
+        return self.request("PUT",
+                            self._member_path(id),
                             body=json.dumps(
                                 {self.name: utils.remove_nones(kwargs)}))
 
@@ -65,12 +67,14 @@ class Resource(object):
 class IpBlockClient(object):
 
     def __init__(self, client, auth_client, tenant_id):
-        self.resource = Resource("ip_blocks", "ip_block",
-                                client, auth_client, tenant_id)
+        self.resource = Resource("ip_blocks", "ip_block", client, auth_client,
+                                 tenant_id)
 
     def create(self, type, cidr, network_id=None, policy_id=None):
-        return self.resource.create(type=type, cidr=cidr,
-                                    network_id=network_id, policy_id=policy_id)
+        return self.resource.create(type=type,
+                                    cidr=cidr,
+                                    network_id=network_id,
+                                    policy_id=policy_id)
 
     def list(self):
         return self.resource.all()
@@ -79,8 +83,9 @@ class IpBlockClient(object):
         return self.resource.find(id)
 
     def update(self, id, network_id=None, policy_id=None):
-        return self.resource.update(id, network_id=network_id,
-                                 policy_id=policy_id)
+        return self.resource.update(id,
+                                    network_id=network_id,
+                                    policy_id=policy_id)
 
     def delete(self, id):
         return self.resource.delete(id)
@@ -94,8 +99,11 @@ class SubnetClient(object):
         self.auth_client = auth_client
 
     def _resource(self, parent_id):
-        return Resource("ip_blocks/{0}/subnets".format(parent_id), "subnet",
-                        self.client, self.auth_client, self.tenant_id)
+        return Resource("ip_blocks/{0}/subnets".format(parent_id),
+                        "subnet",
+                        self.client,
+                        self.auth_client,
+                        self.tenant_id)
 
     def create(self, parent_id, cidr, network_id=None):
         return self._resource(parent_id).create(cidr=cidr,
@@ -108,8 +116,11 @@ class SubnetClient(object):
 class PolicyClient(object):
 
     def __init__(self, client, auth_client, tenant_id):
-        self.resource = Resource("policies", "policy", client,
-                                 auth_client, tenant_id)
+        self.resource = Resource("policies",
+                                 "policy",
+                                 client,
+                                 auth_client,
+                                 tenant_id)
 
     def create(self, name, description=None):
         return self.resource.create(name=name, description=description)
@@ -136,14 +147,17 @@ class UnusableIpRangesClient(object):
 
     def _resource(self, policy_id):
         return Resource("policies/{0}/unusable_ip_ranges".format(policy_id),
-                        "ip_range", self.client, self.auth_client,
+                        "ip_range",
+                        self.client,
+                        self.auth_client,
                         self.tenant_id)
 
     def create(self, policy_id, offset, length):
         return self._resource(policy_id).create(offset=offset, length=length)
 
     def update(self, policy_id, id, offset=None, length=None):
-        return self._resource(policy_id).update(id, offset=offset,
+        return self._resource(policy_id).update(id,
+                                                offset=offset,
                                                 length=length)
 
     def list(self, policy_id):
@@ -165,7 +179,9 @@ class UnusableIpOctetsClient(object):
 
     def _resource(self, policy_id):
         return Resource("policies/{0}/unusable_ip_octets".format(policy_id),
-                        "ip_octet", self.client, self.auth_client,
+                        "ip_octet",
+                        self.client,
+                        self.auth_client,
                         self.tenant_id)
 
     def create(self, policy_id, octet):
@@ -206,8 +222,11 @@ class IpAddressesClient(object):
 
     def _resource(self, ip_block_id):
         path = "ip_blocks/{0}/ip_addresses".format(ip_block_id)
-        return Resource(path, "ip_address",
-                        self.client, self.auth_client, self.tenant_id)
+        return Resource(path,
+                        "ip_address",
+                        self.client,
+                        self.auth_client,
+                        self.tenant_id)
 
     def create(self, ip_block_id, address=None, used_by_tenant=None,
                used_by_device=None):

@@ -15,7 +15,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-""" System-level utilities and helper functions."""
+"""System-level utilities and helper functions."""
 
 import datetime
 import inspect

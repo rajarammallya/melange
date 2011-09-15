@@ -70,8 +70,7 @@ def find_inside_globals_for(local_address_id, **kwargs):
     marker = kwargs.pop('marker', None)
 
     kwargs["inside_local_address_id"] = local_address_id
-    query = _limits(mappers.IpNat, kwargs,
-                    limit, marker, marker_column)
+    query = _limits(mappers.IpNat, kwargs, limit, marker, marker_column)
     return [nat.inside_global_address for nat in query]
 
 
@@ -81,8 +80,7 @@ def find_inside_locals_for(global_address_id, **kwargs):
     marker = kwargs.pop('marker', None)
 
     kwargs["inside_global_address_id"] = global_address_id
-    query = _limits(mappers.IpNat, kwargs,
-                    limit, marker, marker_column)
+    query = _limits(mappers.IpNat, kwargs, limit, marker, marker_column)
     return [nat.inside_local_address for nat in query]
 
 
@@ -94,36 +92,35 @@ def save_nat_relationships(nat_relationships):
         save(ip_nat)
 
 
-def remove_inside_globals(local_address_id,
-                          inside_global_address=None):
+def remove_inside_globals(local_address_id, inside_global_address=None):
 
     def _filter_inside_global_address(natted_ips, inside_global_address):
         return natted_ips.join((ipam.models.IpAddress,
          mappers.IpNat.inside_global_address_id == ipam.models.IpAddress.id)).\
          filter(ipam.models.IpAddress.address == inside_global_address)
 
-    remove_natted_ips(_filter_inside_global_address,
+    _remove_natted_ips(_filter_inside_global_address,
                       inside_global_address,
                       inside_local_address_id=local_address_id)
 
 
-def remove_inside_locals(global_address_id,
-                         inside_local_address=None):
+def remove_inside_locals(global_address_id, inside_local_address=None):
 
     def _filter_inside_local_address(natted_ips, inside_local_address):
         return natted_ips.join((ipam.models.IpAddress,
           mappers.IpNat.inside_local_address_id == ipam.models.IpAddress.id)).\
           filter(ipam.models.IpAddress.address == inside_local_address)
 
-    remove_natted_ips(_filter_inside_local_address,
+    _remove_natted_ips(_filter_inside_local_address,
                       inside_local_address,
                       inside_global_address_id=global_address_id)
 
 
-def remove_natted_ips(_filter_by_natted_address, natted_address, **kwargs):
+def _remove_natted_ips(filter_by_natted_address_func,
+                       natted_address, **kwargs):
     natted_ips = find_natted_ips(**kwargs)
     if natted_address != None:
-        natted_ips = _filter_by_natted_address(natted_ips, natted_address)
+        natted_ips = filter_by_natted_address_func(natted_ips, natted_address)
     for ip in natted_ips:
         delete(ip)
 
@@ -157,8 +154,8 @@ def find_all_top_level_blocks_in_network(network_id):
 
 def find_all_ips_in_network(network_id, **conditions):
     return _query_by(ipam.models.IpAddress, **conditions).\
-        join(ipam.models.IpBlock).\
-        filter(ipam.models.IpBlock.network_id == network_id)
+           join(ipam.models.IpBlock).\
+           filter(ipam.models.IpBlock.network_id == network_id)
 
 
 def configure_db(options):

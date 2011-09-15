@@ -19,6 +19,7 @@ import routes
 import webob.exc
 
 from melange.common import config
+from melange.common import exception
 from melange.common import pagination
 from melange.common import utils
 from melange.common import wsgi
@@ -36,7 +37,7 @@ class BaseController(wsgi.Controller):
             ],
         webob.exc.HTTPBadRequest: [
             models.InvalidModelError,
-            models.DataMissingError,
+            exception.ParamsMissingError,
             ],
         webob.exc.HTTPNotFound: [
             models.ModelNotFoundError,
@@ -55,15 +56,6 @@ class BaseController(wsgi.Controller):
     def _extract_limits(self, params):
         return dict([(key, params[key]) for key in params.keys()
                      if key in ["limit", "marker"]])
-
-    def _parse_ips(self, addresses, tenant_id):
-        return [models.IpBlock.find_or_allocate_ip(address["ip_block_id"],
-                                                   address["ip_address"],
-                                                   tenant_id)
-                for address in addresses]
-
-    def _get_addresses(self, ips):
-        return dict(ip_addresses=[ip_address.data() for ip_address in ips])
 
     def _paginated_response(self, collection_type, collection_query, request):
         elements, next_marker = collection_query.paginated_collection(
@@ -173,14 +165,18 @@ class InsideGlobalsController(BaseController):
         local_ip = models.IpBlock.find_or_allocate_ip(ip_block_id,
                                                       address,
                                                       tenant_id)
-        global_ips = self._parse_ips(body["ip_addresses"], tenant_id)
+        addresses = body['ip_addresses']
+        global_ips = [models.IpBlock.find_or_allocate_ip(ip["ip_block_id"],
+                                                         ip["ip_address"],
+                                                         tenant_id)
+                      for ip in addresses]
         local_ip.add_inside_globals(global_ips)
 
     def index(self, request, ip_block_id, tenant_id, address):
         ip_block = models.IpBlock.find_by(id=ip_block_id, tenant_id=tenant_id)
         ip = ip_block.find_allocated_ip(address)
-        return self._get_addresses(ip.inside_globals(
-                                      **self._extract_limits(request.params)))
+        global_ips = ip.inside_globals(**self._extract_limits(request.params))
+        return dict(ip_addresses=[ip.data() for ip in global_ips])
 
     def delete(self, request, ip_block_id, address, tenant_id,
                inside_globals_address=None):
@@ -195,14 +191,19 @@ class InsideLocalsController(BaseController):
         global_ip = models.IpBlock.find_or_allocate_ip(ip_block_id,
                                                        address,
                                                        tenant_id)
-        local_ips = self._parse_ips(body["ip_addresses"], tenant_id)
+        addresses = body['ip_addresses']
+        local_ips = [models.IpBlock.find_or_allocate_ip(ip["ip_block_id"],
+                                                         ip["ip_address"],
+                                                         tenant_id)
+                      for ip in addresses]
+
         global_ip.add_inside_locals(local_ips)
 
     def index(self, request, ip_block_id, address, tenant_id):
         ip_block = models.IpBlock.find_by(id=ip_block_id, tenant_id=tenant_id)
         ip = ip_block.find_allocated_ip(address)
-        return self._get_addresses(ip.inside_locals(
-                                    **self._extract_limits(request.params)))
+        local_ips = ip.inside_locals(**self._extract_limits(request.params))
+        return dict(ip_addresses=[ip.data() for ip in local_ips])
 
     def delete(self, request, ip_block_id, address, tenant_id,
                inside_locals_address=None):
@@ -312,7 +313,7 @@ class NetworksController(BaseController):
 
         ips = network.allocate_ips(interface_id=interface_id, **options)
         return wsgi.Result(dict(ip_addresses=[ip.data(with_ip_block=True)
-                                  for ip in ips]), 201)
+                                              for ip in ips]), 201)
 
     def deallocate_ips(self, request, network_id, interface_id, tenant_id):
         network = models.Network.find_by(id=network_id, tenant_id=tenant_id)
@@ -391,7 +392,8 @@ class API(wsgi.Router):
         self._ip_address_mapper(mapper,
                                 IpAddressController().create_resource(),
                                 block_as_parent)
-        self._subnet_mapper(mapper, SubnetController().create_resource(),
+        self._subnet_mapper(mapper,
+                            SubnetController().create_resource(),
                             block_as_parent)
 
     def _subnet_mapper(self, mapper, subnet_controller,

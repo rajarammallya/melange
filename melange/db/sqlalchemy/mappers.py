@@ -52,6 +52,13 @@ def map(engine, models):
 
 
 class IpNat(object):
+    """Many to Many table for natting inside globals and locals.
+
+    This resides in sqlalchemy mappers as its not a true model
+    and non-relational dbs may not expose many-to-many relationships as
+    another table
+
+    """
 
     def __setitem__(self, key, value):
         setattr(self, key, value)

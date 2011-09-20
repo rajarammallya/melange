@@ -455,7 +455,4 @@ class API(wsgi.Router):
 
 
 def app_factory(global_conf, **local_conf):
-    conf = global_conf.copy()
-    conf.update(local_conf)
-    config.Config.instance = conf
     return API()

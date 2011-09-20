@@ -36,7 +36,7 @@ class BaseTestController(tests.BaseTest):
 
     def setUp(self):
         super(BaseTestController, self).setUp()
-        conf, melange_app = config.load_paste_app('melange',
+        conf, melange_app = config.Config.load_paste_app('melange',
                 {"config_file": unit.test_config_path()}, None)
         self.app = unit.TestApp(melange_app)
 

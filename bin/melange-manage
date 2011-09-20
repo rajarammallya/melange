@@ -108,7 +108,7 @@ if __name__ == '__main__':
         sys.exit(2)
 
     try:
-        conf_file, conf = config.load_paste_config('melange', options, args)
+        conf = config.Config.load_paste_config('melange', options, args)
         config.setup_logging(options, conf)
 
         command_name = args.pop(0)

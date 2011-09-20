@@ -391,7 +391,7 @@ class IpBlock(ModelBase):
 
     def _deallocated_by_date(self):
         days = config.Config.get('keep_deallocated_ips_for_days', 2)
-        return utils.utcnow() - datetime.timedelta(days=days)
+        return utils.utcnow() - datetime.timedelta(days=int(days))
 
     def subnet(self, cidr, network_id=None, tenant_id=None):
         network_id = network_id or self.network_id

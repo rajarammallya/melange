@@ -41,6 +41,9 @@ default_cidr = 10.0.0.0/24
 dns1 = "ns1.example.com"
 dns2 = "ns2.example.com"
 
+#Number of days before deallocated IPs are deleted
+keep_deallocated_ips_for_days = 2
+
 [composite:melange]
 use = call:melange.common.wsgi:versioned_urlmap
 /: versions

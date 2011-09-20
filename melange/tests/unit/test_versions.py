@@ -25,7 +25,7 @@ from melange.tests import unit
 class TestVersionsController(tests.BaseTest):
 
     def setUp(self):
-        conf, melange_app = config.load_paste_app('versioned_melange',
+        conf, melange_app = config.Config.load_paste_app('versioned_melange',
                               {"config_file": unit.test_config_path()}, None)
         self.test_app = webtest.TestApp(melange_app)
         super(TestVersionsController, self).setUp()

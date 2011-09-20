@@ -15,7 +15,10 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import datetime
+
 import melange
+from melange.common import config
 from melange.ipam import models
 from melange import tests
 from melange.tests.factories import models as factory_models
@@ -389,3 +392,25 @@ class TestDBUpgradeCLI(tests.BaseTest):
         exitcode, out, err = functional.execute("{0} db_upgrade".format(
                 melange.melange_bin_path('melange-manage')))
         self.assertEqual(exitcode, 0)
+
+
+class TestDeleteDeallocatedIps(tests.BaseTest):
+
+    def test_deallocated_ips_get_deleted(self):
+        block = factory_models.PublicIpBlockFactory()
+        ip = block.allocate_ip()
+        block.deallocate_ip(ip.address)
+
+        days = config.Config.get('keep_deallocated_ips_for_days')
+        self._push_back_deallocated_date(ip, days)
+
+        exitcode, out, err = functional.execute(
+            melange.melange_bin_path('melange-delete-deallocated-ips'))
+
+        self.assertIsNone(models.IpAddress.get(ip.id))
+
+    def _push_back_deallocated_date(self, ip, days):
+        days_to_subtract = datetime.timedelta(days=int(days))
+        deallocated_ip = models.IpAddress.find(ip.id)
+        new_deallocated_date = deallocated_ip.deallocated_at - days_to_subtract
+        deallocated_ip.update(deallocated_at=(new_deallocated_date))

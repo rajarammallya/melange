@@ -24,15 +24,25 @@ from openstack.common import config as openstack_config
 parse_options = openstack_config.parse_options
 add_log_options = openstack_config.add_log_options
 add_common_options = openstack_config.add_common_options
-load_paste_config = openstack_config.load_paste_config
 setup_logging = openstack_config.setup_logging
-load_paste_app = openstack_config.load_paste_app
 get_option = openstack_config.get_option
 
 
 class Config(object):
 
     instance = {}
+
+    @classmethod
+    def load_paste_app(cls, *args, **kwargs):
+        conf, app = openstack_config.load_paste_app(*args, **kwargs)
+        cls.instance = conf
+        return conf, app
+
+    @classmethod
+    def load_paste_config(cls, *args, **kwargs):
+        conf_file, conf = openstack_config.load_paste_config(*args, **kwargs)
+        cls.instance = conf
+        return conf
 
     @classmethod
     def get(cls, key, default=None):

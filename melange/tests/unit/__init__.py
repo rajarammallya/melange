@@ -79,9 +79,8 @@ class TestApp(webtest.TestApp):
 
 
 def setup():
-    conf_file, conf = config.load_paste_config("melange",
-                                               {"config_file":
-                                                test_config_path()}, None)
+    options = {"config_file": test_config_path()}
+    conf = config.Config.load_paste_config("melange", options, None)
 
     db_api.drop_db(conf)
     db_api.db_sync(conf)

@@ -41,12 +41,12 @@ def setup():
 
 
 def _configure_db():
-    conf_file, conf = config.load_paste_config("melange", {}, None)
+    conf = config.Config.load_paste_config("melange", {}, None)
     db_api.configure_db(conf)
 
 
 def _db_sync():
-    conf_file, conf = config.load_paste_config("melange", {}, None)
+    conf = config.Config.load_paste_config("melange", {}, None)
     db_api.db_sync(conf)
 
 

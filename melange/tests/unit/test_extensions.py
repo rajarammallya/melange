@@ -28,7 +28,7 @@ class TestExtensions(unittest.TestCase):
 
     def test_extension_loads_with_melange_xmlns(self):
         options = {'config_file': unit.test_config_path()}
-        conf, app = config.load_paste_app('extensions_app_with_filter',
+        conf, app = config.Config.load_paste_app('extensions_app_with_filter',
                                           options, None)
         test_app = webtest.TestApp(app)
 

@@ -57,7 +57,7 @@ if __name__ == '__main__':
     create_options(oparser)
     (options, args) = config.parse_options(oparser)
     try:
-        conf, app = config.load_paste_app('melange', options, args)
+        conf, app = config.Config.load_paste_app('melange', options, args)
         db_api.configure_db(conf)
         server = wsgi.Server()
         server.start(app, options.get('port', conf['bind_port']),

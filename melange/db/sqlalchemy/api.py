@@ -47,12 +47,14 @@ def save(model):
 
 
 def delete(model):
-    model.deleted = True
-    save(model)
+    db_session = session.get_session()
+    model = db_session.merge(model)
+    db_session.delete(model)
+    db_session.flush()
 
 
 def delete_all(model, **conditions):
-    _delete_all(_query_by(model, **conditions))
+    _query_by(model, **conditions).delete()
 
 
 def update(model, values):
@@ -136,9 +138,10 @@ def find_all_blocks_with_deallocated_ips():
 
 
 def delete_deallocated_ips(deallocated_by, **kwargs):
-    return _delete_all(_query_by(ipam.models.IpAddress, **kwargs).\
+    return _query_by(ipam.models.IpAddress, **kwargs).\
            filter_by(marked_for_deallocation=True).\
-           filter(ipam.models.IpAddress.deallocated_at <= deallocated_by))
+           filter(ipam.models.IpAddress.deallocated_at <= deallocated_by).\
+           delete()
 
 
 def find_all_top_level_blocks_in_network(network_id):
@@ -182,13 +185,8 @@ def db_downgrade(options, version):
     migration.downgrade(options, version)
 
 
-def _delete_all(query):
-    query.update({'deleted': True})
-
-
 def _base_query(cls):
-    return session.get_session().query(cls).\
-           filter(or_(cls.deleted == False, cls.deleted == None))
+    return session.get_session().query(cls)
 
 
 def _query_by(cls, **conditions):

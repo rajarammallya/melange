@@ -15,11 +15,13 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import sqlalchemy.exc
 from sqlalchemy import and_
 from sqlalchemy import or_
 from sqlalchemy.orm import aliased
 
 from melange import ipam
+from melange.common import exception
 from melange.common import utils
 from melange.db.sqlalchemy import migration
 from melange.db.sqlalchemy import mappers
@@ -40,10 +42,14 @@ def find_by(model, **kwargs):
 
 
 def save(model):
-    db_session = session.get_session()
-    model = db_session.merge(model)
-    db_session.flush()
-    return model
+    try:
+        db_session = session.get_session()
+        model = db_session.merge(model)
+        db_session.flush()
+        return model
+    except sqlalchemy.exc.IntegrityError as error:
+        raise exception.DBConstraintError(model_name=model.__class__.__name__,
+                                          error=str(error.orig))
 
 
 def delete(model):

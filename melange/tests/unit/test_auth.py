@@ -17,7 +17,7 @@
 
 import httplib2
 import json
-from mox import IgnoreArg
+import mox
 import routes
 import urlparse
 import webob
@@ -185,7 +185,7 @@ class TestKeyStoneClient(tests.BaseTest):
         res = httplib2.Response(dict(status='200'))
         client.request(urlparse.urljoin(url, "/v2.0/tokens"),
                        "POST",
-                       headers=IgnoreArg(),
+                       headers=mox.IgnoreArg(),
                        body=request_body).AndReturn((res, response_body))
 
         self.mock.ReplayAll()
@@ -199,8 +199,8 @@ class TestKeyStoneClient(tests.BaseTest):
         response_body = "Failed to get token"
         client.request(urlparse.urljoin(url, "/v2.0/tokens"),
                        "POST",
-                       headers=IgnoreArg(),
-                       body=IgnoreArg()).AndReturn((res, response_body))
+                       headers=mox.IgnoreArg(),
+                       body=mox.IgnoreArg()).AndReturn((res, response_body))
 
         self.mock.ReplayAll()
         expected_error_msg = ("Error occured while retrieving token :"

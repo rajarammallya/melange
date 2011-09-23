@@ -70,6 +70,7 @@ class TestBaseController(unittest.TestCase):
         self._assert_mapping(models.AddressDoesNotBelongError, 422)
         self._assert_mapping(models.AddressLockedError, 422)
         self._assert_mapping(models.DuplicateAddressError, 409)
+        self._assert_mapping(models.IpAddressConcurrentAllocationError, 409)
         self._assert_mapping(exception.ParamsMissingError, 400)
 
     def test_http_excpetions_are_bubbled_up(self):

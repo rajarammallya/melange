@@ -40,6 +40,9 @@ default_cidr = 10.0.0.0/24
 #DNS info for a data_center
 nameserver = "ns.example.com"
 
+#Number of retries for allocating an IP
+ip_allocation_retries = 5
+
 [pipeline:extensions_app_with_filter]
 pipeline = extensions extensions_test_app
 

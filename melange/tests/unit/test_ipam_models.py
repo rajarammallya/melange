@@ -16,8 +16,10 @@
 #    under the License.
 
 import datetime
+import mox
 
 from melange import tests
+from melange.common import exception
 from melange.common import utils
 from melange.ipam import models
 from melange.tests import unit
@@ -579,6 +581,48 @@ class TestIpBlock(tests.BaseTest):
 
         self.assertRaises(models.NoMoreAddressesError, ip_block.allocate_ip)
 
+    def test_allocate_ip_retries_on_ip_creation_constraint_failure(self):
+        ip_block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.0/24")
+        no_of_retries = 3
+
+        self.mock.StubOutWithMock(models.IpAddress, 'create')
+        for i in range(no_of_retries - 1):
+            self._mock_ip_creation().AndRaise(exception.DBConstraintError())
+        expected_ip = models.IpAddress(id=1, address="10.0.0.2")
+        self._mock_ip_creation().AndReturn(expected_ip)
+        self.mock.ReplayAll()
+
+        with unit.StubConfig(ip_allocation_retries=no_of_retries):
+            actual_ip = ip_block.allocate_ip()
+
+        self.assertEqual(actual_ip, expected_ip)
+
+    def test_allocate_ip_raises_error_after_max_retries(self):
+        ip_block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.0/24")
+        no_of_retries = 3
+
+        self.mock.StubOutWithMock(models.IpAddress, 'create')
+
+        for i in range(no_of_retries):
+            self._mock_ip_creation().AndRaise(exception.DBConstraintError())
+
+        self.mock.ReplayAll()
+
+        expected_error_msg = ("Cannot allocate address for block {0} "
+                              "at this time".format(ip_block.id))
+        expected_exception = models.IpAddressConcurrentAllocationError
+        with unit.StubConfig(ip_allocation_retries=no_of_retries):
+            self.assertRaisesExcMessage(expected_exception,
+                                        expected_error_msg,
+                                        ip_block.allocate_ip)
+
+    def _mock_ip_creation(self):
+        return models.IpAddress.create(address=mox.IgnoreArg(),
+                                       interface_id=mox.IgnoreArg(),
+                                       ip_block_id=mox.IgnoreArg(),
+                                       used_by_device=mox.IgnoreArg(),
+                                       used_by_tenant=mox.IgnoreArg())
+
     def test_ip_block_is_not_full(self):
         ip_block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.0/28")
         self.assertFalse(ip_block.is_full)
@@ -854,8 +898,24 @@ class TestIpBlock(tests.BaseTest):
 
 class TestIpAddress(tests.BaseTest):
 
-    def test_str(self):
+    def test_str_returns_address(self):
         self.assertEqual(str(models.IpAddress(address="10.0.1.1")), "10.0.1.1")
+
+    def test_address_for_a_ip_block_is_unique(self):
+        block1 = factory_models.PrivateIpBlockFactory(cidr="10.1.1.1/24")
+        block2 = factory_models.PrivateIpBlockFactory(cidr="10.1.1.1/24")
+        block1_ip = block1.allocate_ip("10.1.1.3")
+
+        expected_error = ("Failed to save IpAddress because: "
+                          "columns address, ip_block_id are not unique")
+        self.assertRaisesExcMessage(exception.DBConstraintError,
+                                    expected_error,
+                                    models.IpAddress.create,
+                                    ip_block_id=block1.id,
+                                    address=block1_ip.address)
+
+        self.assertIsNotNone(models.IpAddress.create(ip_block_id=block2.id,
+                                              address=block1_ip.address))
 
     def test_find_ip_address(self):
         block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.1/8")

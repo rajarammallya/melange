@@ -40,3 +40,8 @@ class ParamsMissingError(MelangeError):
 class MelangeServiceResponseError(MelangeError):
 
     message = _("Error while responding to service call")
+
+
+class DBConstraintError(MelangeError):
+
+    message = _("Failed to save %(model_name)s because: %(error)s")

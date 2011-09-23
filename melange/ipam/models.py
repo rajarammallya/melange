@@ -18,13 +18,17 @@
 """Model classes that form the core of ipam functionality."""
 
 import datetime
+import logging
 import netaddr
+import sys
 
 from melange import ipv6
 from melange.common import config
 from melange.common import exception
 from melange.common import utils
 from melange.db import db_api
+
+LOG = logging.getLogger('melange.ipam.models')
 
 
 class Query(object):
@@ -303,6 +307,7 @@ class IpBlock(ModelBase):
 
     def allocate_ip(self, interface_id=None, address=None,
                     used_by_tenant=None, used_by_device=None, **kwargs):
+
         used_by_tenant = used_by_tenant or self.tenant_id
 
         if self.subnets():
@@ -310,22 +315,37 @@ class IpBlock(ModelBase):
                 _("Non Leaf block cannot allocate IPAddress"))
         if self.is_full:
             raise NoMoreAddressesError(_("IpBlock is full"))
+        if address:
+            return self._allocate_specific_ip(address,
+                                             interface_id=interface_id,
+                                             used_by_tenant=used_by_tenant,
+                                             used_by_device=used_by_device)
+        return self._allocate_available_ip(interface_id=interface_id,
+                                           used_by_tenant=used_by_tenant,
+                                           used_by_device=used_by_device,
+                                           **kwargs)
 
-        if address is None:
+    def _allocate_available_ip(self, interface_id=None, address=None,
+                               used_by_tenant=None, used_by_device=None,
+                               **kwargs):
+
+        max_allowed_retry = int(config.Config.get("ip_allocation_retries", 10))
+
+        for retries in range(max_allowed_retry):
             address = self._generate_ip_address(used_by_tenant=used_by_tenant,
                                                 **kwargs)
-        else:
-            self._validate_address(address)
+            try:
+                return IpAddress.create(address=address,
+                                        ip_block_id=self.id,
+                                        interface_id=interface_id,
+                                        used_by_tenant=used_by_tenant,
+                                        used_by_device=used_by_device)
 
-        if not address:
-            self.update(is_full=True)
-            raise NoMoreAddressesError(_("IpBlock is full"))
+            except exception.DBConstraintError as error:
+                LOG.debug("IP allocation retry count :{0}".format(retries + 1))
+                LOG.exception(error)
 
-        return IpAddress.create(address=address,
-                                interface_id=interface_id,
-                                ip_block_id=self.id,
-                                used_by_tenant=used_by_tenant,
-                                used_by_device=used_by_device)
+        raise IpAddressConcurrentAllocationError(block_id=self.id)
 
     def _generate_ip_address(self, **kwargs):
         if self.is_ipv6():
@@ -346,22 +366,30 @@ class IpBlock(ModelBase):
                 if (self._allowed_by_policy(policy, str(ip))
                     and (str(ip) not in unavailable_addresses)):
                     return str(ip)
-            return None
 
-    def _validate_address(self, address):
+            self.update(is_full=True)
+            raise NoMoreAddressesError(_("IpBlock is full"))
 
-        if (address in [self.broadcast, self.gateway]
-            or (self.get_address(address) is not None)):
-            raise DuplicateAddressError()
+    def _allocate_specific_ip(self, address, interface_id=None,
+                              used_by_tenant=None, used_by_device=None):
 
         if not self.contains(address):
             raise AddressDoesNotBelongError(
                 _("Address does not belong to IpBlock"))
 
-        policy = self.policy()
-        if not self._allowed_by_policy(policy, address):
+        if (address in [self.broadcast, self.gateway]
+            or (self.get_address(address) is not None)):
+            raise DuplicateAddressError()
+
+        if not self._allowed_by_policy(self.policy(), address):
             raise AddressDisallowedByPolicyError(
                 _("Block policy does not allow this address"))
+
+        return IpAddress.create(address=address,
+                                ip_block_id=self.id,
+                                interface_id=interface_id,
+                                used_by_tenant=used_by_tenant,
+                                used_by_device=used_by_device)
 
     def _allowed_by_policy(self, policy, address):
         return policy is None or policy.allows(self.cidr, address)
@@ -781,6 +809,11 @@ class InvalidModelError(exception.MelangeError):
 
     def __init__(self, errors, message=None):
         super(InvalidModelError, self).__init__(message, errors=errors)
+
+
+class IpAddressConcurrentAllocationError(exception.MelangeError):
+
+    message = _("Cannot allocate address for block %(block_id)s at this time")
 
 
 def sort(iterable):

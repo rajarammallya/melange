@@ -949,6 +949,20 @@ class TestIpAddress(tests.BaseTest):
                           models.IpAddress.find,
                           123)
 
+    def test_find_all_allocated_ips(self):
+        block = factory_models.IpBlockFactory(tenant_id="1")
+
+        ip1 = block.allocate_ip()
+        ip2 = block.allocate_ip()
+        ip3 = block.allocate_ip()
+        ip4 = block.allocate_ip(used_by_tenant="2")
+
+        ip2.deallocate()
+
+        allocated_ips = models.IpAddress.find_all_allocated_ips(
+            used_by_tenant="1")
+        self.assertModelsEqual(allocated_ips, [ip1, ip3])
+
     def test_delete_ip_address(self):
         block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.1/8")
         ip = factory_models.IpAddressFactory(ip_block_id=block.id,

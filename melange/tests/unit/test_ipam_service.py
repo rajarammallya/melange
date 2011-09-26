@@ -665,6 +665,18 @@ class TestAllocatedIpAddressController(BaseTestController):
         self.assertItemsEqual(response.json['ip_addresses'],
                               _data([tnt1_device1_ip1, tnt1_device1_ip2]))
 
+    def test_index_doesnt_return_soft_deallocated_ips(self):
+        block = factory_models.IpBlockFactory(tenant_id="1")
+
+        ip1 = block.allocate_ip()
+        ip2 = block.allocate_ip()
+        ip3 = block.allocate_ip()
+
+        ip2.deallocate()
+        response = self.app.get("/ipam/tenants/1/allocated_ip_addresses")
+
+        self.assertItemsEqual(response.json['ip_addresses'], _data([ip1, ip3]))
+
 
 class TestInsideGlobalsController(BaseTestController):
 

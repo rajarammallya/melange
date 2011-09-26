@@ -156,7 +156,7 @@ class AllocatedIpAddressesController(BaseController):
         filter_conditions = utils.filter_dict(request.params, 'used_by_device')
         if tenant_id is not None:
             filter_conditions['used_by_tenant'] = tenant_id
-        ips = models.IpAddress.find_all(**filter_conditions)
+        ips = models.IpAddress.find_all_allocated_ips(**filter_conditions)
         return self._paginated_response('ip_addresses', ips, request)
 
 

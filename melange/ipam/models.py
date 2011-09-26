@@ -20,7 +20,6 @@
 import datetime
 import logging
 import netaddr
-import sys
 
 from melange import ipv6
 from melange.common import config
@@ -39,28 +38,31 @@ class Query(object):
     Using this class makes the models independent of sqlalchemy
 
     """
-    def __init__(self, model, **conditions):
+    def __init__(self, model, query_func=None, **conditions):
+        self._query_func = query_func or db_api.find_all_by
         self._model = model
         self._conditions = conditions
 
     def all(self):
-        return db_api.find_all_by(self._model, **self._conditions)
+        return db_api.list(self._query_func(self._model, **self._conditions))
 
     def __iter__(self):
         return iter(self.all())
 
     def update(self, **values):
-        db_api.update_all(self._model, self._conditions, values)
+        db_api.update_all(self._query_func, self._model, self._conditions,
+                          values)
 
     def delete(self):
-        db_api.delete_all(self._model, **self._conditions)
+        db_api.delete_all(self._query_func, self._model, **self._conditions)
 
     def limit(self, limit=200, marker=None, marker_column=None):
-        return db_api.find_all_by_limit(self._model,
-                                        self._conditions,
-                                        limit=limit,
-                                        marker=marker,
-                                        marker_column=marker_column)
+        return db_api.list(db_api.find_all_by_limit(self._query_func,
+                                                  self._model,
+                                                  self._conditions,
+                                                  limit=limit,
+                                                  marker=marker,
+                                                  marker_column=marker_column))
 
     def paginated_collection(self, limit=200, marker=None, marker_column=None):
         collection = self.limit(int(limit) + 1, marker, marker_column)
@@ -557,6 +559,11 @@ class IpAddress(ModelBase):
     @classmethod
     def find_all_by_network(cls, network_id, **conditions):
         return db_api.find_all_ips_in_network(network_id, **conditions)
+
+    @classmethod
+    def find_all_allocated_ips(cls, **conditions):
+        return Query(cls, query_func=db_api.find_all_allocated_ips,
+                     **conditions)
 
     def _before_save(self):
         self.address = self._formatted(self.address)

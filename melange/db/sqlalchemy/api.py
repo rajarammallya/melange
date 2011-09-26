@@ -28,13 +28,17 @@ from melange.db.sqlalchemy import mappers
 from melange.db.sqlalchemy import session
 
 
+def list(query):
+    return query.all()
+
+
 def find_all_by(model, **conditions):
-    return _query_by(model, **conditions).all()
+    return _query_by(model, **conditions)
 
 
-def find_all_by_limit(model, conditions, limit, marker=None,
+def find_all_by_limit(query_func, model, conditions, limit, marker=None,
                       marker_column=None):
-    return _limits(model, conditions, limit, marker, marker_column).all()
+    return _limits(query_func, model, conditions, limit, marker, marker_column)
 
 
 def find_by(model, **kwargs):
@@ -59,8 +63,8 @@ def delete(model):
     db_session.flush()
 
 
-def delete_all(model, **conditions):
-    _query_by(model, **conditions).delete()
+def delete_all(query_func, model, **conditions):
+    query_func(model, **conditions).delete()
 
 
 def update(model, values):
@@ -68,8 +72,8 @@ def update(model, values):
         model[k] = v
 
 
-def update_all(model, conditions, values):
-    _query_by(model, **conditions).update(values)
+def update_all(query_func, model, conditions, values):
+    query_func(model, **conditions).update(values)
 
 
 def find_inside_globals_for(local_address_id, **kwargs):
@@ -78,7 +82,8 @@ def find_inside_globals_for(local_address_id, **kwargs):
     marker = kwargs.pop('marker', None)
 
     kwargs["inside_local_address_id"] = local_address_id
-    query = _limits(mappers.IpNat, kwargs, limit, marker, marker_column)
+    query = _limits(find_all_by, mappers.IpNat, kwargs, limit, marker,
+                    marker_column)
     return [nat.inside_global_address for nat in query]
 
 
@@ -88,7 +93,8 @@ def find_inside_locals_for(global_address_id, **kwargs):
     marker = kwargs.pop('marker', None)
 
     kwargs["inside_global_address_id"] = global_address_id
-    query = _limits(mappers.IpNat, kwargs, limit, marker, marker_column)
+    query = _limits(find_all_by, mappers.IpNat, kwargs, limit, marker,
+                    marker_column)
     return [nat.inside_local_address for nat in query]
 
 
@@ -167,6 +173,12 @@ def find_all_ips_in_network(network_id, **conditions):
            filter(ipam.models.IpBlock.network_id == network_id)
 
 
+def find_all_allocated_ips(model, **conditions):
+    return _query_by(ipam.models.IpAddress, **conditions).\
+        filter(or_(ipam.models.IpAddress.marked_for_deallocation == None,
+                   ipam.models.IpAddress.marked_for_deallocation == False))
+
+
 def configure_db(options):
     session.configure_db(options)
 
@@ -202,9 +214,9 @@ def _query_by(cls, **conditions):
     return query
 
 
-def _limits(cls, conditions, limit, marker, marker_column=None):
-    query = _query_by(cls, **conditions)
-    marker_column = marker_column or cls.id
+def _limits(query_func, model, conditions, limit, marker, marker_column=None):
+    query = query_func(model, **conditions)
+    marker_column = marker_column or model.id
     if marker is not None:
         query = query.filter(marker_column > marker)
     return query.order_by(marker_column).limit(limit)

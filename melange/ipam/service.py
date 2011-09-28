@@ -18,7 +18,6 @@
 import routes
 import webob.exc
 
-from melange.common import config
 from melange.common import exception
 from melange.common import pagination
 from melange.common import utils
@@ -158,6 +157,48 @@ class AllocatedIpAddressesController(BaseController):
             filter_conditions['used_by_tenant'] = tenant_id
         ips = models.IpAddress.find_all_allocated_ips(**filter_conditions)
         return self._paginated_response('ip_addresses', ips, request)
+
+
+class IpRoutesController(BaseController):
+
+    exclude_attr = ['source_block_id']
+
+    def index(self, request, tenant_id, source_block_id):
+        source_block = models.IpBlock.find_by(id=source_block_id,
+                                              tenant_id=tenant_id)
+        ip_routes = models.IpRoute.find_all(source_block_id=source_block.id)
+        return self._paginated_response('ip_routes', ip_routes, request)
+
+    def create(self, request, tenant_id, source_block_id, body=None):
+        source_block = models.IpBlock.find_by(id=source_block_id,
+                                              tenant_id=tenant_id)
+        params = self._extract_required_params(body, 'ip_route')
+        ip_route = models.IpRoute.create(source_block_id=source_block.id,
+                                         **params)
+        return wsgi.Result(dict(ip_route=ip_route.data()), 201)
+
+    def show(self, request, id, tenant_id, source_block_id):
+        source_block = models.IpBlock.find_by(id=source_block_id,
+                                              tenant_id=tenant_id)
+        ip_route = models.IpRoute.find_by(id=id,
+                                          source_block_id=source_block.id)
+        return dict(ip_route=ip_route.data())
+
+    def delete(self, request, id, tenant_id, source_block_id):
+        source_block = models.IpBlock.find_by(id=source_block_id,
+                                              tenant_id=tenant_id)
+        ip_route = models.IpRoute.find_by(id=id,
+                                          source_block_id=source_block.id)
+        ip_route.delete()
+
+    def update(self, request, id, tenant_id, source_block_id, body=None):
+        source_block = models.IpBlock.find_by(id=source_block_id,
+                                              tenant_id=tenant_id)
+        ip_route = models.IpRoute.find_by(id=id,
+                                          source_block_id=source_block.id)
+        params = self._extract_required_params(body, 'ip_route')
+        ip_route.update(**params)
+        return dict(ip_route=ip_route.data())
 
 
 class InsideGlobalsController(BaseController):
@@ -342,6 +383,7 @@ class API(wsgi.Router):
         self._policy_and_rules_mapper(mapper)
         self._network_mapper(mapper)
         self._allocated_ips_mapper(mapper)
+        self._ip_routes_mapper(mapper)
 
     def _allocated_ips_mapper(self, mapper):
         allocated_ips_res = AllocatedIpAddressesController().create_resource()
@@ -351,6 +393,12 @@ class API(wsgi.Router):
         mapper.connect("/ipam/tenants/{tenant_id}/allocated_ip_addresses",
                        controller=allocated_ips_res,
                        action="index", conditions=dict(method=['GET']))
+
+    def _ip_routes_mapper(self, mapper):
+        ip_routes_res = IpRoutesController().create_resource()
+        path = ("/ipam/tenants/{tenant_id}/ip_blocks/{source_block_id}"
+                "/ip_routes")
+        mapper.resource("ip_routes", path, controller=ip_routes_res)
 
     def _network_mapper(self, mapper):
         resource_path = ("/ipam/tenants/{tenant_id}/networks"

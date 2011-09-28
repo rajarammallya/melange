@@ -448,11 +448,13 @@ class TestIpAddressController(BaseTestController):
 
     def test_create_passes_request_params_to_ipv6_allocation_algorithm(self):
         block = factory_models.IpBlockFactory(cidr="ff::/64")
-        params = {'ip_address': {"interface_id": "123",
-                                 'mac_address': "10:23:56:78:90:01",
-                                 'tenant_id': "111",
-                                 },
-                  }
+        params = {
+            'ip_address': {
+                "interface_id": "123",
+                'mac_address': "10:23:56:78:90:01",
+                'tenant_id': "111",
+                },
+            }
         generated_ip = factory_models.IpAddressFactory(address="ff::1",
                                                        ip_block_id=block.id)
         self.mock.StubOutWithMock(models.IpBlock, "allocate_ip")
@@ -599,6 +601,185 @@ class TestIpAddressController(BaseTestController):
 
         self.assertErrorResponse(response, webob.exc.HTTPNotFound,
                                  "IpBlock Not Found")
+
+
+class TestIpRoutesController(BaseTestController):
+
+    def test_index_all_routes_for_an_ip_block(self):
+        block = factory_models.IpBlockFactory(tenant_id="tenant_id")
+        ip_routes = [factory_models.IpRouteFactory(source_block_id=block.id),
+                     factory_models.IpRouteFactory(source_block_id=block.id),
+                     factory_models.IpRouteFactory(source_block_id=block.id),
+                     factory_models.IpRouteFactory(source_block_id=block.id),
+                     factory_models.IpRouteFactory(source_block_id=block.id)]
+
+        ip_routes = models.sort(ip_routes)
+
+        path = "/ipam/tenants/tenant_id/ip_blocks/%s/ip_routes" % block.id
+        response = self.app.get("%s?limit=2&marker=%s" % (path,
+                                                          ip_routes[1].id))
+
+        next_link = response.json['ip_routes_links'][0]['href']
+        response_blocks = response.json['ip_routes']
+        expected_next_link = string.replace(response.request.url,
+                                            "marker=%s" % ip_routes[1].id,
+                                            "marker=%s" % ip_routes[3].id)
+
+        self.assertEqual(response.status, "200 OK")
+        self.assertEqual(len(response_blocks), 2)
+        self.assertItemsEqual(response_blocks, _data([ip_routes[2],
+                                                      ip_routes[3]]))
+        self.assertUrlEqual(expected_next_link, next_link)
+
+    def test_index_fails_for_non_existent_block_for_tenant(self):
+        block = factory_models.IpBlockFactory(tenant_id="tenant_id")
+        path = "/ipam/tenants/bad_tenant_id/ip_blocks/%s/ip_routes" % block.id
+        response = self.app.get(path, status="*")
+
+        self.assertErrorResponse(response, webob.exc.HTTPNotFound,
+                                 "IpBlock Not Found")
+
+    def test_create(self):
+        block = factory_models.IpBlockFactory(cidr="10.1.1.0/28")
+        path = "/ipam/tenants/tenant_id/ip_blocks/%s/ip_routes" % block.id
+        params = {
+            'ip_route': {
+                'destination': "10.1.1.1",
+                'netmask': "255.255.255.0",
+                'gateway': "10.1.1.0",
+                'source_block_id': "some_other_block_id",
+                }
+            }
+
+        response = self.app.post_json(path, params)
+
+        ip_route = models.IpRoute.find_by(source_block_id=block.id)
+        self.assertEqual(ip_route.destination, "10.1.1.1")
+        self.assertEqual(ip_route.netmask, "255.255.255.0")
+        self.assertEqual(ip_route.gateway, "10.1.1.0")
+
+        self.assertEqual(response.status, "201 Created")
+        self.assertEqual(response.json['ip_route'], _data(ip_route))
+
+    def test_create_fails_for_non_existent_block_for_tenant(self):
+        block = factory_models.IpBlockFactory(tenant_id="tenant_id")
+        path = "/ipam/tenants/bad_tenant_id/ip_blocks/%s/ip_routes" % block.id
+        params = {
+            'ip_route': {
+                'destination': "10.1.1.1",
+                'netmask': "255.255.255.0",
+                'gateway': "10.1.1.0",
+                }
+            }
+        response = self.app.post_json(path, params, status="*")
+
+        self.assertErrorResponse(response, webob.exc.HTTPNotFound,
+                                 "IpBlock Not Found")
+
+    def test_show(self):
+        block = factory_models.IpBlockFactory(tenant_id="tenant_id")
+        ip_route = factory_models.IpRouteFactory(source_block_id=block.id)
+
+        path = "/ipam/tenants/tenant_id/ip_blocks/%s/ip_routes/%s"
+        response = self.app.get(path % (block.id, ip_route.id))
+
+        self.assertEqual(response.status_int, 200)
+        self.assertItemsEqual(response.json['ip_route'], _data(ip_route))
+
+    def test_show_fails_for_non_existent_block_for_given_tenant(self):
+        block = factory_models.IpBlockFactory(tenant_id="tenant_id")
+        ip_route = factory_models.IpRouteFactory(source_block_id=block.id)
+
+        path = "/ipam/tenants/non_existent_tenant/ip_blocks/%s/ip_routes/%s"
+        response = self.app.get(path % (block.id, ip_route.id), status="*")
+
+        self.assertErrorResponse(response, webob.exc.HTTPNotFound,
+                                 "IpBlock Not Found")
+
+    def test_show_fails_for_non_existent_ip_route(self):
+        block = factory_models.IpBlockFactory(tenant_id="tenant_id")
+
+        path = "/ipam/tenants/tenant_id/ip_blocks/%s/ip_routes/bad_ip_route"
+        response = self.app.get(path % block.id, status="*")
+
+        self.assertErrorResponse(response, webob.exc.HTTPNotFound,
+                                 "IpRoute Not Found")
+
+    def test_delete(self):
+        block = factory_models.IpBlockFactory(tenant_id="tenant_id")
+        ip_route = factory_models.IpRouteFactory(source_block_id=block.id)
+
+        path = "/ipam/tenants/tenant_id/ip_blocks/%s/ip_routes/%s"
+        response = self.app.delete(path % (block.id, ip_route.id))
+
+        self.assertEqual(response.status_int, 200)
+        self.assertIsNone(models.IpRoute.get(ip_route.id))
+
+    def test_delete_fails_for_non_existent_block_for_given_tenant(self):
+        block = factory_models.IpBlockFactory(tenant_id="tenant_id")
+        ip_route = factory_models.IpRouteFactory(source_block_id=block.id)
+
+        path = "/ipam/tenants/non_existent_tenant/ip_blocks/%s/ip_routes/%s"
+        response = self.app.delete(path % (block.id, ip_route.id), status="*")
+
+        self.assertErrorResponse(response, webob.exc.HTTPNotFound,
+                                 "IpBlock Not Found")
+
+    def test_delete_fails_for_non_existent_ip_route(self):
+        block = factory_models.IpBlockFactory(tenant_id="tenant_id")
+
+        path = "/ipam/tenants/tenant_id/ip_blocks/%s/ip_routes/bad_ip_route"
+        response = self.app.delete(path % block.id, status="*")
+
+        self.assertErrorResponse(response, webob.exc.HTTPNotFound,
+                                 "IpRoute Not Found")
+
+    def test_update(self):
+        block = factory_models.IpBlockFactory(tenant_id="tenant_id")
+        ip_route = factory_models.IpRouteFactory(destination="10.1.1.1",
+                                                 netmask="255.255.255.0",
+                                                 gateway="10.1.1.0",
+                                                 source_block_id=block.id)
+        params = {
+            'ip_route': {
+                'destination': "192.1.1.1",
+                'netmask': "255.255.0.0",
+                'gateway': "192.1.1.0",
+                'source_block_id': "some_other_block_id",
+                }
+            }
+
+        path = "/ipam/tenants/tenant_id/ip_blocks/%s/ip_routes/%s"
+        response = self.app.put_json(path % (block.id, ip_route.id), params)
+
+        updated_ip_route = models.IpRoute.find_by(source_block_id=block.id)
+        self.assertEqual(updated_ip_route.destination, "192.1.1.1")
+        self.assertEqual(updated_ip_route.netmask, "255.255.0.0")
+        self.assertEqual(updated_ip_route.gateway, "192.1.1.0")
+
+        self.assertEqual(response.status_int, 200)
+        self.assertEqual(response.json['ip_route'], _data(ip_route))
+
+    def test_update_fails_for_non_existent_block_for_given_tenant(self):
+        block = factory_models.IpBlockFactory(tenant_id="tenant_id")
+        ip_route = factory_models.IpRouteFactory(source_block_id=block.id)
+
+        path = "/ipam/tenants/non_existent_tenant/ip_blocks/%s/ip_routes/%s"
+        response = self.app.put_json(path % (block.id, ip_route.id),
+                                     {},
+                                     status="*")
+
+        self.assertErrorResponse(response, webob.exc.HTTPNotFound,
+                                 "IpBlock Not Found")
+
+    def test_update_fails_for_non_existent_ip_route(self):
+        block = factory_models.IpBlockFactory(tenant_id="tenant_id")
+
+        path = "/ipam/tenants/tenant_id/ip_blocks/%s/ip_routes/bad_ip_route"
+        response = self.app.delete(path % block.id, {}, status="*")
+
+        self.assertErrorResponse(response, webob.exc.HTTPNotFound,
+                                 "IpRoute Not Found")
 
 
 class TestAllocatedIpAddressController(BaseTestController):

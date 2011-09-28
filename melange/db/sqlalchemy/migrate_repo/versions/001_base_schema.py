@@ -35,7 +35,7 @@ ip_blocks = Table('ip_blocks', meta,
         Column('id', String(36), primary_key=True, nullable=False),
         Column('network_id', String(255)),
         Column('cidr', String(255), nullable=False),
-        Column('created_at', DateTime(), nullable=True),
+        Column('created_at', DateTime()),
         Column('updated_at', DateTime()),
         Column('type', String(7)),
         Column('tenant_id', String(255)),
@@ -50,10 +50,9 @@ ip_blocks = Table('ip_blocks', meta,
 ip_addresses = Table('ip_addresses', meta,
         Column('id', String(36), primary_key=True, nullable=False),
         Column('address', String(255), nullable=False),
-        Column('interface_id', String(255), nullable=True),
-        Column('ip_block_id', String(36), ForeignKey('ip_blocks.id'),
-               nullable=True),
-        Column('created_at', DateTime(), nullable=True),
+        Column('interface_id', String(255)),
+        Column('ip_block_id', String(36), ForeignKey('ip_blocks.id')),
+        Column('created_at', DateTime()),
         Column('used_by_tenant', String(255)),
         Column('used_by_device', String(255)),
         Column('updated_at', DateTime()),
@@ -80,8 +79,8 @@ policies = Table('policies', meta,
         Column('id', String(36), primary_key=True, nullable=False),
         Column('name', String(255), nullable=False),
         Column('tenant_id', String(255)),
-        Column('description', String(255), nullable=True),
-        Column('created_at', DateTime(), nullable=True),
+        Column('description', String(255)),
+        Column('created_at', DateTime()),
         Column('updated_at', DateTime()))
 
 
@@ -90,7 +89,7 @@ ip_ranges = Table('ip_ranges', meta,
         Column('offset', Integer(), nullable=False),
         Column('length', Integer(), nullable=False),
         Column('policy_id', String(36), ForeignKey('policies.id')),
-        Column('created_at', DateTime(), nullable=True),
+        Column('created_at', DateTime()),
         Column('updated_at', DateTime()))
 
 
@@ -98,17 +97,26 @@ ip_octets = Table('ip_octets', meta,
         Column('id', String(36), primary_key=True, nullable=False),
         Column('octet', Integer(), nullable=False),
         Column('policy_id', String(36), ForeignKey('policies.id')),
-        Column('created_at', DateTime(), nullable=True),
+        Column('created_at', DateTime()),
+        Column('updated_at', DateTime()))
+
+ip_routes = Table('ip_routes', meta,
+        Column('id', String(36), primary_key=True, nullable=False),
+        Column('destination', String(255), nullable=False),
+        Column('netmask', String(255)),
+        Column('gateway', String(255), nullable=False),
+        Column('source_block_id', String(36), ForeignKey('ip_blocks.id')),
+        Column('created_at', DateTime()),
         Column('updated_at', DateTime()))
 
 
 def upgrade(migrate_engine):
     meta.bind = migrate_engine
-    create_tables([policies, ip_blocks, ip_addresses, ip_nats, ip_ranges,
-                  ip_octets])
+    create_tables([policies, ip_ranges, ip_octets, ip_blocks, ip_routes,
+                   ip_addresses, ip_nats])
 
 
 def downgrade(migrate_engine):
     meta.bind = migrate_engine
-    drop_tables([ip_nats, ip_blocks, ip_addresses, ip_ranges, ip_octets,
-                policies])
+    drop_tables([ip_nats, ip_addresses, ip_routes, ip_blocks, ip_ranges,
+                 ip_octets, policies])

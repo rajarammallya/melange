@@ -31,7 +31,7 @@ from melange.db import db_api
 
 
 def test_config_path():
-    return melange.melange_etc_path("melange.conf.test")
+    return melange.melange_etc_path("melange.conf.sample")
 
 
 def sanitize(data):
@@ -80,7 +80,7 @@ class TestApp(webtest.TestApp):
 
 def setup():
     options = {"config_file": test_config_path()}
-    conf = config.Config.load_paste_config("melange", options, None)
+    conf = config.Config.load_paste_config("melangeapp", options, None)
 
     db_api.drop_db(conf)
     db_api.db_sync(conf)

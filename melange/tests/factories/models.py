@@ -45,12 +45,20 @@ class IpV6IpBlockFactory(IpBlockFactory):
 
 class IpAddressFactory(factory.Factory):
     FACTORY_FOR = models.IpAddress
-    ip_block_id = factory.LazyAttribute(lambda a: PublicIpBlockFactory().id)
+    ip_block_id = factory.LazyAttribute(lambda a: IpBlockFactory().id)
 
     @factory.lazy_attribute_sequence
     def address(ip, n):
         ip_block = models.IpBlock.find(ip.ip_block_id)
         return netaddr.IPNetwork(ip_block.cidr)[int(n)]
+
+
+class IpRouteFactory(factory.Factory):
+    FACTORY_FOR = models.IpRoute
+    destination = factory.Sequence(lambda n: "10.0.0.{0}".format(int(n) % 255))
+    netmask = "255.255.192.0"
+    source_block_id = factory.LazyAttribute(lambda a: IpBlockFactory().id)
+    gateway = "192.168.0.1"
 
 
 class IpRangeFactory(factory.Factory):

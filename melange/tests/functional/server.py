@@ -27,17 +27,18 @@ class Server(object):
         self.name = name
         self.path = path
 
-    def restart(self, port):
+    def restart(self, port, config_file):
         self.stop()
-        self.start(port)
+        self.start(port, config_file)
 
-    def start(self, port):
+    def start(self, port, config_file):
         pid = os.fork()
         if pid == 0:
             os.setsid()
             self._close_stdio()
             try:
-                os.system("(%s -p %s >func_test.log)" % (self.path, port))
+                os.system("(%s -p %s --config-file=%s >func_test.log)" %
+                          (self.path, port, config_file))
             except OSError:
                 os._exit(1)
             os._exit(0)

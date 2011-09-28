@@ -50,6 +50,7 @@ def _configure_db_session(conf):
 
 def _load_app_environment():
     oparser = optparse.OptionParser()
+    config.add_common_options(oparser)
     config.add_log_options(oparser)
     (options, args) = config.parse_options(oparser)
     conf = config.Config.load_paste_config('melange', options, args)

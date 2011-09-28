@@ -623,6 +623,13 @@ class IpAddress(ModelBase):
         return self.address
 
 
+class IpRoute(ModelBase):
+
+    def _validate(self):
+        self._validate_presence_of("destination", "gateway")
+        self._validate_existence_of("source_block_id", IpBlock)
+
+
 class Policy(ModelBase):
 
     _data_fields = ['name', 'description', 'tenant_id']
@@ -767,6 +774,7 @@ def persisted_models():
         'Policy': Policy,
         'IpRange': IpRange,
         'IpOctet': IpOctet,
+        'IpRoute': IpRoute,
         }
 
 

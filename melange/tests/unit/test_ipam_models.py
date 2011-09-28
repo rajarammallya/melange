@@ -1160,6 +1160,46 @@ class TestIpAddress(tests.BaseTest):
         self.assertEqual(ipv6.version, 6)
 
 
+class TestIpRoute(tests.BaseTest):
+
+    def test_create(self):
+        block = factory_models.IpBlockFactory()
+
+        models.IpRoute.create(source_block_id=block.id,
+                              destination="10.0.0.0",
+                              netmask="255.255.192.0",
+                              gateway="192.168.0.1")
+
+        created_route = models.IpRoute.find_by(source_block_id=block.id)
+
+        self.assertIsNotNone(created_route)
+        self.assertEqual(created_route.destination, "10.0.0.0")
+        self.assertEqual(created_route.netmask, "255.255.192.0")
+        self.assertEqual(created_route.gateway, "192.168.0.1")
+
+    def test_presence_of_destination(self):
+        ip_route = factory_models.IpRouteFactory.build(destination=None)
+
+        self.assertFalse(ip_route.is_valid())
+        self.assertEqual(ip_route.errors['destination'],
+                         ["destination should be present"])
+
+    def test_presence_of_gateway(self):
+        ip_route = factory_models.IpRouteFactory.build(gateway=None)
+
+        self.assertFalse(ip_route.is_valid())
+        self.assertEqual(ip_route.errors['gateway'],
+                         ["gateway should be present"])
+
+    def test_existence_of_source_block(self):
+        factory = factory_models.IpRouteFactory
+        ip_route = factory.build(source_block_id="invalid")
+
+        self.assertFalse(ip_route.is_valid())
+        self.assertEqual(ip_route.errors['source_block_id'],
+                         ["IpBlock with id = 'invalid' doesn't exist"])
+
+
 class TestPolicy(tests.BaseTest):
 
     def test_create_policy(self):

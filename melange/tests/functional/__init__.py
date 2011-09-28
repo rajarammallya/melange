@@ -16,7 +16,6 @@
 #    under the License.
 
 import os
-import shutil
 import socket
 import subprocess
 
@@ -29,24 +28,27 @@ from melange.tests.functional import server
 _PORT = None
 
 
+def test_config_file():
+    return melange.melange_etc_path("melange.conf.sample")
+
+
 def setup():
     print "Restarting melange server..."
-    shutil.copyfile(melange.melange_etc_path("melange.conf.sample"),
-                    os.path.expanduser("~/melange.conf"))
     srv = server.Server("melange",
-                         melange.melange_bin_path('melange'))
-    _db_sync()
-    srv.restart(port=setup_unused_port())
-    _configure_db()
+                         melange.melange_bin_path('melange'), )
+    options = dict(config_file=test_config_file())
+    _db_sync(options)
+    srv.restart(port=setup_unused_port(), **options)
+    _configure_db(options)
 
 
-def _configure_db():
-    conf = config.Config.load_paste_config("melange", {}, None)
+def _configure_db(options):
+    conf = config.Config.load_paste_config("melange", options, None)
     db_api.configure_db(conf)
 
 
-def _db_sync():
-    conf = config.Config.load_paste_config("melange", {}, None)
+def _db_sync(options):
+    conf = config.Config.load_paste_config("melange", options, None)
     db_api.db_sync(conf)
 
 

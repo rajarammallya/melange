@@ -895,6 +895,16 @@ class TestIpBlock(tests.BaseTest):
 
         self.assertFalse(models.IpBlock.find(ip_block.id).is_full)
 
+    def test_ip_routes(self):
+        block1 = factory_models.IpBlockFactory()
+        block2 = factory_models.IpBlockFactory()
+
+        ip_routes = [factory_models.IpRouteFactory(source_block_id=block1.id),
+                     factory_models.IpRouteFactory(source_block_id=block1.id)]
+        noise = factory_models.IpRouteFactory(source_block_id=block2.id)
+
+        self.assertModelsEqual(block1.ip_routes(), ip_routes)
+
 
 class TestIpAddress(tests.BaseTest):
 

@@ -23,6 +23,7 @@ from melange.common import pagination
 from melange.common import utils
 from melange.common import wsgi
 from melange.ipam import models
+from melange.ipam import views
 
 
 class BaseController(wsgi.Controller):
@@ -354,8 +355,8 @@ class NetworksController(BaseController):
         options['used_by_tenant'] = params.get('tenant_id', None)
 
         ips = network.allocate_ips(interface_id=interface_id, **options)
-        return wsgi.Result(dict(ip_addresses=[ip.data(with_ip_block=True)
-                                              for ip in ips]), 201)
+        ip_config_view = views.IpConfigurationView(*ips)
+        return wsgi.Result(dict(ip_addresses=ip_config_view.data()), 201)
 
     def deallocate_ips(self, request, network_id, interface_id, tenant_id):
         network = models.Network.find_by(id=network_id, tenant_id=tenant_id)
@@ -364,8 +365,8 @@ class NetworksController(BaseController):
     def get_allocated_ips(self, request, network_id, interface_id, tenant_id):
         network = models.Network.find_by(id=network_id, tenant_id=tenant_id)
         ips_on_interface = network.allocated_ips(interface_id=interface_id)
-        return dict(ip_addresses=[ip.data(with_ip_block=True)
-                                  for ip in ips_on_interface])
+        ip_configuration_view = views.IpConfigurationView(*ips_on_interface)
+        return dict(ip_addresses=ip_configuration_view.data())
 
 
 class API(wsgi.Router):

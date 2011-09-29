@@ -297,6 +297,9 @@ class IpBlock(ModelBase):
     def policy(self):
         return Policy.get(self.policy_id)
 
+    def ip_routes(self):
+        return IpRoute.find_all(source_block_id=self.id)
+
     def get_address(self, address):
         return IpAddress.get_by(ip_block_id=self.id, address=address)
 

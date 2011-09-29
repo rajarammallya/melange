@@ -27,6 +27,7 @@ from melange.common import utils
 from melange.common import wsgi
 from melange.ipam import models
 from melange.ipam import service
+from melange.ipam import views
 from melange.tests import unit
 from melange.tests.factories import models as factory_models
 from melange.tests.unit import mock_generator
@@ -1776,7 +1777,7 @@ class TestNetworksController(BaseTestController):
 
         ip_address = models.IpAddress.find_by(ip_block_id=ip_block.id)
         self.assertEqual(response.status_int, 201)
-        self.assertEqual([_data(ip_address, with_ip_block=True)],
+        self.assertEqual(views.IpConfigurationView(ip_address).data(),
                          response.json['ip_addresses'])
         self.assertEqual(ip_address.interface_id, "123")
 
@@ -1792,7 +1793,7 @@ class TestNetworksController(BaseTestController):
         ip_address = models.IpAddress.find_by(ip_block_id=ip_block.id,
                                               address="10.0.0.2")
         self.assertEqual(response.status_int, 201)
-        self.assertEqual([_data(ip_address, with_ip_block=True)],
+        self.assertEqual(views.IpConfigurationView(ip_address).data(),
                          response.json['ip_addresses'])
 
     def test_allocate_ip_with_optional_params(self):
@@ -1800,13 +1801,16 @@ class TestNetworksController(BaseTestController):
                                                         network_id=1,
                                                         cidr="10.0.0.0/24")
 
-        response = self.app.post_json("{0}/networks/1/interfaces/123"
-                                 "/ip_allocations".format(self.network_path),
-                                 {'network': {
-                                          'tenant_id': "RAX",
-                                          'used_by_device': "instance_id"
-                                          }
-                                  })
+        body = {
+            'network': {
+                'tenant_id': "RAX",
+                'used_by_device': "instance_id"
+                }
+            }
+
+        self.app.post_json("{0}/networks/1/interfaces/123"
+                           "/ip_allocations".format(self.network_path),
+                           body)
 
         ip_address = models.IpAddress.find_by(ip_block_id=ip_block.id)
         self.assertEqual(ip_address.used_by_tenant, "RAX")
@@ -1834,7 +1838,7 @@ class TestNetworksController(BaseTestController):
                                      })
 
         ipv6_address = models.IpAddress.find_by(ip_block_id=ipv6_block.id)
-        self.assertEqual([_data(ipv6_address, with_ip_block=True)],
+        self.assertEqual(views.IpConfigurationView(ipv6_address).data(),
                          response.json['ip_addresses'])
 
     def test_deallocate_ips(self):
@@ -1872,8 +1876,9 @@ class TestNetworksController(BaseTestController):
 
         response = self.app.get("{0}/networks/1/interfaces/123/"
                                 "ip_allocations".format(self.network_path))
+
         self.assertEqual(response.status_int, 200)
-        self.assertItemsEqual(_data([ip1, ip2, ip3], with_ip_block=True),
+        self.assertItemsEqual(views.IpConfigurationView(ip1, ip2, ip3).data(),
                               response.json["ip_addresses"])
 
     def test_allocate_ip_creates_network_if_network_not_found(self):
@@ -1882,11 +1887,11 @@ class TestNetworksController(BaseTestController):
 
         self.assertEqual(response.status_int, 201)
         ip_address_json = response.json['ip_addresses'][0]
-        ip_block = models.IpBlock.find(ip_address_json['ip_block_id'])
-        self.assertEqual(ip_block.network_id, "1")
-        self.assertEqual(ip_block.cidr, config.Config.get('default_cidr'))
-        self.assertEqual(ip_block.type, "private")
-        self.assertEqual(ip_block.tenant_id, "tnt_id")
+        created_block = models.IpAddress.find(ip_address_json['id']).ip_block()
+        self.assertEqual(created_block.network_id, "1")
+        self.assertEqual(created_block.cidr, config.Config.get('default_cidr'))
+        self.assertEqual(created_block.type, "private")
+        self.assertEqual(created_block.tenant_id, "tnt_id")
 
 
 def _allocate_ips(*args):

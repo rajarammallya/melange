@@ -373,9 +373,58 @@ class TestIpAddressCLI(tests.BaseTest):
         exitcode, out, err = run("ip_address delete "
                                  "{0} {1} -t 123".format(block.id, ip.address))
         self.assertEqual(exitcode, 0)
-        print out
-        print models.IpAddress.find_all(id=ip.id).all()
         self.assertTrue(models.IpAddress.get(ip.id).marked_for_deallocation)
+
+
+class TestIpRoutesCLI(tests.BaseTest):
+
+    def test_create(self):
+        block = factory_models.IpBlockFactory(cidr="77.1.1.0/24",
+                                              tenant_id="123")
+        exitcode, out, err = run("ip_route create {0} 10.1.1.2  10.1.1.1 "
+                                 "255.255.255.0 -t 123".format(block.id))
+
+        self.assertEqual(exitcode, 0)
+
+        ip_route = models.IpRoute.get_by(source_block_id=block.id)
+
+        self.assertTrue(ip_route is not None)
+        self.assertEqual(ip_route.destination, "10.1.1.2")
+        self.assertEqual(ip_route.gateway, "10.1.1.1")
+        self.assertEqual(ip_route.netmask, "255.255.255.0")
+
+    def test_list(self):
+        block = factory_models.PrivateIpBlockFactory(cidr="10.1.1.0/24",
+                                                     tenant_id="123")
+
+        ip_route1 = factory_models.IpRouteFactory(source_block_id=block.id)
+        ip_route2 = factory_models.IpRouteFactory(source_block_id=block.id)
+
+        exitcode, out, err = run("ip_route list {0} -t 123".format(block.id))
+
+        self.assertEqual(exitcode, 0)
+        self.assertIn("ip_routes", out)
+        self.assertIn('"destination": "%s"' % ip_route1.destination, out)
+        self.assertIn('"destination": "%s"' % ip_route2.destination, out)
+
+    def test_show(self):
+        block = factory_models.PrivateIpBlockFactory(tenant_id="123")
+        ip_route = factory_models.IpRouteFactory(source_block_id=block.id)
+
+        exitcode, out, err = run("ip_route show {0} {1} "
+                                 "-t 123".format(block.id, ip_route.id))
+
+        self.assertEqual(exitcode, 0)
+        self.assertIn(ip_route.destination, out)
+
+    def test_delete(self):
+        block = factory_models.PrivateIpBlockFactory(tenant_id="123")
+        ip_route = factory_models.IpRouteFactory(source_block_id=block.id)
+
+        exitcode, out, err = run("ip_route delete {0} {1} "
+                                 "-t 123".format(block.id, ip_route.id))
+        self.assertEqual(exitcode, 0)
+        self.assertIsNone(models.IpRoute.get(ip_route.id))
 
 
 class TestDBSyncCLI(tests.BaseTest):

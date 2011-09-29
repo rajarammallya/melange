@@ -758,7 +758,7 @@ class TestIpRoutesController(BaseTestController):
         self.assertEqual(updated_ip_route.gateway, "192.1.1.0")
 
         self.assertEqual(response.status_int, 200)
-        self.assertEqual(response.json['ip_route'], _data(ip_route))
+        self.assertEqual(response.json['ip_route'], _data(updated_ip_route))
 
     def test_update_fails_for_non_existent_block_for_given_tenant(self):
         block = factory_models.IpBlockFactory(tenant_id="tenant_id")

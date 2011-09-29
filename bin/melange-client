@@ -121,6 +121,7 @@ categories = {
     'unusable_ip_octet': client.UnusableIpOctetsClient,
     'allocated_ips': client.AllocatedIpAddressesClient,
     'ip_address': client.IpAddressesClient,
+    'ip_route': client.IpRouteClient,
 }
 
 

@@ -243,3 +243,34 @@ class IpAddressesClient(object):
 
     def delete(self, ip_block_id, address):
         return self._resource(ip_block_id).delete(address)
+
+
+class IpRouteClient(object):
+
+    def __init__(self, client, auth_client, tenant_id):
+        self.client = client
+        self.auth_client = auth_client
+        self.tenant_id = tenant_id
+
+    def _resource(self, ip_block_id):
+        path = "ip_blocks/{0}/ip_routes".format(ip_block_id)
+        return Resource(path,
+                        "ip_route",
+                        self.client,
+                        self.auth_client,
+                        self.tenant_id)
+
+    def create(self, ip_block_id, destination, gateway, netmask=None):
+        resource = self._resource(ip_block_id)
+        return resource.create(destination=destination,
+                               gateway=gateway,
+                               netmask=netmask)
+
+    def list(self, ip_block_id):
+        return self._resource(ip_block_id).all()
+
+    def show(self, ip_block_id, route_id):
+        return self._resource(ip_block_id).find(route_id)
+
+    def delete(self, ip_block_id, route_id):
+        return self._resource(ip_block_id).delete(route_id)

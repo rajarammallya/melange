@@ -625,6 +625,8 @@ class IpAddress(ModelBase):
 
 class IpRoute(ModelBase):
 
+    _data_fields = ['destination', 'netmask', 'gateway']
+
     def _validate(self):
         self._validate_presence_of("destination", "gateway")
         self._validate_existence_of("source_block_id", IpBlock)

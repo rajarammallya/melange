@@ -1199,6 +1199,14 @@ class TestIpRoute(tests.BaseTest):
         self.assertEqual(ip_route.errors['source_block_id'],
                          ["IpBlock with id = 'invalid' doesn't exist"])
 
+    def test_data(self):
+        ip_route = factory_models.IpRouteFactory()
+
+        data = ip_route.data()
+        self.assertEqual(data["destination"], ip_route.destination)
+        self.assertEqual(data["netmask"], ip_route.netmask)
+        self.assertEqual(data["gateway"], ip_route.gateway)
+
 
 class TestPolicy(tests.BaseTest):
 

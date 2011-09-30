@@ -64,7 +64,19 @@ class Resource(object):
         return response.read()
 
 
-class IpBlockClient(object):
+class BaseClient(object):
+
+    def __init__(self, client, auth_client, tenant_id):
+        self.client = client
+        self.auth_client = auth_client
+        self.tenant_id = tenant_id
+
+    @classmethod
+    def is_tenant_id_required(cls):
+        return True
+
+
+class IpBlockClient(BaseClient):
 
     def __init__(self, client, auth_client, tenant_id):
         self.resource = Resource("ip_blocks", "ip_block", client, auth_client,
@@ -91,12 +103,7 @@ class IpBlockClient(object):
         return self.resource.delete(id)
 
 
-class SubnetClient(object):
-
-    def __init__(self, client, auth_client, tenant_id):
-        self.tenant_id = tenant_id
-        self.client = client
-        self.auth_client = auth_client
+class SubnetClient(BaseClient):
 
     def _resource(self, parent_id):
         return Resource("ip_blocks/{0}/subnets".format(parent_id),
@@ -113,7 +120,7 @@ class SubnetClient(object):
         return self._resource(parent_id).all()
 
 
-class PolicyClient(object):
+class PolicyClient(BaseClient):
 
     def __init__(self, client, auth_client, tenant_id):
         self.resource = Resource("policies",
@@ -138,12 +145,7 @@ class PolicyClient(object):
         return self.resource.delete(id)
 
 
-class UnusableIpRangesClient(object):
-
-    def __init__(self, client, auth_client, tenant_id):
-        self.client = client
-        self.auth_client = auth_client
-        self.tenant_id = tenant_id
+class UnusableIpRangesClient(BaseClient):
 
     def _resource(self, policy_id):
         return Resource("policies/{0}/unusable_ip_ranges".format(policy_id),
@@ -170,12 +172,7 @@ class UnusableIpRangesClient(object):
         return self._resource(policy_id).delete(id)
 
 
-class UnusableIpOctetsClient(object):
-
-    def __init__(self, client, auth_client, tenant_id):
-        self.client = client
-        self.auth_client = auth_client
-        self.tenant_id = tenant_id
+class UnusableIpOctetsClient(BaseClient):
 
     def _resource(self, policy_id):
         return Resource("policies/{0}/unusable_ip_octets".format(policy_id),
@@ -200,7 +197,7 @@ class UnusableIpOctetsClient(object):
         return self._resource(policy_id).delete(id)
 
 
-class AllocatedIpAddressesClient(object):
+class AllocatedIpAddressesClient(BaseClient):
 
     def __init__(self, client, auth_client, tenant_id=None):
         self._resource = Resource("allocated_ip_addresses",
@@ -209,16 +206,15 @@ class AllocatedIpAddressesClient(object):
                                   auth_client,
                                   tenant_id)
 
+    @classmethod
+    def is_tenant_id_required(cls):
+        return False
+
     def list(self, used_by_device=None):
         return self._resource.all(used_by_device=used_by_device)
 
 
-class IpAddressesClient(object):
-
-    def __init__(self, client, auth_client, tenant_id):
-        self.client = client
-        self.auth_client = auth_client
-        self.tenant_id = tenant_id
+class IpAddressesClient(BaseClient):
 
     def _resource(self, ip_block_id):
         path = "ip_blocks/{0}/ip_addresses".format(ip_block_id)
@@ -245,12 +241,7 @@ class IpAddressesClient(object):
         return self._resource(ip_block_id).delete(address)
 
 
-class IpRouteClient(object):
-
-    def __init__(self, client, auth_client, tenant_id):
-        self.client = client
-        self.auth_client = auth_client
-        self.tenant_id = tenant_id
+class IpRouteClient(BaseClient):
 
     def _resource(self, ip_block_id):
         path = "ip_blocks/{0}/ip_routes".format(ip_block_id)

@@ -53,6 +53,13 @@ class TestIpBlockCLI(tests.BaseTest):
         self.assertEqual(exitcode, 0)
         self.assertIn("ip_blocks", out)
 
+    def test_list_without_tenant_id_should_error_out(self):
+        expected_error_msg = "Please provide a tenant id for this action"
+        self.assertRaisesExcMessage(RuntimeError,
+                                    expected_error_msg,
+                                    run,
+                                    "ip_block list")
+
     def test_show(self):
         ip_block = factory_models.PrivateIpBlockFactory(tenant_id=123)
 

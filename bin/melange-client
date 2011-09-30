@@ -177,15 +177,23 @@ def main():
                                          options.timeout)
 
     category_client_class = lookup(category, categories)
+
     client = category_client_class(http_client,
                                    auth_client_factory(options),
                                    options.tenant)
+
     client_actions = methods_of(client)
     if len(args) < 1:
         print "Usage: " + script_name + " category action [<args>]"
         print _("Available actions for %s category:") % category
         print_keys(client_actions)
         sys.exit(2)
+
+    if category_client_class.is_tenant_id_required() and not options.tenant:
+        print _("Please provide a tenant id for this action."
+                "You can use option '-t' to provide the tenant id.")
+        sys.exit(2)
+
     action = args.pop(0)
     fn = lookup(action, client_actions)
 

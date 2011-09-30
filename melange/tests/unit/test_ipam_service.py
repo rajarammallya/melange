@@ -1666,7 +1666,7 @@ class TestUnusableIpOctetsController(BaseTestController):
                                  "Policy Not Found")
 
 
-class TestTenantPoliciesController(BaseTestController):
+class TestPoliciesController(BaseTestController):
 
     def test_index(self):
         policy1 = factory_models.PolicyFactory(tenant_id="1")

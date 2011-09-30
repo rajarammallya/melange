@@ -519,6 +519,13 @@ class IpBlock(ModelBase):
         if block and block.type != self.type:
             self._add_error('type', _("type should be same within a network"))
 
+    def _validate_gateway_is_valid(self):
+        if self.gateway:
+            try:
+                netaddr.IPAddress(self.gateway)
+            except netaddr.core.AddrFormatError:
+                self._add_error('gateway', _("Gateway is not a valid address"))
+
     def _validate(self):
         self._validate_type()
         self._validate_cidr()
@@ -528,6 +535,7 @@ class IpBlock(ModelBase):
         self._validate_parent_is_subnettable()
         self._validate_existence_of('policy_id', Policy)
         self._validate_type_is_same_within_network()
+        self._validate_gateway_is_valid()
 
     def _convert_cidr_to_lowest_address(self):
         if self._has_valid_cidr():
@@ -537,7 +545,9 @@ class IpBlock(ModelBase):
         self._convert_cidr_to_lowest_address()
 
     def _before_save(self):
-        self.gateway = self.gateway or str(netaddr.IPNetwork(self.cidr)[1])
+        network = netaddr.IPNetwork(self.cidr)
+        if not self.gateway  and  network.size > 1:
+            self.gateway = str(network[1])
         self.dns1 = self.dns1 or config.Config.get("dns1")
         self.dns2 = self.dns2 or config.Config.get("dns2")
 

@@ -326,8 +326,8 @@ class PoliciesController(BaseController):
         return self._paginated_response('policies', policies, request)
 
     def show(self, request, id, tenant_id):
-        policy = models.Policy.find_by(id=id, tenant_id=tenant_id).data()
-        return dict(policy=policy)
+        policy = models.Policy.find_by(id=id, tenant_id=tenant_id)
+        return dict(policy=policy.data())
 
     def create(self, request, tenant_id, body=None):
         params = self._extract_required_params(body, 'policy')

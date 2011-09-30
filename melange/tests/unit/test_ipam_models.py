@@ -398,6 +398,13 @@ class TestIpBlock(tests.BaseTest):
         self.assertEqual(block.errors['policy_id'],
                          ["Policy with id = 'non-existent-id' doesn't exist"])
 
+    def test_validates_gateway_is_valid_address(self):
+        block = factory_models.IpBlockFactory.build(gateway="not_valid")
+
+        self.assertFalse(block.is_valid())
+        self.assertEqual(block.errors['gateway'],
+                         ["Gateway is not a valid address"])
+
     def test_save_converts_cidr_to_lowest_address_based_on_prefix_length(self):
         block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.1/31")
 
@@ -411,6 +418,15 @@ class TestIpBlock(tests.BaseTest):
         block = factory_models.IpBlockFactory(cidr="10.0.0.0/24",
                                               gateway="10.0.0.10")
         self.assertEqual(block.gateway, "10.0.0.10")
+
+    def test_gateway_ip_is_not_auto_set_if_ip_block_has_only_one_ip(self):
+        ipv4_block = factory_models.IpBlockFactory(cidr="10.0.0.0/32",
+                                                   gateway=None)
+        self.assertEqual(ipv4_block.gateway, None)
+
+        ipv6_block = factory_models.IpBlockFactory(cidr="ff::ff/128",
+                                                   gateway=None)
+        self.assertEqual(ipv6_block.gateway, None)
 
     def test_save_sets_the_dns_values_from_conf_when_not_provided(self):
         with unit.StubConfig(dns1="ns1.example.com", dns2="ns2.example.com"):

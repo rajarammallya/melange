@@ -31,7 +31,7 @@ class BaseController(wsgi.Controller):
     exclude_attr = []
     exception_map = {
         webob.exc.HTTPUnprocessableEntity: [
-            models.NoMoreAddressesError,
+            exception.NoMoreAddressesError,
             models.AddressDoesNotBelongError,
             models.AddressLockedError,
             ],

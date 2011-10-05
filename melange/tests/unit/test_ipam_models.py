@@ -542,7 +542,7 @@ class TestIpBlock(tests.BaseTest):
         for i in range(0, 2):
             block.allocate_ip()
 
-        self.assertRaises(models.NoMoreAddressesError, block.allocate_ip)
+        self.assertRaises(exception.NoMoreAddressesError, block.allocate_ip)
 
     def test_allocating_gateway_address_fails(self):
         block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.0/29",
@@ -597,14 +597,14 @@ class TestIpBlock(tests.BaseTest):
         for i in range(0, 2):
             ip_block.allocate_ip()
 
-        self.assertRaises(models.NoMoreAddressesError, ip_block.allocate_ip)
+        self.assertRaises(exception.NoMoreAddressesError, ip_block.allocate_ip)
         self.assertTrue(ip_block.is_full)
 
     def test_allocate_ip_raises_error_when_ip_block_is_marked_full(self):
         ip_block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.0/29",
                                                         is_full=True)
 
-        self.assertRaises(models.NoMoreAddressesError, ip_block.allocate_ip)
+        self.assertRaises(exception.NoMoreAddressesError, ip_block.allocate_ip)
 
     def test_allocate_ip_retries_on_ip_creation_constraint_failure(self):
         ip_block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.0/24")
@@ -658,7 +658,7 @@ class TestIpBlock(tests.BaseTest):
         for i in range(0, 2):
             block.allocate_ip()
 
-        self.assertRaises(models.NoMoreAddressesError, block.allocate_ip)
+        self.assertRaises(exception.NoMoreAddressesError, block.allocate_ip)
 
     def test_allocate_ip_is_not_duplicated(self):
         block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.0/30")
@@ -913,7 +913,7 @@ class TestIpBlock(tests.BaseTest):
         for i in range(0, 2):
             ip = ip_block.allocate_ip()
         ip.deallocate()
-        self.assertRaises(models.NoMoreAddressesError, ip_block.allocate_ip)
+        self.assertRaises(exception.NoMoreAddressesError, ip_block.allocate_ip)
         self.assertTrue(ip_block.is_full)
 
         models.IpBlock.delete_all_deallocated_ips()
@@ -1584,7 +1584,7 @@ class TestNetwork(tests.BaseTest):
 
         network = models.Network.find_by(id=1, tenant_id="111")
 
-        self.assertRaises(models.NoMoreAddressesError, network.allocate_ips)
+        self.assertRaises(exception.NoMoreAddressesError, network.allocate_ips)
 
     def test_allocate_ip_assigns_given_interface_and_addresses(self):
         factory_models.PublicIpBlockFactory(network_id=1, cidr="10.0.0.0/24")

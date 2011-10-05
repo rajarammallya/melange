@@ -45,3 +45,8 @@ class MelangeServiceResponseError(MelangeError):
 class DBConstraintError(MelangeError):
 
     message = _("Failed to save %(model_name)s because: %(error)s")
+
+
+class NoMoreAddressesError(MelangeError):
+
+    message = _("no more addresses")

@@ -67,7 +67,7 @@ class TestBaseController(unittest.TestCase):
     def test_exception_to_http_code_mapping(self):
         self._assert_mapping(models.InvalidModelError(None), 400)
         self._assert_mapping(models.ModelNotFoundError, 404)
-        self._assert_mapping(models.NoMoreAddressesError, 422)
+        self._assert_mapping(exception.NoMoreAddressesError, 422)
         self._assert_mapping(models.AddressDoesNotBelongError, 422)
         self._assert_mapping(models.AddressLockedError, 422)
         self._assert_mapping(models.DuplicateAddressError, 409)

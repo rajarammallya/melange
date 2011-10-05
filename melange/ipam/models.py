@@ -22,10 +22,12 @@ import logging
 import netaddr
 
 from melange import ipv6
+from melange import ipv4
 from melange.common import config
 from melange.common import exception
 from melange.common import utils
 from melange.db import db_api
+
 
 LOG = logging.getLogger('melange.ipam.models')
 
@@ -241,7 +243,10 @@ class IpAddressIterator(object):
         return self
 
     def next(self):
-        return self.generator.next_ip()
+        try:
+            return self.generator.next_ip()
+        except exception.NoMoreAddressesError:
+            raise StopIteration
 
 
 class IpBlock(ModelBase):
@@ -319,7 +324,7 @@ class IpBlock(ModelBase):
             raise IpAllocationNotAllowedError(
                 _("Non Leaf block cannot allocate IPAddress"))
         if self.is_full:
-            raise NoMoreAddressesError(_("IpBlock is full"))
+            raise exception.NoMoreAddressesError(_("IpBlock is full"))
         if address:
             return self._allocate_specific_ip(address,
                                              interface_id=interface_id,
@@ -361,27 +366,17 @@ class IpBlock(ModelBase):
                               self.get_address(address) is None,
                               IpAddressIterator(address_generator))
         else:
+            generator = ipv4.address_generator_factory(self)
             policy = self.policy()
+            address = utils.find(lambda address:
+                                 self._address_is_allocatable(policy, address),
+                                 IpAddressIterator(generator))
 
-            allocatable_address = db_api.pop_allocatable_address(
-                ip_block_id=self.id)
-
-            if allocatable_address is not None:
-                if self._address_is_allocatable(policy,
-                                                allocatable_address):
-                    return allocatable_address
-
-            ips = netaddr.IPNetwork(self.cidr)
-            last_ip_value = (self.allocatable_ip_counter or int(ips[0]))
-
-            for ip in xrange(last_ip_value, int(ips[-1])):
-                address = str(netaddr.IPAddress(ip))
-                if self._address_is_allocatable(policy, address):
-                    self.update(allocatable_ip_counter=ip + 1)
-                    return address
+            if address is not None:
+                return address
 
             self.update(is_full=True)
-            raise NoMoreAddressesError(_("IpBlock is full"))
+            raise exception.NoMoreAddressesError(_("IpBlock is full"))
 
     def _allocate_specific_ip(self, address, interface_id=None,
                               used_by_tenant=None, used_by_device=None):
@@ -772,7 +767,8 @@ class Network(ModelBase):
                for blocks in self._block_partitions()]
 
         if not any(ips):
-            raise NoMoreAddressesError(_("ip blocks in this network are full"))
+            raise exception.NoMoreAddressesError(
+                _("ip blocks in this network are full"))
 
         return filter(None, ips)
 
@@ -800,7 +796,7 @@ class Network(ModelBase):
         for ip_block in ip_blocks:
             try:
                 return ip_block.allocate_ip(**kwargs)
-            except NoMoreAddressesError:
+            except exception.NoMoreAddressesError:
                 pass
 
 
@@ -814,11 +810,6 @@ def persisted_models():
         'IpRoute': IpRoute,
         'AllocatableIp': AllocatableIp,
         }
-
-
-class NoMoreAddressesError(exception.MelangeError):
-
-    message = _("no more addresses")
 
 
 class DuplicateAddressError(exception.MelangeError):

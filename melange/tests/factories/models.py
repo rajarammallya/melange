@@ -78,6 +78,16 @@ class PolicyFactory(factory.Factory):
     tenant_id = "tenant_id"
 
 
+class AllocatableIpFactory(factory.Factory):
+    FACTORY_FOR = models.AllocatableIp
+    ip_block_id = factory.LazyAttribute(lambda a: IpBlockFactory().id)
+
+    @factory.lazy_attribute_sequence
+    def address(ip, n):
+        ip_block = models.IpBlock.find(ip.ip_block_id)
+        return netaddr.IPNetwork(ip_block.cidr)[int(n)]
+
+
 def factory_create(model_to_create, **kwargs):
     return model_to_create.create(**kwargs)
 

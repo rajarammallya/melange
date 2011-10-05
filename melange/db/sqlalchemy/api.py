@@ -179,6 +179,16 @@ def find_all_allocated_ips(model, **conditions):
                    ipam.models.IpAddress.marked_for_deallocation == False))
 
 
+def pop_allocatable_address(**conditions):
+    ip = _query_by(ipam.models.AllocatableIp, **conditions).\
+         with_lockmode('update').first()
+    if not ip:
+        return None
+
+    delete(ip)
+    return ip.address
+
+
 def configure_db(options):
     session.configure_db(options)
 

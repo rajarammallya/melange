@@ -559,6 +559,15 @@ class TestIpBlock(tests.BaseTest):
                           block.allocate_ip,
                           address=block.broadcast)
 
+    def test_allocate_ip_picks_from_allocatable_ip_list_first(self):
+        block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.0/24")
+        factory_models.AllocatableIpFactory(ip_block_id=block.id,
+                                            address="10.0.0.8")
+
+        ip = block.allocate_ip()
+
+        self.assertEqual(ip.address, "10.0.0.8")
+
     def test_allocate_ip_skips_ips_disallowed_by_policy(self):
         policy = factory_models.PolicyFactory(name="blah")
         factory_models.IpRangeFactory(policy_id=policy.id,
@@ -997,6 +1006,15 @@ class TestIpAddress(tests.BaseTest):
         ip.delete()
 
         self.assertIsNone(models.IpAddress.get(ip.id))
+
+    def test_delete_adds_address_row_to_allocatabe_ips(self):
+        ip = factory_models.IpAddressFactory(address="10.0.0.1")
+
+        ip.delete()
+
+        allocatable = models.AllocatableIp.get_by(ip_block_id=ip.ip_block_id,
+                                                  address="10.0.0.1")
+        self.assertIsNotNone(allocatable)
 
     def test_add_inside_locals(self):
         global_block = factory_models.PrivateIpBlockFactory(

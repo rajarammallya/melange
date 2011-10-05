@@ -361,16 +361,24 @@ class IpBlock(ModelBase):
                               self.get_address(address) is None,
                               IpAddressIterator(address_generator))
         else:
-            #TODO(vinkesh/rajaram): very inefficient way to generate ips,
-            #will look at better algos for this
-            allocated_addresses = [ip.address for ip in self.addresses()]
-            unavailable_addresses = allocated_addresses + [self.gateway,
-                                                           self.broadcast]
             policy = self.policy()
-            for ip in netaddr.IPNetwork(self.cidr):
-                if (self._allowed_by_policy(policy, str(ip))
-                    and (str(ip) not in unavailable_addresses)):
-                    return str(ip)
+
+            allocatable_address = db_api.pop_allocatable_address(
+                ip_block_id=self.id)
+
+            if allocatable_address is not None:
+                if self._address_is_allocatable(policy,
+                                                allocatable_address):
+                    return allocatable_address
+
+            ips = netaddr.IPNetwork(self.cidr)
+            last_ip_value = (self.allocatable_ip_counter or int(ips[0]))
+
+            for ip in xrange(last_ip_value, int(ips[-1])):
+                address = str(netaddr.IPAddress(ip))
+                if self._address_is_allocatable(policy, address):
+                    self.update(allocatable_ip_counter=ip + 1)
+                    return address
 
             self.update(is_full=True)
             raise NoMoreAddressesError(_("IpBlock is full"))
@@ -395,6 +403,11 @@ class IpBlock(ModelBase):
                                 interface_id=interface_id,
                                 used_by_tenant=used_by_tenant,
                                 used_by_device=used_by_device)
+
+    def _address_is_allocatable(self, policy, address):
+        unavailable_addresses = [self.gateway, self.broadcast]
+        return (address not in unavailable_addresses
+                    and self._allowed_by_policy(policy, address))
 
     def _allowed_by_policy(self, policy, address):
         return policy is None or policy.allows(self.cidr, address)
@@ -578,6 +591,11 @@ class IpAddress(ModelBase):
         return Query(cls, query_func=db_api.find_all_allocated_ips,
                      **conditions)
 
+    def delete(self):
+        AllocatableIp.create(ip_block_id=self.ip_block_id,
+                             address=self.address)
+        super(IpAddress, self).delete()
+
     def _before_save(self):
         self.address = self._formatted(self.address)
 
@@ -634,6 +652,10 @@ class IpAddress(ModelBase):
 
     def __str__(self):
         return self.address
+
+
+class AllocatableIp(ModelBase):
+    pass
 
 
 class IpRoute(ModelBase):
@@ -790,6 +812,7 @@ def persisted_models():
         'IpRange': IpRange,
         'IpOctet': IpOctet,
         'IpRoute': IpRoute,
+        'AllocatableIp': AllocatableIp,
         }
 
 

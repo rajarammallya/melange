@@ -21,7 +21,7 @@ wsgiref==0.1.2
 mox==0.5.3
 greenlet==0.3.1
 nose
-PasteDeploy
+PasteDeploy>=1.5
 paste
 sqlalchemy-migrate
 netaddr
@@ -34,3 +34,5 @@ coverage
 nosexcover
 paramiko
 feedparser
+webtest
+factory_boy

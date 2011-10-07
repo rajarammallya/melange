@@ -88,6 +88,7 @@ function run_pep8 {
   srcfiles=`find bin -type f ! -name "nova.conf*"`
   srcfiles+=" `find tools/*`"
   srcfiles+=" nova setup.py plugins/xenserver/xenapi/etc/xapi.d/plugins/glance"
+  srcfiles+=" bin melange"
   # Just run PEP8 in current environment
   #
   # NOTE(sirp): W602 (deprecated 3-arg raise) is being ignored for the

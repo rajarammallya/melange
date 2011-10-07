@@ -48,7 +48,7 @@ class BaseController(wsgi.Controller):
             ],
         }
 
-    def _extract_required_params(self, params,  model_name):
+    def _extract_required_params(self, params, model_name):
         params = params or {}
         model_params = params.get(model_name, {})
         return utils.stringify_keys(utils.exclude(model_params,
@@ -257,7 +257,7 @@ class InsideLocalsController(BaseController):
 
 class UnusableIpRangesController(BaseController):
 
-    def create(self, request, policy_id,  tenant_id, body=None):
+    def create(self, request, policy_id, tenant_id, body=None):
         policy = models.Policy.find_by(id=policy_id, tenant_id=tenant_id)
         params = self._extract_required_params(body, 'ip_range')
         ip_range = policy.create_unusable_range(**params)
@@ -273,7 +273,7 @@ class UnusableIpRangesController(BaseController):
         ip_ranges = models.IpRange.find_all(policy_id=policy.id)
         return self._paginated_response('ip_ranges', ip_ranges, request)
 
-    def update(self, request, policy_id, id,  tenant_id, body=None):
+    def update(self, request, policy_id, id, tenant_id, body=None):
         policy = models.Policy.find_by(id=policy_id, tenant_id=tenant_id)
         ip_range = policy.find_ip_range(id)
         params = self._extract_required_params(body, 'ip_range')
@@ -293,7 +293,7 @@ class UnusableIpOctetsController(BaseController):
         ip_octets = models.IpOctet.find_all(policy_id=policy.id)
         return self._paginated_response('ip_octets', ip_octets, request)
 
-    def create(self, request, policy_id,  tenant_id, body=None):
+    def create(self, request, policy_id, tenant_id, body=None):
         policy = models.Policy.find_by(id=policy_id, tenant_id=tenant_id)
         params = self._extract_required_params(body, 'ip_octet')
         ip_octet = policy.create_unusable_ip_octet(**params)

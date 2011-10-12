@@ -18,6 +18,7 @@
 import factory
 import netaddr
 
+from melange.common import utils
 from melange.ipam import models
 
 
@@ -86,6 +87,16 @@ class AllocatableIpFactory(factory.Factory):
     def address(ip, n):
         ip_block = models.IpBlock.find(ip.ip_block_id)
         return netaddr.IPNetwork(ip_block.cidr)[int(n)]
+
+
+class InterfaceFactory(models.Interface):
+
+    def __init__(self, id=None, used_by_tenant=None):
+        id = id or utils.generate_uuid()
+        ip = (models.IpAddress.get_by(interface_id=id) or
+              IpAddressFactory(interface_id=id, used_by_tenant=used_by_tenant))
+        super(InterfaceFactory, self).__init__(ip.interface_id,
+                                               ip.used_by_tenant)
 
 
 def factory_create(model_to_create, **kwargs):

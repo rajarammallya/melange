@@ -936,7 +936,7 @@ class TestIpAddress(tests.BaseTest):
     def test_str_returns_address(self):
         self.assertEqual(str(models.IpAddress(address="10.0.1.1")), "10.0.1.1")
 
-    def test_address_for_a_ip_block_is_unique(self):
+    def test_address_for_an_ip_block_is_unique(self):
         block1 = factory_models.PrivateIpBlockFactory(cidr="10.1.1.1/24")
         block2 = factory_models.PrivateIpBlockFactory(cidr="10.1.1.1/24")
         block1_ip = block1.allocate_ip("10.1.1.3")
@@ -1202,6 +1202,70 @@ class TestIpAddress(tests.BaseTest):
 
         self.assertEqual(ipv4.version, 4)
         self.assertEqual(ipv6.version, 6)
+
+
+class TestInterface(tests.BaseTest):
+
+    def test_get(self):
+        factory_models.InterfaceFactory(id="interface_id",
+                                        used_by_tenant="tenant1")
+
+        interface = models.Interface.get("interface_id")
+
+        self.assertIsNotNone(interface)
+        self.assertEqual(interface.used_by_tenant, "tenant1")
+
+    def test_find_all_by_ids(self):
+        factory = factory_models.InterfaceFactory
+        factory(id="interface1", used_by_tenant="tenant1")
+        factory(id="interface2", used_by_tenant="tenant2")
+        factory(id="interface3", used_by_tenant="tenant1")
+
+        interfaces = models.Interface.find_all_by_ids(["interface1",
+                                                       "interface2"])
+
+        self.assertItemsEqual([interface.id for interface in interfaces],
+                              ["interface1", "interface2"])
+
+    def test_share_ip_validates_if_address_belongs_to_interface(self):
+        factory = factory_models.InterfaceFactory
+        interface1 = factory(id="interface1", used_by_tenant="tenant1")
+        interface2 = factory(id="interface2", used_by_tenant="tenant1")
+
+        expected_error_msg = "10.0.0.0 does not belong to interface1"
+        self.assertRaisesExcMessage(models.NotAuthorizedError,
+                                    expected_error_msg,
+                                    interface1.share_ip,
+                                    "10.0.0.0",
+                                    *[interface2.id])
+
+    def test_share_ip_validates_if_interfaces_are_used_by_same_tenant(self):
+        ip = factory_models.IpAddressFactory(interface_id="interface1",
+                                             used_by_tenant="tenant1")
+        factory = factory_models.InterfaceFactory
+        interface1 = factory(id=ip.interface_id, used_by_tenant="tenant1")
+        interface2 = factory(id="interface2", used_by_tenant="tenant2")
+        interface3 = factory(id="interface3", used_by_tenant="tenant1")
+
+        expected_msg = "Interface (interface2) does not belong to tenant1"
+        self.assertRaisesExcMessage(models.NotAuthorizedError,
+                                    expected_msg,
+                                    interface1.share_ip,
+                                    ip.address,
+                                    *[interface2.id, interface3.id])
+
+    def test_share_ip_shares_address_with_one_or_more_interfaces(self):
+        ip = factory_models.IpAddressFactory(interface_id="interface1",
+                                             used_by_tenant="tenant")
+        factory = factory_models.InterfaceFactory
+        interface1 = factory(id=ip.interface_id, used_by_tenant="tenant")
+        interface2 = factory(id="interface2", used_by_tenant="tenant")
+        interface3 = factory(id="interface3", used_by_tenant="tenant")
+
+        interface1.share_ip(ip.address, interface2.id, interface3.id)
+
+        shared_ips = models.SharedIp.find_all(ip_address_id=ip.id).all()
+        self.assertEqual(len(shared_ips), 2)
 
 
 class TestIpRoute(tests.BaseTest):

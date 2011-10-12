@@ -653,6 +653,53 @@ class AllocatableIp(ModelBase):
     pass
 
 
+class SharedIp(ModelBase):
+
+    @classmethod
+    def bulk_create(cls, ip_address_id, interfaces):
+        for interface in interfaces:
+            cls.create(ip_address_id=ip_address_id, interface_id=interface.id)
+
+
+class Interface(object):
+
+    def __init__(self, id, used_by_tenant=None):
+        self.id = id
+        self.used_by_tenant = used_by_tenant
+
+    @classmethod
+    def get(cls, id):
+        ip = IpAddress.get_by(interface_id=id)
+        if ip is None:
+            return None
+        return cls(id=ip.interface_id, used_by_tenant=ip.used_by_tenant)
+
+    @classmethod
+    def find_all_by_ids(cls, ids):
+        return [cls.get(id) for id in ids]
+
+    def share_ip(self, address, *interface_ids):
+        ip = self._find_and_validate_address_belongs_to_interface(address)
+        interfaces = Interface.find_all_by_ids(interface_ids)
+        self._validate_interfaces_are_used_by_same_tenant(interfaces)
+        SharedIp.bulk_create(ip_address_id=ip.id, interfaces=interfaces)
+
+    def _find_and_validate_address_belongs_to_interface(self, address):
+        ip = IpAddress.get_by(interface_id=self.id, address=address)
+        if ip:
+            return ip
+        raise NotAuthorizedError("%s does not belong to %s" % (address,
+                                                               self.id))
+
+    def _validate_interfaces_are_used_by_same_tenant(self, interfaces):
+        unauthorized = [interface.id for interface in interfaces
+                        if interface.used_by_tenant != self.used_by_tenant]
+        if unauthorized:
+            raise NotAuthorizedError("Interface (%s) does not belong to %s" %
+                                     (", ".join(unauthorized),
+                                      self.used_by_tenant))
+
+
 class IpRoute(ModelBase):
 
     _data_fields = ['destination', 'netmask', 'gateway']
@@ -809,6 +856,7 @@ def persisted_models():
         'IpOctet': IpOctet,
         'IpRoute': IpRoute,
         'AllocatableIp': AllocatableIp,
+        'SharedIp': SharedIp,
         }
 
 
@@ -858,6 +906,11 @@ class InvalidModelError(exception.MelangeError):
 class IpAddressConcurrentAllocationError(exception.MelangeError):
 
     message = _("Cannot allocate address for block %(block_id)s at this time")
+
+
+class NotAuthorizedError(exception.MelangeError):
+
+    message = _("Not authorized")
 
 
 def sort(iterable):

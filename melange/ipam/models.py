@@ -662,6 +662,27 @@ class IpRoute(ModelBase):
         self._validate_existence_of("source_block_id", IpBlock)
 
 
+class MacAddressRange(ModelBase):
+
+    def allocate_mac(self):
+        next_address = self.next_address or self._starting_address()
+        mac = MacAddress.create(address=next_address,
+                                 mac_address_range_id=self.id)
+        self.update(next_address=next_address + 1)
+        return mac
+
+    def _starting_address(self):
+        base_address, slash, prefix_length = self.cidr.partition("/")
+        prefix_length = int(prefix_length)
+        netmask = (2 ** prefix_length - 1) << (48 - prefix_length)
+        base_address = netaddr.EUI(base_address)
+        return int(netaddr.EUI(int(base_address) & netmask))
+
+
+class MacAddress(ModelBase):
+    pass
+
+
 class Policy(ModelBase):
 
     _data_fields = ['name', 'description', 'tenant_id']
@@ -809,6 +830,8 @@ def persisted_models():
         'IpOctet': IpOctet,
         'IpRoute': IpRoute,
         'AllocatableIp': AllocatableIp,
+        'MacAddressRange': MacAddressRange,
+        'MacAddress': MacAddress,
         }
 
 

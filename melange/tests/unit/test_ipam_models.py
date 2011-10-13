@@ -17,6 +17,7 @@
 
 import datetime
 import mox
+import netaddr
 
 from melange import tests
 from melange.common import exception
@@ -1250,6 +1251,47 @@ class TestIpRoute(tests.BaseTest):
         self.assertEqual(data["destination"], ip_route.destination)
         self.assertEqual(data["netmask"], ip_route.netmask)
         self.assertEqual(data["gateway"], ip_route.gateway)
+
+
+class TestMacAddressRange(tests.BaseTest):
+
+    def test_allocate_mac_address(self):
+        mac_address_range = factory_models.MacAddressRangeFactory(
+            cidr="BC:76:4E:20:00:00/27")
+
+        mac_address = mac_address_range.allocate_mac()
+
+        self.assertEqual(netaddr.EUI(mac_address.address),
+                         netaddr.EUI("BC:76:4E:20:00:00"))
+
+        saved_mac = models.MacAddress.get(mac_address.id)
+        self.assertIsNotNone(saved_mac)
+        self.assertEqual(saved_mac.mac_address_range_id,
+                         mac_address_range.id)
+        self.assertEqual(saved_mac.address,
+                         int(netaddr.EUI("BC:76:4E:20:00:00")))
+
+    def test_allocate_multiple_addresses(self):
+        mac_address_range = factory_models.MacAddressRangeFactory(
+            cidr="BC:76:4E:00:00:00/24")
+
+        mac_address1 = mac_address_range.allocate_mac()
+        mac_address2 = mac_address_range.allocate_mac()
+
+        self.assertEqual(netaddr.EUI(mac_address1.address),
+                         netaddr.EUI("BC:76:4E:00:00:00"))
+        self.assertEqual(netaddr.EUI(mac_address2.address),
+                         netaddr.EUI("BC:76:4E:00:00:01"))
+
+    def test_allocate_mac_address_updates_next_mac_address(self):
+        mac_range = factory_models.MacAddressRangeFactory(
+            cidr="BC:76:4E:40:00:00/27")
+
+        mac_range.allocate_mac()
+
+        updated_mac_range = models.MacAddressRange.get(mac_range.id)
+        self.assertEqual(netaddr.EUI(updated_mac_range.next_address),
+                         netaddr.EUI('BC:76:4E:40:00:01'))
 
 
 class TestPolicy(tests.BaseTest):

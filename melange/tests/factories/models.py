@@ -53,6 +53,11 @@ class IpAddressFactory(factory.Factory):
         return netaddr.IPNetwork(ip_block.cidr)[int(n)]
 
 
+class MacAddressRangeFactory(factory.Factory):
+    FACTORY_FOR = models.MacAddressRange
+    cidr = factory.Sequence(lambda n: "%s/24" & str(netaddr.EUI(n)))
+
+
 class IpRouteFactory(factory.Factory):
     FACTORY_FOR = models.IpRoute
     destination = factory.Sequence(lambda n: "10.0.0.{0}".format(int(n) % 255))

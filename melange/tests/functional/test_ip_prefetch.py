@@ -33,14 +33,14 @@ class TestIpPrefetch(tests.BaseTest):
                                                       ssl=False,
                                                       port=5672,
                                                       virtual_host="/",
-                                                      transport="amqplib")
+                                                      transport="memory")
         self._queues = []
 
     def test_prefetches_ips_into_Q(self):
         block = factory_models.IpBlockFactory(cidr="10.0.0.0/28",
                                               prefetch=True)
         queue_based_ip_generator.IpPublisher(block).execute()
-        queue = self.connection.SimpleQueue("block.%s" % block.id)
+        queue = self.connection.SimpleQueue("block.%s" % block.id, no_ack=True)
         self._queues.append(queue)
         ips = []
         try:

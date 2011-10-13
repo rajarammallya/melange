@@ -21,22 +21,21 @@ import netaddr
 
 class IpPublisher(object):
 
-    def __init__(self, block):
+    def __init__(self, block, **connection_options):
         self.block = block
-        self.conn = kombu.connection.BrokerConnection(hostname="localhost",
-                                                      userid="guest",
-                                                      password="guest",
-                                                      ssl=False,
-                                                      port=5672,
-                                                      virtual_host="/",
-                                                      transport="amqplib")
+        self.conn_options = dict(hostname="localhost",
+                                 userid="guest",
+                                 password="guest",
+                                 ssl=False,
+                                 port=5672,
+                                 virtual_host="/",
+                                 transport="memory")
+        self.conn_options.update(connection_options)
 
     def execute(self):
-        ips = netaddr.IPNetwork(self.block.cidr)
-        queue = self.conn.SimpleQueue("block.%s" % self.block.id)
+        with kombu.connection.BrokerConnection(**self.conn_options) as conn:
+            ips = netaddr.IPNetwork(self.block.cidr)
+            queue = conn.SimpleQueue("block.%s" % self.block.id, no_ack=True)
 
-        for ip in ips:
-            self._publish(queue, str(ip))
-
-    def _publish(self, queue, address):
-            queue.put(address)
+            for ip in ips:
+                queue.put(str(ip))

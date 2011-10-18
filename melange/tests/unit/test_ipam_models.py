@@ -1310,6 +1310,48 @@ class TestMacAddressRange(tests.BaseTest):
         self.assertEqual(netaddr.EUI(updated_mac_range.next_address),
                          netaddr.EUI('BC:76:4E:40:00:01'))
 
+    def test_allocate_mac_address_raises_no_more_addresses_error_if_full(self):
+        rng = factory_models.MacAddressRangeFactory(cidr="BC:76:4E:20:0:0/48")
+
+        rng.allocate_mac()
+
+        self.assertRaises(models.NoMoreMacAddressesError, rng.allocate_mac)
+
+    def test_allocate_next_free_mac_from_first_free_range(self):
+        factory_models.MacAddressRangeFactory(cidr="BC:76:4E:20:00:00/47")
+        factory_models.MacAddressRangeFactory(cidr="BC:76:4E:30:00:00/40")
+
+        mac1 = models.MacAddressRange.allocate_next_free_mac()
+        mac2 = models.MacAddressRange.allocate_next_free_mac()
+        mac3 = models.MacAddressRange.allocate_next_free_mac()
+        mac4 = models.MacAddressRange.allocate_next_free_mac()
+
+        self.assertEqual(netaddr.EUI(mac1.address),
+                         netaddr.EUI("BC:76:4E:20:00:00"))
+        self.assertEqual(netaddr.EUI(mac2.address),
+                         netaddr.EUI("BC:76:4E:20:00:01"))
+        self.assertEqual(netaddr.EUI(mac3.address),
+                         netaddr.EUI("BC:76:4E:30:00:00"))
+        self.assertEqual(netaddr.EUI(mac4.address),
+                         netaddr.EUI("BC:76:4E:30:00:01"))
+
+    def test_allocate_next_free_mac_raises_error_when_no_more_free_macs(self):
+        rng1 = factory_models.MacAddressRangeFactory(cidr="BC:76:4E:20:0:0/48")
+        rng2 = factory_models.MacAddressRangeFactory(cidr="BC:76:4E:30:0:0/48")
+
+        models.MacAddressRange.allocate_next_free_mac()
+        models.MacAddressRange.allocate_next_free_mac()
+
+        self.assertRaises(models.NoMoreMacAddressesError,
+                          models.MacAddressRange.allocate_next_free_mac)
+
+    def test_range_is_full(self):
+        rng = factory_models.MacAddressRangeFactory(cidr="BC:76:4E:20:0:0/48")
+        self.assertFalse(rng.is_full())
+
+        rng.allocate_mac()
+        self.assertTrue(rng.is_full())
+
 
 class TestPolicy(tests.BaseTest):
 

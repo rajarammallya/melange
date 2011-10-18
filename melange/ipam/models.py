@@ -665,19 +665,43 @@ class IpRoute(ModelBase):
 
 class MacAddressRange(ModelBase):
 
+    @classmethod
+    def allocate_next_free_mac(cls):
+        ranges = cls.find_all()
+        for range in ranges:
+            if not range.is_full():
+                return range.allocate_mac()
+
+        raise NoMoreMacAddressesError()
+
     def allocate_mac(self):
-        next_address = self.next_address or self._starting_address()
+        if self.is_full():
+            raise NoMoreMacAddressesError()
+
+        next_address = self._next_eligible_address()
         mac = MacAddress.create(address=next_address,
                                 mac_address_range_id=self.id)
         self.update(next_address=next_address + 1)
         return mac
 
-    def _starting_address(self):
+    def is_full(self):
+        last_address = self._first_address() + self.length()
+        return self._next_eligible_address() >= last_address
+
+    def length(self):
+        base_address, slash, prefix_length = self.cidr.partition("/")
+        prefix_length = int(prefix_length)
+        return 2 ** (48 - prefix_length)
+
+    def _first_address(self):
         base_address, slash, prefix_length = self.cidr.partition("/")
         prefix_length = int(prefix_length)
         netmask = (2 ** prefix_length - 1) << (48 - prefix_length)
         base_address = netaddr.EUI(base_address)
         return int(netaddr.EUI(int(base_address) & netmask))
+
+    def _next_eligible_address(self):
+        return self.next_address or self._first_address()
 
 
 class MacAddress(ModelBase):
@@ -905,6 +929,11 @@ class InvalidModelError(exception.MelangeError):
 class IpAddressConcurrentAllocationError(exception.MelangeError):
 
     message = _("Cannot allocate address for block %(block_id)s at this time")
+
+
+class NoMoreMacAddressesError(exception.MelangeError):
+
+    message = _("No more mac Addresses")
 
 
 def sort(iterable):

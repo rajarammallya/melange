@@ -388,12 +388,16 @@ class API(wsgi.Router):
 
     def _allocated_ips_mapper(self, mapper):
         allocated_ips_res = AllocatedIpAddressesController().create_resource()
-        mapper.connect("/ipam/allocated_ip_addresses",
-                       controller=allocated_ips_res,
-                       action="index", conditions=dict(method=['GET']))
-        mapper.connect("/ipam/tenants/{tenant_id}/allocated_ip_addresses",
-                       controller=allocated_ips_res,
-                       action="index", conditions=dict(method=['GET']))
+        self._connect(mapper,
+                      "/ipam/allocated_ip_addresses",
+                      controller=allocated_ips_res,
+                      action="index",
+                      conditions=dict(method=['GET']))
+        self._connect(mapper,
+                      "/ipam/tenants/{tenant_id}/allocated_ip_addresses",
+                      controller=allocated_ips_res,
+                      action="index",
+                      conditions=dict(method=['GET']))
 
     def _ip_routes_mapper(self, mapper):
         ip_routes_res = IpRoutesController().create_resource()

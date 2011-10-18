@@ -49,6 +49,7 @@ def _configure_db(options):
 
 def _db_sync(options):
     conf = config.Config.load_paste_config("melange", options, None)
+    db_api.drop_db(conf)
     db_api.db_sync(conf)
 
 

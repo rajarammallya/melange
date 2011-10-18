@@ -808,7 +808,7 @@ class TestAllocatedIpAddressController(BaseTestController):
         tenant1_ip2 = block2.allocate_ip(used_by_tenant="1")
         tenant2_ip1 = block2.allocate_ip()
 
-        response = self.app.get("/ipam/tenants/1/allocated_ip_addresses")
+        response = self.app.get("/ipam/tenants/1/allocated_ip_addresses.json")
 
         self.assertItemsEqual(response.json['ip_addresses'],
                               _data([tenant1_ip1, tenant1_ip2]))

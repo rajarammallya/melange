@@ -305,12 +305,15 @@ class TestUnusableIpOctetsCLI(tests.BaseTest):
 class TestAllocatedIpAddressCLI(tests.BaseTest):
 
     def test_list(self):
-        factory_models.IpAddressFactory(address="10.1.1.1",
-                                        used_by_device="device_id")
-        factory_models.IpAddressFactory(address="20.1.1.1",
-                                        used_by_device="other_device_id")
+        interface1 = factory_models.InterfaceFactory(device_id="device1")
+        interface2 = factory_models.InterfaceFactory(device_id="device2")
 
-        exitcode, out, err = run("allocated_ips list device_id")
+        factory_models.IpAddressFactory(address="10.1.1.1",
+                                        interface_id=interface1.id)
+        factory_models.IpAddressFactory(address="20.1.1.1",
+                                        interface_id=interface2.id)
+
+        exitcode, out, err = run("allocated_ips list device1")
 
         self.assertEqual(exitcode, 0)
         self.assertIn("ip_addresses", out)
@@ -336,18 +339,19 @@ class TestIpAddressCLI(tests.BaseTest):
     def test_create(self):
         block = factory_models.PrivateIpBlockFactory(cidr="10.1.1.0/24",
                                                      tenant_id="123")
-        exitcode, out, err = run("ip_address create {0} 10.1.1.2 "
+        exitcode, out, err = run("ip_address create {0} 10.1.1.2 interface_id "
                                  "used_by_tenant_id used_by_device_id "
-                                 "-t 123".format(block.id))
+                                 "-t 123 -v".format(block.id))
 
         self.assertEqual(exitcode, 0)
 
         ip = models.IpAddress.get_by(ip_block_id=block.id)
+        interface = models.Interface.find(ip.interface_id)
 
         self.assertTrue(ip is not None)
         self.assertEqual(ip.address, "10.1.1.2")
         self.assertEqual(ip.used_by_tenant, "used_by_tenant_id")
-        self.assertEqual(ip.used_by_device, "used_by_device_id")
+        self.assertEqual(interface.device_id, "used_by_device_id")
 
     def test_list(self):
         block = factory_models.PrivateIpBlockFactory(cidr="10.1.1.0/24",

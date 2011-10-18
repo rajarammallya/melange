@@ -220,8 +220,7 @@ class ModelBase(object):
 
     def data(self, **options):
         data_fields = self._data_fields + self._auto_generated_attrs
-        return dict([(field, self[field])
-                    for field in data_fields])
+        return dict([(field, self[field]) for field in data_fields])
 
     def _validate_positive_integer(self, attribute_name):
         if utils.parse_int(self[attribute_name]) < 0:
@@ -271,7 +270,6 @@ class IpBlock(ModelBase):
     @classmethod
     def delete_all_deallocated_ips(cls):
         for block in db_api.find_all_blocks_with_deallocated_ips():
-            block.update(is_full=False)
             block.delete_deallocated_ips()
 
     @property
@@ -315,8 +313,8 @@ class IpBlock(ModelBase):
     def parent(self):
         return IpBlock.get(self.parent_id)
 
-    def allocate_ip(self, interface_id=None, address=None,
-                    used_by_tenant=None, used_by_device=None, **kwargs):
+    def allocate_ip(self, interface_id=None, address=None, used_by_tenant=None,
+                    used_by_device=None, **kwargs):
 
         used_by_tenant = used_by_tenant or self.tenant_id
 
@@ -335,9 +333,8 @@ class IpBlock(ModelBase):
                                            used_by_device=used_by_device,
                                            **kwargs)
 
-    def _allocate_available_ip(self, interface_id=None, address=None,
-                               used_by_tenant=None, used_by_device=None,
-                               **kwargs):
+    def _allocate_available_ip(self, interface_id=None, used_by_tenant=None,
+                               used_by_device=None, **kwargs):
 
         max_allowed_retry = int(config.Config.get("ip_allocation_retries", 10))
 
@@ -348,8 +345,7 @@ class IpBlock(ModelBase):
                 return IpAddress.create(address=address,
                                         ip_block_id=self.id,
                                         interface_id=interface_id,
-                                        used_by_tenant=used_by_tenant,
-                                        used_by_device=used_by_device)
+                                        used_by_tenant=used_by_tenant)
 
             except exception.DBConstraintError as error:
                 LOG.debug("IP allocation retry count :{0}".format(retries + 1))
@@ -417,7 +413,7 @@ class IpBlock(ModelBase):
 
     def find_allocated_ip(self, address):
         ip_address = IpAddress.find_by(ip_block_id=self.id, address=address)
-        if ip_address == None:
+        if ip_address is None:
             raise ModelNotFoundError(_("IpAddress Not Found"))
         return ip_address
 
@@ -427,6 +423,7 @@ class IpBlock(ModelBase):
             ip_address.deallocate()
 
     def delete_deallocated_ips(self):
+        self.update(is_full=False)
         db_api.delete_deallocated_ips(
             deallocated_by=self._deallocated_by_date(), ip_block_id=self.id)
 
@@ -562,8 +559,7 @@ class IpBlock(ModelBase):
 
 class IpAddress(ModelBase):
 
-    _data_fields = ['ip_block_id', 'address', 'interface_id', 'version',
-                    'used_by_tenant', 'used_by_device']
+    _data_fields = ['ip_block_id', 'address', 'version', 'used_by_tenant']
 
     @classmethod
     def _process_conditions(cls, raw_conditions):
@@ -639,10 +635,15 @@ class IpAddress(ModelBase):
     def version(self):
         return netaddr.IPAddress(self.address).version
 
+    @utils.cached_property
+    def interface(self):
+        return Interface.get(self.interface_id)
+
     def data(self, **options):
         data = super(IpAddress, self).data(**options)
-        if options.get('with_ip_block'):
-            data['ip_block'] = self.ip_block().data()
+        iface = self.interface
+        data['used_by_device'] = iface.device_id if iface else None
+        data['interface_id'] = iface.virtual_interface_id if iface else None
         return data
 
     def __str__(self):
@@ -667,7 +668,7 @@ class MacAddressRange(ModelBase):
     def allocate_mac(self):
         next_address = self.next_address or self._starting_address()
         mac = MacAddress.create(address=next_address,
-                                 mac_address_range_id=self.id)
+                                mac_address_range_id=self.id)
         self.update(next_address=next_address + 1)
         return mac
 
@@ -681,6 +682,28 @@ class MacAddressRange(ModelBase):
 
 class MacAddress(ModelBase):
     pass
+
+
+class Interface(ModelBase):
+
+    @classmethod
+    def find_or_create_by(cls, virtual_interface_id, device_id, **kwargs):
+        if virtual_interface_id is None and device_id is None:
+            return Interface.none_object()
+        try:
+            return cls.find_by(virtual_interface_id=virtual_interface_id,
+                               device_id=device_id)
+        except ModelNotFoundError:
+            return cls.create(virtual_interface_id=virtual_interface_id,
+                              device_id=device_id,
+                              **kwargs)
+
+    @classmethod
+    def none_object(cls):
+        return Interface(id=None, virtual_interface_id=None, device_id=None)
+
+    def _validate(self):
+        self._validate_presence_of('virtual_interface_id')
 
 
 class Policy(ModelBase):
@@ -832,6 +855,7 @@ def persisted_models():
         'AllocatableIp': AllocatableIp,
         'MacAddressRange': MacAddressRange,
         'MacAddress': MacAddress,
+        'Interface': Interface,
         }
 
 

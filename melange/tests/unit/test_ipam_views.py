@@ -24,11 +24,14 @@ class TestIpConfigurationView(tests.BaseTest):
 
     def test_data_returns_block_ip_and_route_info(self):
         block1 = factory_models.IpBlockFactory()
-        ip1 = factory_models.IpAddressFactory(ip_block_id=block1.id)
+        interface = factory_models.InterfaceFactory(virtual_interface_id="123")
+        ip1 = factory_models.IpAddressFactory(ip_block_id=block1.id,
+                                              interface_id=interface.id)
         route1 = factory_models.IpRouteFactory(source_block_id=block1.id)
         route2 = factory_models.IpRouteFactory(source_block_id=block1.id)
         block2 = factory_models.IpBlockFactory()
-        ip2 = factory_models.IpAddressFactory(ip_block_id=block2.id)
+        ip2 = factory_models.IpAddressFactory(ip_block_id=block2.id,
+                                              interface_id=interface.id)
 
         ip_configuration_view = views.IpConfigurationView(ip1, ip2)
 
@@ -44,7 +47,7 @@ class TestIpConfigurationView(tests.BaseTest):
 def _ip_data(ip, block):
     return {
         'id': ip.id,
-        'interface_id': ip.interface_id,
+        'interface_id': ip.interface.virtual_interface_id,
         'address': ip.address,
         'version': ip.version,
         'ip_block': {

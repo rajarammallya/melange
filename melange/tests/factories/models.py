@@ -18,6 +18,7 @@
 import factory
 import netaddr
 
+from melange.common import utils
 from melange.ipam import models
 
 
@@ -81,6 +82,13 @@ class PolicyFactory(factory.Factory):
     FACTORY_FOR = models.Policy
     name = 'default policy'
     tenant_id = "tenant_id"
+
+
+class InterfaceFactory(factory.Factory):
+    FACTORY_FOR = models.Interface
+    virtual_interface_id = factory.LazyAttribute(lambda a:
+                                                 utils.generate_uuid())
+    device_id = "instance_id"
 
 
 class AllocatableIpFactory(factory.Factory):

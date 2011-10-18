@@ -173,10 +173,16 @@ def find_all_ips_in_network(network_id, **conditions):
            filter(ipam.models.IpBlock.network_id == network_id)
 
 
-def find_all_allocated_ips(model, **conditions):
-    return _query_by(ipam.models.IpAddress, **conditions).\
-        filter(or_(ipam.models.IpAddress.marked_for_deallocation == None,
-                   ipam.models.IpAddress.marked_for_deallocation == False))
+def find_all_allocated_ips(model, used_by_device=None, **conditions):
+    query = _query_by(ipam.models.IpAddress, **conditions).\
+            filter(or_(ipam.models.IpAddress.marked_for_deallocation == None,
+                       ipam.models.IpAddress.marked_for_deallocation == False))
+
+    if used_by_device:
+        query = query.join(ipam.models.Interface).\
+                filter(ipam.models.Interface.device_id == used_by_device)
+
+    return query
 
 
 def pop_allocatable_address(**conditions):

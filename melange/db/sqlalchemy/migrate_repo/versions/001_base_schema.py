@@ -51,12 +51,11 @@ ip_blocks = Table('ip_blocks', meta,
 ip_addresses = Table('ip_addresses', meta,
         Column('id', String(36), primary_key=True, nullable=False),
         Column('address', String(255), nullable=False),
-        Column('interface_id', String(255)),
+        Column('interface_id', String(255), ForeignKey('interfaces.id')),
         Column('ip_block_id', String(36), ForeignKey('ip_blocks.id')),
         Column('created_at', DateTime()),
-        Column('used_by_tenant', String(255)),
-        Column('used_by_device', String(255)),
         Column('updated_at', DateTime()),
+        Column('used_by_tenant', String(36)),
         Column('marked_for_deallocation', Boolean()),
         Column('deallocated_at', DateTime()),
         UniqueConstraint('address', 'ip_block_id'))
@@ -113,29 +112,46 @@ ip_routes = Table('ip_routes', meta,
 allocatable_ips = Table('allocatable_ips', meta,
         Column('id', String(36), primary_key=True, nullable=False),
         Column('ip_block_id', String(36), ForeignKey('ip_blocks.id')),
-        Column('address', String(255), nullable=False))
+        Column('address', String(255), nullable=False),
+        Column('created_at', DateTime()),
+        Column('updated_at', DateTime()))
 
 mac_address_ranges = Table('mac_address_ranges', meta,
         Column('id', String(36), primary_key=True, nullable=False),
         Column('cidr', String(255), nullable=False),
-        Column('next_address', Integer()))
+        Column('next_address', Integer()),
+        Column('created_at', DateTime()),
+        Column('updated_at', DateTime()))
 
 mac_addresses = Table('mac_addresses', meta,
         Column('id', String(36), primary_key=True, nullable=False),
         Column('address', Integer(), nullable=False),
         Column('mac_address_range_id', String(36),
-               ForeignKey('mac_address_ranges.id')))
+               ForeignKey('mac_address_ranges.id')),
+        Column('interface_id', String(36), ForeignKey('interfaces.id')),
+        Column('created_at', DateTime()),
+        Column('updated_at', DateTime()),
+        UniqueConstraint('interface_id'),
+        UniqueConstraint('address'))
+
+interfaces = Table('interfaces', meta,
+        Column('id', String(36), primary_key=True, nullable=False),
+        Column('virtual_interface_id', String(36), nullable=False),
+        Column('device_id', String(36)),
+        Column('created_at', DateTime()),
+        Column('updated_at', DateTime()),
+        UniqueConstraint('virtual_interface_id'))
 
 
 def upgrade(migrate_engine):
     meta.bind = migrate_engine
     create_tables([policies, ip_ranges, ip_octets, ip_blocks, ip_routes,
-                   ip_addresses, ip_nats, allocatable_ips, mac_address_ranges,
-                   mac_addresses])
+                   mac_address_ranges, mac_addresses, interfaces, ip_addresses,
+                   ip_nats, allocatable_ips])
 
 
 def downgrade(migrate_engine):
     meta.bind = migrate_engine
-    drop_tables([mac_addresses, mac_address_ranges, allocatable_ips, ip_nats,
-                 ip_addresses, ip_routes, ip_blocks, ip_ranges, ip_octets,
-                 policies])
+    drop_tables([allocatable_ips, ip_nats, ip_addresses, interfaces,
+                 mac_addresses, mac_address_ranges, ip_routes, ip_blocks,
+                 ip_ranges, ip_octets, policies])

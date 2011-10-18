@@ -224,10 +224,11 @@ class IpAddressesClient(BaseClient):
                         self.auth_client,
                         self.tenant_id)
 
-    def create(self, ip_block_id, address=None, used_by_tenant=None,
-               used_by_device=None):
+    def create(self, ip_block_id, address=None, interface_id=None,
+               used_by_tenant=None, used_by_device=None):
         resource = self._resource(ip_block_id)
         return resource.create(address=address,
+                               interface_id=interface_id,
                                used_by_device=used_by_device,
                                tenant_id=used_by_tenant)
 

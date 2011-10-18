@@ -141,7 +141,13 @@ class IpAddressController(BaseController):
         ip_block = self._find_block(id=ip_block_id, tenant_id=tenant_id)
         params = self._extract_required_params(body, 'ip_address')
         params['used_by_tenant'] = params.pop('tenant_id', None)
-        ip_address = ip_block.allocate_ip(**params)
+        virtual_interface_id = params.pop('interface_id', None)
+        device_id = params.pop('used_by_device', None)
+        interface = models.Interface.find_or_create_by(
+                                virtual_interface_id=virtual_interface_id,
+                                device_id=device_id)
+
+        ip_address = ip_block.allocate_ip(interface_id=interface.id, **params)
         return wsgi.Result(dict(ip_address=ip_address.data()), 201)
 
     def restore(self, request, ip_block_id, address, tenant_id, body=None):
@@ -350,21 +356,25 @@ class NetworksController(BaseController):
                      tenant_id, body=None):
         network = models.Network.find_or_create_by(network_id, tenant_id)
         params = self._extract_required_params(body, 'network')
-        options = utils.filter_dict(params, "addresses", "mac_address",
-                                    "used_by_device")
+        options = utils.filter_dict(params, "addresses", "mac_address")
         options['used_by_tenant'] = params.get('tenant_id', None)
 
-        ips = network.allocate_ips(interface_id=interface_id, **options)
+        interface = models.Interface.find_or_create_by(
+            virtual_interface_id=interface_id,
+            device_id=params.pop('used_by_device', None))
+        ips = network.allocate_ips(interface_id=interface.id, **options)
         ip_config_view = views.IpConfigurationView(*ips)
         return wsgi.Result(dict(ip_addresses=ip_config_view.data()), 201)
 
     def deallocate_ips(self, request, network_id, interface_id, tenant_id):
         network = models.Network.find_by(id=network_id, tenant_id=tenant_id)
-        network.deallocate_ips(interface_id)
+        interface = models.Interface.find_by(virtual_interface_id=interface_id)
+        network.deallocate_ips(interface_id=interface.id)
 
     def get_allocated_ips(self, request, network_id, interface_id, tenant_id):
         network = models.Network.find_by(id=network_id, tenant_id=tenant_id)
-        ips_on_interface = network.allocated_ips(interface_id=interface_id)
+        interface = models.Interface.find_by(virtual_interface_id=interface_id)
+        ips_on_interface = network.allocated_ips(interface_id=interface.id)
         ip_configuration_view = views.IpConfigurationView(*ips_on_interface)
         return dict(ip_addresses=ip_configuration_view.data())
 

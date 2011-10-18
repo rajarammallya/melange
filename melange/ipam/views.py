@@ -39,7 +39,7 @@ class IpConfigurationView(object):
     def _ip_address_data(self, ip):
         return {
             'id': ip.id,
-            'interface_id': ip.interface_id,
+            'interface_id': ip.interface.virtual_interface_id,
             'address': ip.address,
             'version': ip.version,
             }

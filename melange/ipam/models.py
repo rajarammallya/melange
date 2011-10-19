@@ -48,6 +48,9 @@ class Query(object):
     def all(self):
         return db_api.list(self._query_func(self._model, **self._conditions))
 
+    def count(self):
+        return db_api.count(self._query_func(self._model, **self._conditions))
+
     def __iter__(self):
         return iter(self.all())
 
@@ -190,6 +193,10 @@ class ModelBase(object):
     @classmethod
     def find_all(cls, **kwargs):
         return Query(cls, **cls._process_conditions(kwargs))
+
+    @classmethod
+    def count(cls, **conditions):
+        return Query(cls, **conditions).count()
 
     def merge_attributes(self, values):
         """dict.update() behaviour."""
@@ -639,6 +646,10 @@ class IpAddress(ModelBase):
     def interface(self):
         return Interface.get(self.interface_id)
 
+    @utils.cached_property
+    def mac_address(self):
+        return MacAddress.get_by(interface_id=self.interface_id)
+
     def data(self, **options):
         data = super(IpAddress, self).data(**options)
         iface = self.interface
@@ -666,21 +677,26 @@ class IpRoute(ModelBase):
 class MacAddressRange(ModelBase):
 
     @classmethod
-    def allocate_next_free_mac(cls):
+    def allocate_next_free_mac(cls, **kwargs):
         ranges = cls.find_all()
         for range in ranges:
             if not range.is_full():
-                return range.allocate_mac()
+                return range.allocate_mac(**kwargs)
 
         raise NoMoreMacAddressesError()
 
-    def allocate_mac(self):
+    @classmethod
+    def mac_allocation_enabled(cls):
+        return cls.count() > 0
+
+    def allocate_mac(self, **kwargs):
         if self.is_full():
             raise NoMoreMacAddressesError()
 
         next_address = self._next_eligible_address()
         mac = MacAddress.create(address=next_address,
-                                mac_address_range_id=self.id)
+                                mac_address_range_id=self.id,
+                                **kwargs)
         self.update(next_address=next_address + 1)
         return mac
 
@@ -705,22 +721,34 @@ class MacAddressRange(ModelBase):
 
 
 class MacAddress(ModelBase):
-    pass
+
+    @property
+    def eui_format(self):
+        return str(netaddr.EUI(self.address))
 
 
 class Interface(ModelBase):
 
     @classmethod
-    def find_or_create_by(cls, virtual_interface_id, device_id, **kwargs):
+    def find_or_configure(cls, virtual_interface_id=None,
+                          device_id=None):
         if virtual_interface_id is None and device_id is None:
-            return Interface.none_object()
-        try:
-            return cls.find_by(virtual_interface_id=virtual_interface_id,
-                               device_id=device_id)
-        except ModelNotFoundError:
-            return cls.create(virtual_interface_id=virtual_interface_id,
-                              device_id=device_id,
-                              **kwargs)
+            return None
+
+        interface = Interface.get_by(virtual_interface_id=virtual_interface_id,
+                                     device_id=device_id)
+        if interface is not None:
+            return interface
+
+        return cls.create_and_configure(virtual_interface_id, device_id)
+
+    @classmethod
+    def create_and_configure(cls, virtual_interface_id=None, device_id=None):
+        interface = Interface.create(virtual_interface_id=virtual_interface_id,
+                                     device_id=device_id)
+        if MacAddressRange.mac_allocation_enabled():
+            MacAddressRange.allocate_next_free_mac(interface_id=interface.id)
+        return interface
 
     @classmethod
     def none_object(cls):

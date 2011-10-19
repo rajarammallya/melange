@@ -77,7 +77,7 @@ class TestModelBase(tests.BaseTest):
         self.assertNotEqual(models.ModelBase(id=1), models.ModelBase(id=2))
         self.assertNotEqual(models.IpBlock(id=1), models.IpAddress(id=1))
 
-    def test_hash_is_correct(self):
+    def test_hash_is_id_based(self):
         a = models.ModelBase(id="123", name="foo")
         b = models.ModelBase(id="123", name="bar")
 
@@ -94,6 +94,15 @@ class TestQuery(tests.BaseTest):
         blocks = models.Query(models.IpBlock, network_id="1").all()
 
         self.assertModelsEqual(blocks, [block1, block2])
+
+    def test_count(self):
+        factory_models.IpBlockFactory(network_id="1")
+        factory_models.IpBlockFactory(network_id="1")
+        noise_block = factory_models.IpBlockFactory(network_id="999")
+
+        count = models.Query(models.IpBlock, network_id="1").count()
+
+        self.assertEqual(count, 2)
 
     def test_query_is_iterble(self):
         block1 = factory_models.IpBlockFactory(network_id="1")
@@ -1221,6 +1230,14 @@ class TestIpAddress(tests.BaseTest):
         self.assertEqual(ip.interface, interface)
         self.assertEqual(ip.interface.virtual_interface_id, "112")
 
+    def test_mac_address(self):
+        mac_range = factory_models.MacAddressRangeFactory()
+        interface = factory_models.InterfaceFactory()
+        mac_address = mac_range.allocate_mac(interface_id=interface.id)
+        ip = factory_models.IpAddressFactory(interface_id=interface.id)
+
+        self.assertEqual(ip.mac_address, mac_address)
+
 
 class TestIpRoute(tests.BaseTest):
 
@@ -1351,6 +1368,24 @@ class TestMacAddressRange(tests.BaseTest):
 
         rng.allocate_mac()
         self.assertTrue(rng.is_full())
+
+    def test_mac_allocation_enabled_when_ranges_exist(self):
+        factory_models.MacAddressRangeFactory(cidr="BC:76:4E:20:0:0/48")
+
+        self.assertTrue(models.MacAddressRange.mac_allocation_enabled())
+
+    def test_mac_allocation_disabled_when_no_ranges_exist(self):
+        self.assertFalse(models.MacAddressRange.mac_allocation_enabled())
+
+
+class TestMacAddress(tests.BaseTest):
+
+    def test_mac_address_in_eui_format(self):
+        rng = factory_models.MacAddressRangeFactory(cidr="BC:76:4E:20:0:0/40")
+        mac = rng.allocate_mac()
+
+        self.assertIsNotNone(mac)
+        self.assertEqual(mac.eui_format, "BC-76-4E-20-00-00")
 
 
 class TestPolicy(tests.BaseTest):
@@ -1766,17 +1801,17 @@ class TestNetwork(tests.BaseTest):
 
 class TestInterface(tests.BaseTest):
 
-    def test_find_or_create_by_find_existing_interface(self):
+    def test_find_or_configure_finds_existing_interface(self):
         existing_interface = factory_models.InterfaceFactory(
             virtual_interface_id="11234", device_id="huge_instance")
 
-        interface_found = models.Interface.find_or_create_by(
+        interface_found = models.Interface.find_or_configure(
             virtual_interface_id="11234", device_id="huge_instance")
 
         self.assertEqual(existing_interface, interface_found)
 
-    def test_find_or_create_by_creates_when_not_found(self):
-        interface = models.Interface.find_or_create_by(
+    def test_find_or_configure_creates_interface_when_not_found(self):
+        interface = models.Interface.find_or_configure(
             virtual_interface_id="new_interface", device_id="huge_instance")
 
         created_interface = models.Interface.find_by(id=interface.id)
@@ -1784,6 +1819,28 @@ class TestInterface(tests.BaseTest):
         self.assertEqual(created_interface.virtual_interface_id,
                          "new_interface")
         self.assertEqual(created_interface.device_id, "huge_instance")
+
+    def test_find_or_configure_allocates_mac_address_for_new_interface(self):
+        mac_range = factory_models.MacAddressRangeFactory()
+        interface = models.Interface.find_or_configure(
+            virtual_interface_id="new_interface", device_id="huge_instance")
+
+        mac = models.MacAddress.find_by(mac_address_range_id=mac_range.id)
+        self.assertEqual(mac.interface_id, interface.id)
+
+    def test_find_or_configure_cant_allocate_mac_if_allocation_disabled(self):
+        self.assertFalse(models.MacAddressRange.mac_allocation_enabled())
+
+        interface = models.Interface.find_or_configure(
+            virtual_interface_id="new_interface", device_id="huge_instance")
+
+        self.assertIsNone(models.MacAddress.get_by(interface_id=interface.id))
+
+    def test_find_or_configure_is_none_without_virt_iface_and_device(self):
+        interface = models.Interface.find_or_configure(
+            virtual_interface_id=None, device_id=None)
+
+        self.assertIsNone(interface)
 
     def test_validate_presence_of_virtual_interface_id(self):
         interface = factory_models.InterfaceFactory.build(

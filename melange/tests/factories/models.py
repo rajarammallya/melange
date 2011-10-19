@@ -56,7 +56,7 @@ class IpAddressFactory(factory.Factory):
 
 class MacAddressRangeFactory(factory.Factory):
     FACTORY_FOR = models.MacAddressRange
-    cidr = factory.Sequence(lambda n: "%s/24" & str(netaddr.EUI(n)))
+    cidr = factory.Sequence(lambda n: "%s/24" % str(netaddr.EUI(n)))
 
 
 class IpRouteFactory(factory.Factory):

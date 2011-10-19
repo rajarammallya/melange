@@ -143,11 +143,14 @@ class IpAddressController(BaseController):
         params['used_by_tenant'] = params.pop('tenant_id', None)
         virtual_interface_id = params.pop('interface_id', None)
         device_id = params.pop('used_by_device', None)
-        interface = models.Interface.find_or_create_by(
-                                virtual_interface_id=virtual_interface_id,
-                                device_id=device_id)
 
-        ip_address = ip_block.allocate_ip(interface_id=interface.id, **params)
+        interface = models.Interface.find_or_configure(
+            virtual_interface_id=virtual_interface_id,
+            device_id=device_id)
+
+        params['interface_id'] = interface.id if interface else None
+
+        ip_address = ip_block.allocate_ip(**params)
         return wsgi.Result(dict(ip_address=ip_address.data()), 201)
 
     def restore(self, request, ip_block_id, address, tenant_id, body=None):
@@ -359,10 +362,12 @@ class NetworksController(BaseController):
         options = utils.filter_dict(params, "addresses", "mac_address")
         options['used_by_tenant'] = params.get('tenant_id', None)
 
-        interface = models.Interface.find_or_create_by(
+        interface = models.Interface.find_or_configure(
             virtual_interface_id=interface_id,
             device_id=params.pop('used_by_device', None))
-        ips = network.allocate_ips(interface_id=interface.id, **options)
+        options['interface_id'] = interface.id if interface else None
+
+        ips = network.allocate_ips(**options)
         ip_config_view = views.IpConfigurationView(*ips)
         return wsgi.Result(dict(ip_addresses=ip_config_view.data()), 201)
 

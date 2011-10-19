@@ -14,12 +14,13 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import routes
 import string
 import unittest
-import webob.exc
 
 import mox
+import netaddr
+import routes
+import webob.exc
 
 from melange import ipv6
 from melange import tests
@@ -477,6 +478,40 @@ class TestIpAddressController(BaseTestController):
 
         self.assertEqual(response.status_int, 201)
 
+    def test_create_allocates_mac_address_when_mac_allocation_is_enabled(self):
+        factory_models.MacAddressRangeFactory(cidr="BC:AD:CE:0:0:0/40")
+        block = factory_models.IpBlockFactory(cidr="10.0.0.0/24")
+
+        response = self.app.post_json(self._address_path(block),
+                                      {'ip_address': {
+                                          "interface_id": "iface",
+                                          "used_by_device": "instance_id"}
+                                       })
+
+        ip = models.IpAddress.find(response.json['ip_address']['id'])
+        self.assertEqual(ip.mac_address.eui_format,
+                         str(netaddr.EUI("BC:AD:CE:0:0:0")))
+
+    def test_create_does_not_allocate_mac_for_existing_interface(self):
+        mac_range = factory_models.MacAddressRangeFactory(
+            cidr="BC:AD:CE:0:0:0/40")
+        block = factory_models.IpBlockFactory(cidr="10.0.0.0/24")
+        interface = factory_models.InterfaceFactory(
+                            virtual_interface_id="iface_id")
+        mac_range.allocate_mac(interface_id=interface.id)
+
+        response = self.app.post_json(self._address_path(block),
+                                      {'ip_address': {
+                                          "interface_id": "iface_id",
+                                          "used_by_device": "instance_id"}
+                                       })
+
+        self.assertEqual(models.Interface.count(), 1)
+        self.assertEqual(models.MacAddress.count(), 1)
+        ip = models.IpAddress.find(response.json['ip_address']['id'])
+        self.assertEqual(ip.mac_address.eui_format,
+                         str(netaddr.EUI("BC:AD:CE:0:0:0")))
+
     def test_show(self):
         block = factory_models.IpBlockFactory(cidr='10.1.1.1/30')
         ip = block.allocate_ip(interface_id="3333")
@@ -656,7 +691,6 @@ class TestIpRoutesController(BaseTestController):
                 'destination': "10.1.1.1",
                 'netmask': "255.255.255.0",
                 'gateway': "10.1.1.0",
-                'source_block_id': "some_other_block_id",
                 }
             }
 
@@ -669,6 +703,24 @@ class TestIpRoutesController(BaseTestController):
 
         self.assertEqual(response.status, "201 Created")
         self.assertEqual(response.json['ip_route'], _data(ip_route))
+
+    def test_create_ignores_source_block_id_in_body(self):
+        block = factory_models.IpBlockFactory(cidr="10.1.1.0/28")
+        path = "/ipam/tenants/tenant_id/ip_blocks/%s/ip_routes" % block.id
+        params = {
+            'ip_route': {
+                'destination': "10.1.1.1",
+                'netmask': "255.255.255.0",
+                'gateway': "10.1.1.0",
+                'source_block_id': "other_block",
+                }
+            }
+
+        response = self.app.post_json(path, params)
+
+        ip_route = models.IpRoute.find(response.json['ip_route']['id'])
+        self.assertEqual(ip_route.source_block_id, block.id)
+        self.assertIsNone(models.IpRoute.get_by(source_block_id="other_block"))
 
     def test_create_fails_for_non_existent_block_for_tenant(self):
         block = factory_models.IpBlockFactory(tenant_id="tenant_id")
@@ -1834,6 +1886,19 @@ class TestNetworksController(BaseTestController):
         self.assertEqual(ip_address.used_by_tenant, "RAX")
         self.assertEqual(interface.virtual_interface_id, "123")
         self.assertEqual(interface.device_id, "instance_id")
+
+    def test_allocate_ip_allocates_a_mac_as_well_when_mac_ranges_exist(self):
+        factory_models.MacAddressRangeFactory(cidr="AD:BC:CE:0:0:0/24")
+        ip_block = factory_models.PrivateIpBlockFactory(tenant_id="tnt_id",
+                                                        network_id=1,
+                                                        cidr="10.0.0.0/24")
+
+        self.app.post_json("{0}/networks/1/interfaces/123"
+                           "/ip_allocations".format(self.network_path))
+
+        ip_address = models.IpAddress.find_by(ip_block_id=ip_block.id)
+        self.assertEqual(ip_address.mac_address.eui_format,
+                         "AD-BC-CE-00-00-00")
 
     def test_allocate_ip_allocates_v6_address_with_given_params(self):
         mac_address = "11:22:33:44:55:66"

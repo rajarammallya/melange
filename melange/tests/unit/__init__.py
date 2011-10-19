@@ -69,11 +69,11 @@ class StubTime(object):
 
 class TestApp(webtest.TestApp):
 
-    def post_json(self, url, body, **kwargs):
+    def post_json(self, url, body=None, **kwargs):
         kwargs['content_type'] = "application/json"
         return self.post(url, json.dumps(body), **kwargs)
 
-    def put_json(self, url, body, **kwargs):
+    def put_json(self, url, body=None, **kwargs):
         kwargs['content_type'] = "application/json"
         return self.put(url, json.dumps(body), **kwargs)
 

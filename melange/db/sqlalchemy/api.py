@@ -32,6 +32,10 @@ def list(query):
     return query.all()
 
 
+def count(query):
+    return query.count()
+
+
 def find_all_by(model, **conditions):
     return _query_by(model, **conditions)
 

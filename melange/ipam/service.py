@@ -353,9 +353,9 @@ class PoliciesController(BaseController):
         policy.delete()
 
 
-class NetworksController(BaseController):
+class InterfaceIpAllocationsController(BaseController):
 
-    def allocate_ips(self, request, network_id, interface_id,
+    def create(self, request, network_id, interface_id,
                      tenant_id, body=None):
         network = models.Network.find_or_create_by(network_id, tenant_id)
         params = self._extract_required_params(body, 'network')
@@ -371,12 +371,12 @@ class NetworksController(BaseController):
         ip_config_view = views.IpConfigurationView(*ips)
         return wsgi.Result(dict(ip_addresses=ip_config_view.data()), 201)
 
-    def deallocate_ips(self, request, network_id, interface_id, tenant_id):
+    def bulk_delete(self, request, network_id, interface_id, tenant_id):
         network = models.Network.find_by(id=network_id, tenant_id=tenant_id)
         interface = models.Interface.find_by(virtual_interface_id=interface_id)
         network.deallocate_ips(interface_id=interface.id)
 
-    def get_allocated_ips(self, request, network_id, interface_id, tenant_id):
+    def index(self, request, network_id, interface_id, tenant_id):
         network = models.Network.find_by(id=network_id, tenant_id=tenant_id)
         interface = models.Interface.find_by(virtual_interface_id=interface_id)
         ips_on_interface = network.allocated_ips(interface_id=interface.id)
@@ -421,18 +421,17 @@ class API(wsgi.Router):
         mapper.resource("ip_routes", path, controller=ip_routes_res)
 
     def _network_mapper(self, mapper):
-        resource_path = ("/ipam/tenants/{tenant_id}/networks"
-                         "/{network_id}/interfaces/{interface_id}")
-        network_controller = NetworksController().create_resource()
-        with mapper.submapper(controller=network_controller,
-                              path_prefix=resource_path) as submap:
-            self._connect(submap, "/ip_allocations", action='allocate_ips',
+        path = ("/ipam/tenants/{tenant_id}/networks"
+                "/{network_id}/interfaces/{interface_id}")
+        resource = InterfaceIpAllocationsController().create_resource()
+        with mapper.submapper(controller=resource, path_prefix=path) as submap:
+            self._connect(submap, "/ip_allocations", action='create',
                           conditions=dict(method=['POST']))
             self._connect(submap,
                           "/ip_allocations",
-                          action='get_allocated_ips',
+                          action='index',
                           conditions=dict(method=['GET']))
-            self._connect(submap, "/ip_allocations", action='deallocate_ips',
+            self._connect(submap, "/ip_allocations", action='bulk_delete',
                           conditions=dict(method=['DELETE']))
 
     def _policy_and_rules_mapper(self, mapper):

@@ -1830,13 +1830,13 @@ class TestPoliciesController(BaseTestController):
                                  "Policy Not Found")
 
 
-class TestNetworksController(BaseTestController):
+class TestInterfaceIpAllocationsController(BaseTestController):
 
     def setUp(self):
         self.network_path = "/ipam/tenants/tnt_id"
-        super(TestNetworksController, self).setUp()
+        super(TestInterfaceIpAllocationsController, self).setUp()
 
-    def test_allocate_ip_address(self):
+    def test_create(self):
         ip_block = factory_models.PrivateIpBlockFactory(tenant_id="tnt_id",
                                                         network_id=1)
 
@@ -1850,7 +1850,7 @@ class TestNetworksController(BaseTestController):
         interface = models.Interface.find(ip_address.interface_id)
         self.assertEqual(interface.virtual_interface_id, "123")
 
-    def test_allocate_ip_with_given_address(self):
+    def test_create_with_given_address(self):
         ip_block = factory_models.PrivateIpBlockFactory(tenant_id="tnt_id",
                                                         network_id=1,
                                                         cidr="10.0.0.0/24")
@@ -1865,7 +1865,7 @@ class TestNetworksController(BaseTestController):
         self.assertEqual(views.IpConfigurationView(ip_address).data(),
                          response.json['ip_addresses'])
 
-    def test_allocate_ip_with_optional_params(self):
+    def test_create_with_optional_params(self):
         ip_block = factory_models.PrivateIpBlockFactory(tenant_id="tnt_id",
                                                         network_id=1,
                                                         cidr="10.0.0.0/24")
@@ -1887,7 +1887,7 @@ class TestNetworksController(BaseTestController):
         self.assertEqual(interface.virtual_interface_id, "123")
         self.assertEqual(interface.device_id, "instance_id")
 
-    def test_allocate_ip_allocates_a_mac_as_well_when_mac_ranges_exist(self):
+    def test_create_allocates_a_mac_as_well_when_mac_ranges_exist(self):
         factory_models.MacAddressRangeFactory(cidr="AD:BC:CE:0:0:0/24")
         ip_block = factory_models.PrivateIpBlockFactory(tenant_id="tnt_id",
                                                         network_id=1,
@@ -1900,7 +1900,7 @@ class TestNetworksController(BaseTestController):
         self.assertEqual(ip_address.mac_address.eui_format,
                          "AD-BC-CE-00-00-00")
 
-    def test_allocate_ip_allocates_v6_address_with_given_params(self):
+    def test_create_allocates_v6_address_with_given_params(self):
         mac_address = "11:22:33:44:55:66"
         ipv6_generator = mock_generator.MockIpV6Generator("fe::/96")
         ipv6_block = factory_models.PrivateIpBlockFactory(tenant_id="tnt_id",
@@ -1925,7 +1925,19 @@ class TestNetworksController(BaseTestController):
         self.assertEqual(views.IpConfigurationView(ipv6_address).data(),
                          response.json['ip_addresses'])
 
-    def test_deallocate_ips(self):
+    def test_create_when_network_not_found_creates_default_cidr_block(self):
+        response = self.app.post("/ipam/tenants/tnt_id/networks/1"
+                                 "/interfaces/123/ip_allocations")
+
+        self.assertEqual(response.status_int, 201)
+        ip_address_json = response.json['ip_addresses'][0]
+        created_block = models.IpAddress.find(ip_address_json['id']).ip_block()
+        self.assertEqual(created_block.network_id, "1")
+        self.assertEqual(created_block.cidr, config.Config.get('default_cidr'))
+        self.assertEqual(created_block.type, "private")
+        self.assertEqual(created_block.tenant_id, "tnt_id")
+
+    def test_bulk_delete(self):
         ip_block = factory_models.PrivateIpBlockFactory(tenant_id="tnt_id",
                                                         network_id=1)
 
@@ -1939,7 +1951,7 @@ class TestNetworksController(BaseTestController):
         self.assertEqual(response.status_int, 200)
         self.assertTrue(ip_address.marked_for_deallocation)
 
-    def test_deallocate_ip_when_network_does_not_exist(self):
+    def test_bulk_delete_when_network_does_not_exist(self):
         response = self.app.delete("{0}/networks/1/interfaces/123/"
                                    "ip_allocations".format(self.network_path),
                                    status="*")
@@ -1947,7 +1959,7 @@ class TestNetworksController(BaseTestController):
         self.assertErrorResponse(response, webob.exc.HTTPNotFound,
                                  "Network 1 not found")
 
-    def test_get_allocated_ips(self):
+    def test_index(self):
         factory = factory_models.PrivateIpBlockFactory
         ipv4_block = factory(cidr="10.0.0.0/8",
                              network_id=1,
@@ -1965,18 +1977,6 @@ class TestNetworksController(BaseTestController):
         self.assertEqual(response.status_int, 200)
         self.assertItemsEqual(views.IpConfigurationView(ip1, ip2, ip3).data(),
                               response.json["ip_addresses"])
-
-    def test_allocate_ip_creates_network_if_network_not_found(self):
-        response = self.app.post("/ipam/tenants/tnt_id/networks/1"
-                                 "/interfaces/123/ip_allocations")
-
-        self.assertEqual(response.status_int, 201)
-        ip_address_json = response.json['ip_addresses'][0]
-        created_block = models.IpAddress.find(ip_address_json['id']).ip_block()
-        self.assertEqual(created_block.network_id, "1")
-        self.assertEqual(created_block.cidr, config.Config.get('default_cidr'))
-        self.assertEqual(created_block.type, "private")
-        self.assertEqual(created_block.tenant_id, "tnt_id")
 
 
 def _allocate_ips(*args):

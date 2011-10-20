@@ -357,8 +357,10 @@ class TestIpAddressCLI(tests.BaseTest):
         block = factory_models.PrivateIpBlockFactory(cidr="10.1.1.0/24",
                                                      tenant_id="123")
 
-        ip1 = block.allocate_ip(address="10.1.1.2")
-        ip2 = block.allocate_ip(address="10.1.1.3")
+        ip1 = factory_models.IpAddressFactory(ip_block_id=block.id,
+                                              address="10.1.1.2")
+        ip2 = factory_models.IpAddressFactory(ip_block_id=block.id,
+                                              address="10.1.1.3")
 
         exitcode, out, err = run("ip_address list {0} -t 123".format(block.id))
 
@@ -456,7 +458,7 @@ class TestDeleteDeallocatedIps(tests.BaseTest):
 
     def test_deallocated_ips_get_deleted(self):
         block = factory_models.PublicIpBlockFactory()
-        ip = block.allocate_ip()
+        ip = factory_models.IpAddressFactory(ip_block_id=block.id)
         block.deallocate_ip(ip.address)
 
         days = config.Config.get('keep_deallocated_ips_for_days')

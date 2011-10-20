@@ -213,6 +213,7 @@ class IpRoutesController(BaseController):
 
 class InsideGlobalsController(BaseController):
 
+    #TODO (Banka) : create should only associate between already existing ips
     def create(self, request, ip_block_id, address, tenant_id, body=None):
         local_ip = models.IpBlock.find_or_allocate_ip(ip_block_id,
                                                       address,
@@ -239,14 +240,16 @@ class InsideGlobalsController(BaseController):
 
 class InsideLocalsController(BaseController):
 
+    #TODO (Banka) : create should only associate between already existing ips
     def create(self, request, ip_block_id, address, tenant_id, body=None):
         global_ip = models.IpBlock.find_or_allocate_ip(ip_block_id,
                                                        address,
                                                        tenant_id)
+
         addresses = body['ip_addresses']
         local_ips = [models.IpBlock.find_or_allocate_ip(ip["ip_block_id"],
-                                                         ip["ip_address"],
-                                                         tenant_id)
+                                                        ip["ip_address"],
+                                                        tenant_id)
                       for ip in addresses]
 
         global_ip.add_inside_locals(local_ips)

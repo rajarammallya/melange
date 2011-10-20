@@ -395,7 +395,12 @@ class TestIpAddressController(BaseTestController):
 
     def test_create(self):
         block = factory_models.IpBlockFactory(cidr="10.1.1.0/28")
-        response = self.app.post(self._address_path(block))
+
+        response = self.app.post_json(self._address_path(block),
+                                      {'ip_address': {
+                                          'interface_id': "vif_id",
+                                          }
+                                       })
 
         self.assertEqual(response.status, "201 Created")
         allocated_address = models.IpAddress.find_by(ip_block_id=block.id)
@@ -406,7 +411,11 @@ class TestIpAddressController(BaseTestController):
     def test_create_with_given_address(self):
         block = factory_models.IpBlockFactory(cidr="10.1.1.0/28")
         response = self.app.post_json(self._address_path(block),
-                                      {'ip_address': {"address": '10.1.1.2'}})
+                                      {'ip_address': {
+                                          'address': '10.1.1.2',
+                                          'interface_id': "vif_id",
+                                          }
+                                       })
 
         self.assertEqual(response.status, "201 Created")
         created_address_id = response.json['ip_address']['id']
@@ -427,7 +436,11 @@ class TestIpAddressController(BaseTestController):
         block = factory_models.IpBlockFactory()
 
         self.app.post_json(self._address_path(block),
-                           {'ip_address': {"tenant_id": "RAX"}})
+                           {'ip_address': {
+                               'tenant_id': "RAX",
+                               'interface_id': "virt_interface_id",
+                               }
+                            })
 
         allocated_address = models.IpAddress.find_by(ip_block_id=block.id)
         self.assertEqual(allocated_address.used_by_tenant, "RAX")
@@ -514,7 +527,7 @@ class TestIpAddressController(BaseTestController):
 
     def test_show(self):
         block = factory_models.IpBlockFactory(cidr='10.1.1.1/30')
-        ip = block.allocate_ip(interface_id="3333")
+        ip = _allocate_ip(block)
 
         response = self.app.get("{0}/{1}.json".format(
             self._address_path(block), ip.address))
@@ -534,7 +547,7 @@ class TestIpAddressController(BaseTestController):
 
     def test_delete_ip(self):
         block = factory_models.IpBlockFactory(cidr='10.1.1.1/30')
-        ip = block.allocate_ip()
+        ip = _allocate_ip(block)
 
         response = self.app.delete("{0}/{1}.xml".format(
             self._address_path(block), ip.address))
@@ -545,7 +558,7 @@ class TestIpAddressController(BaseTestController):
 
     def test_index(self):
         block = factory_models.IpBlockFactory()
-        address1, address2 = models.sort([block.allocate_ip()
+        address1, address2 = models.sort([_allocate_ip(block)
                                             for i in range(2)])
 
         response = self.app.get(self._address_path(block))
@@ -558,7 +571,7 @@ class TestIpAddressController(BaseTestController):
 
     def test_index_with_pagination(self):
         block = factory_models.IpBlockFactory()
-        ips = models.sort([block.allocate_ip() for i in range(5)])
+        ips = models.sort([_allocate_ip(block) for i in range(5)])
 
         response = self.app.get("{0}?limit=2&marker={1}".format(
                 self._address_path(block), ips[1].id))
@@ -576,7 +589,7 @@ class TestIpAddressController(BaseTestController):
 
     def test_restore_deallocated_ip(self):
         block = factory_models.IpBlockFactory()
-        ips = [block.allocate_ip() for i in range(5)]
+        ips = [_allocate_ip(block) for i in range(5)]
         block.deallocate_ip(ips[0].address)
 
         response = self.app.put_json("{0}/{1}/restore".format(
@@ -864,9 +877,9 @@ class TestAllocatedIpAddressController(BaseTestController):
                                                tenant_id="1")
         block2 = factory_models.IpBlockFactory(cidr="20.0.0.0/24",
                                                tenant_id="2")
-        tenant1_ip1 = block1.allocate_ip()
-        tenant1_ip2 = block2.allocate_ip(used_by_tenant="1")
-        tenant2_ip1 = block2.allocate_ip()
+        tenant1_ip1 = _allocate_ip(block1)
+        tenant1_ip2 = _allocate_ip(block2, used_by_tenant="1")
+        tenant2_ip1 = _allocate_ip(block2)
 
         response = self.app.get("/ipam/tenants/1/allocated_ip_addresses.json")
 
@@ -918,9 +931,9 @@ class TestAllocatedIpAddressController(BaseTestController):
     def test_index_doesnt_return_soft_deallocated_ips(self):
         block = factory_models.IpBlockFactory(tenant_id="1")
 
-        ip1 = block.allocate_ip()
-        ip2 = block.allocate_ip()
-        ip3 = block.allocate_ip()
+        ip1 = _allocate_ip(block)
+        ip2 = _allocate_ip(block)
+        ip3 = _allocate_ip(block)
 
         ip2.deallocate()
         response = self.app.get("/ipam/tenants/1/allocated_ip_addresses")
@@ -938,13 +951,10 @@ class TestInsideGlobalsController(BaseTestController):
 
     def test_index(self):
         local_block = factory_models.PrivateIpBlockFactory(cidr="10.1.1.1/30")
-        public_factory = factory_models.PublicIpBlockFactory
-        global_block1 = public_factory(cidr="192.1.1.1/30")
-        global_block2 = public_factory(cidr="196.1.1.1/30")
 
-        local_ip = local_block.allocate_ip()
-        global_ip1 = global_block1.allocate_ip()
-        global_ip2 = global_block2.allocate_ip()
+        local_ip = _allocate_ip(local_block)
+        global_ip1 = factory_models.IpAddressFactory()
+        global_ip2 = factory_models.IpAddressFactory()
 
         local_ip.add_inside_globals([global_ip1, global_ip2])
 
@@ -1001,8 +1011,8 @@ class TestInsideGlobalsController(BaseTestController):
         local_block = factory_models.PrivateIpBlockFactory(cidr="10.1.1.1/24")
         global_block = factory_models.PublicIpBlockFactory(cidr="77.1.1.1/24")
 
-        global_ip = global_block.allocate_ip()
-        local_ip = local_block.allocate_ip()
+        global_ip = _allocate_ip(global_block)
+        local_ip = _allocate_ip(local_block)
         response = self.app.post_json(self._nat_path(local_block,
                                                      local_ip.address),
                                       {'ip_addresses': [{
@@ -1072,8 +1082,8 @@ class TestInsideGlobalsController(BaseTestController):
         local_block = factory_models.PrivateIpBlockFactory(cidr="10.1.1.1/24")
         global_block = factory_models.PublicIpBlockFactory(cidr="77.1.1.1/24")
 
-        global_ip = global_block.allocate_ip()
-        local_ip = local_block.allocate_ip()
+        global_ip = _allocate_ip(global_block)
+        local_ip = _allocate_ip(local_block)
         local_ip.add_inside_globals([global_ip])
 
         response = self.app.delete(self._nat_path(local_block,
@@ -1087,7 +1097,7 @@ class TestInsideGlobalsController(BaseTestController):
         global_block = factory_models.PublicIpBlockFactory(cidr="192.1.1.1/8")
 
         global_ips, = _allocate_ips((global_block, 3))
-        local_ip = local_block.allocate_ip()
+        local_ip = _allocate_ip(local_block)
         local_ip.add_inside_globals(global_ips)
 
         self.app.delete("%s/%s" % (self._nat_path(local_block,
@@ -1256,7 +1266,7 @@ class TestInsideLocalsController(BaseTestController):
         global_block = factory_models.PublicIpBlockFactory(cidr="77.1.1.1/24")
 
         local_ips, = _allocate_ips((local_block, 3))
-        global_ip = global_block.allocate_ip()
+        global_ip = _allocate_ip(global_block)
         global_ip.add_inside_locals(local_ips)
 
         self.app.delete("{0}/{1}".format(self._nat_path(global_block,
@@ -1271,8 +1281,8 @@ class TestInsideLocalsController(BaseTestController):
         local_block = factory_models.PrivateIpBlockFactory(cidr="10.1.1.1/24")
         global_block = factory_models.PublicIpBlockFactory(cidr="77.1.1.1/24")
 
-        global_ip = global_block.allocate_ip()
-        local_ip = local_block.allocate_ip()
+        global_ip = _allocate_ip(global_block)
+        local_ip = _allocate_ip(local_block)
         global_ip.add_inside_locals([local_ip])
 
         response = self.app.delete(self._nat_path(global_block,
@@ -1980,7 +1990,9 @@ class TestInterfaceIpAllocationsController(BaseTestController):
 
 
 def _allocate_ips(*args):
-    return [models.sort([ip_block.allocate_ip() for i in range(num_of_ips)])
+    interface = factory_models.InterfaceFactory()
+    return [models.sort([_allocate_ip(ip_block, interface_id=interface.id)
+                         for i in range(num_of_ips)])
             for ip_block, num_of_ips in args]
 
 
@@ -1988,3 +2000,9 @@ def _data(resource, **options):
     if isinstance(resource, models.ModelBase):
         return unit.sanitize(resource.data(**options))
     return [_data(model, **options) for model in resource]
+
+
+def _allocate_ip(block, interface_id=None, **kwargs):
+    if interface_id is None:
+        interface_id = factory_models.InterfaceFactory().id
+    return block.allocate_ip(interface_id=interface_id, **kwargs)

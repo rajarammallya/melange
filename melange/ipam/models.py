@@ -265,14 +265,17 @@ class IpBlock(ModelBase):
                     'netmask']
 
     @classmethod
+    #TODO (Banka): This is not needed
     def find_or_allocate_ip(cls, ip_block_id, address, tenant_id):
         block = IpBlock.find_by(id=ip_block_id, tenant_id=tenant_id)
         allocated_ip = IpAddress.get_by(ip_block_id=block.id, address=address)
 
         if allocated_ip and allocated_ip.locked():
             raise AddressLockedError()
-
-        return (allocated_ip or block.allocate_ip(address=address))
+        if allocated_ip:
+            return allocated_ip
+        iface = Interface.create(virtual_interface_id=utils.generate_uuid())
+        return block.allocate_ip(address=address, interface_id=iface.id)
 
     @classmethod
     def delete_all_deallocated_ips(cls):
@@ -567,6 +570,10 @@ class IpBlock(ModelBase):
 class IpAddress(ModelBase):
 
     _data_fields = ['ip_block_id', 'address', 'version', 'used_by_tenant']
+
+    def _validate(self):
+        self._validate_presence_of("interface_id")
+        self._validate_existence_of("interface_id", Interface)
 
     @classmethod
     def _process_conditions(cls, raw_conditions):

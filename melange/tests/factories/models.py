@@ -47,6 +47,7 @@ class IpV6IpBlockFactory(IpBlockFactory):
 class IpAddressFactory(factory.Factory):
     FACTORY_FOR = models.IpAddress
     ip_block_id = factory.LazyAttribute(lambda a: IpBlockFactory().id)
+    interface_id = factory.LazyAttribute(lambda a: InterfaceFactory().id)
 
     @factory.lazy_attribute_sequence
     def address(ip, n):

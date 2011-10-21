@@ -753,6 +753,16 @@ class Interface(ModelBase):
     def none_object(cls):
         return Interface(id=None, virtual_interface_id=None, device_id=None)
 
+    def delete(self):
+        mac = MacAddress.get_by(interface_id=self.id)
+        if mac:
+            mac.delete()
+
+        for ip in IpAddress.find_all_allocated_ips(interface_id=self.id):
+            ip.deallocate()
+
+        super(Interface, self).delete()
+
     def _validate(self):
         self._validate_presence_of('virtual_interface_id')
 

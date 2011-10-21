@@ -1899,6 +1899,27 @@ class TestInterface(tests.BaseTest):
         self.assertEqual(interface.errors['virtual_interface_id'],
                          ["virtual_interface_id should be present"])
 
+    def test_delete_removes_mac_address(self):
+        interface = factory_models.InterfaceFactory()
+        mac_range = factory_models.MacAddressRangeFactory()
+        mac = mac_range.allocate_mac(interface_id=interface.id)
+
+        interface.delete()
+
+        self.assertIsNone(models.Interface.get(interface.id))
+        self.assertIsNone(models.MacAddress.get(mac.id))
+
+    def test_delete_deallocates_ips_on_interface(self):
+        interface = factory_models.InterfaceFactory()
+        ip1 = factory_models.IpAddressFactory(interface_id=interface.id)
+        ip2 = factory_models.IpAddressFactory(interface_id=interface.id)
+
+        interface.delete()
+
+        self.assertIsNone(models.Interface.get(interface.id))
+        self.assertTrue(models.IpAddress.get(ip1.id).locked())
+        self.assertTrue(models.IpAddress.get(ip2.id).locked())
+
 
 def _allocate_ip(block, interface_id=None, **kwargs):
     if interface_id is None:

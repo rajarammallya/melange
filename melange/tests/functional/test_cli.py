@@ -321,12 +321,14 @@ class TestAllocatedIpAddressCLI(tests.BaseTest):
         self.assertNotIn('"address": "20.1.1.1"', out)
 
     def test_list_with_tenant(self):
+        interface1 = factory_models.InterfaceFactory(tenant_id="tenant1")
+        interface2 = factory_models.InterfaceFactory(tenant_id="tenant2")
         factory_models.IpAddressFactory(address="10.1.1.1",
-                                        used_by_tenant="tenant_id")
+                                        interface_id=interface1.id)
         factory_models.IpAddressFactory(address="20.1.1.1",
-                                        used_by_tenant="other_tenant_id")
+                                        interface_id=interface2.id)
 
-        exitcode, out, err = run("allocated_ips list -t tenant_id")
+        exitcode, out, err = run("allocated_ips list -t tenant1")
 
         self.assertEqual(exitcode, 0)
         self.assertIn("ip_addresses", out)
@@ -350,7 +352,7 @@ class TestIpAddressCLI(tests.BaseTest):
 
         self.assertTrue(ip is not None)
         self.assertEqual(ip.address, "10.1.1.2")
-        self.assertEqual(ip.used_by_tenant, "used_by_tenant_id")
+        self.assertEqual(interface.tenant_id, "used_by_tenant_id")
         self.assertEqual(interface.device_id, "used_by_device_id")
 
     def test_list(self):

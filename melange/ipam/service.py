@@ -140,17 +140,13 @@ class IpAddressController(BaseController):
     def create(self, request, ip_block_id, tenant_id, body=None):
         ip_block = self._find_block(id=ip_block_id, tenant_id=tenant_id)
         params = self._extract_required_params(body, 'ip_address')
-        params['used_by_tenant'] = params.pop('tenant_id', None)
-        virtual_interface_id = params.pop('interface_id', None)
-        device_id = params.pop('used_by_device', None)
 
         interface = models.Interface.find_or_configure(
-            virtual_interface_id=virtual_interface_id,
-            device_id=device_id)
+            virtual_interface_id=params.pop('interface_id', None),
+            device_id=params.pop('used_by_device', None),
+            tenant_id=params.pop('tenant_id', None))
 
-        params['interface_id'] = interface.id if interface else None
-
-        ip_address = ip_block.allocate_ip(**params)
+        ip_address = ip_block.allocate_ip(interface=interface, **params)
         return wsgi.Result(dict(ip_address=ip_address.data()), 201)
 
     def restore(self, request, ip_block_id, address, tenant_id, body=None):
@@ -361,14 +357,13 @@ class InterfaceIpAllocationsController(BaseController):
         network = models.Network.find_or_create_by(network_id, tenant_id)
         params = self._extract_required_params(body, 'network')
         options = utils.filter_dict(params, "addresses", "mac_address")
-        options['used_by_tenant'] = params.get('tenant_id', None)
 
         interface = models.Interface.find_or_configure(
             virtual_interface_id=interface_id,
-            device_id=params.pop('used_by_device', None))
-        options['interface_id'] = interface.id if interface else None
+            device_id=params.pop('used_by_device', None),
+            tenant_id=params.get('tenant_id', None))
 
-        ips = network.allocate_ips(**options)
+        ips = network.allocate_ips(interface=interface, **options)
         ip_config_view = views.IpConfigurationView(*ips)
         return wsgi.Result(dict(ip_addresses=ip_config_view.data()), 201)
 

@@ -318,10 +318,7 @@ class IpBlock(ModelBase):
     def parent(self):
         return IpBlock.get(self.parent_id)
 
-    def allocate_ip(self, interface_id=None, address=None, used_by_tenant=None,
-                    used_by_device=None, **kwargs):
-
-        used_by_tenant = used_by_tenant or self.tenant_id
+    def allocate_ip(self, interface, address=None, **kwargs):
 
         if self.subnets():
             raise IpAllocationNotAllowedError(
@@ -329,28 +326,20 @@ class IpBlock(ModelBase):
         if self.is_full:
             raise exception.NoMoreAddressesError(_("IpBlock is full"))
         if address:
-            return self._allocate_specific_ip(address,
-                                             interface_id=interface_id,
-                                             used_by_tenant=used_by_tenant,
-                                             used_by_device=used_by_device)
-        return self._allocate_available_ip(interface_id=interface_id,
-                                           used_by_tenant=used_by_tenant,
-                                           used_by_device=used_by_device,
-                                           **kwargs)
+            return self._allocate_specific_ip(address, interface)
+        return self._allocate_available_ip(interface, **kwargs)
 
-    def _allocate_available_ip(self, interface_id=None, used_by_tenant=None,
-                               used_by_device=None, **kwargs):
+    def _allocate_available_ip(self, interface, **kwargs):
 
         max_allowed_retry = int(config.Config.get("ip_allocation_retries", 10))
 
         for retries in range(max_allowed_retry):
-            address = self._generate_ip_address(used_by_tenant=used_by_tenant,
-                                                **kwargs)
+            address = self._generate_ip_address(
+                used_by_tenant=interface.tenant_id, **kwargs)
             try:
                 return IpAddress.create(address=address,
                                         ip_block_id=self.id,
-                                        interface_id=interface_id,
-                                        used_by_tenant=used_by_tenant)
+                                        interface_id=interface.id)
 
             except exception.DBConstraintError as error:
                 LOG.debug("IP allocation retry count :{0}".format(retries + 1))
@@ -379,8 +368,7 @@ class IpBlock(ModelBase):
             self.update(is_full=True)
             raise exception.NoMoreAddressesError(_("IpBlock is full"))
 
-    def _allocate_specific_ip(self, address, interface_id=None,
-                              used_by_tenant=None, used_by_device=None):
+    def _allocate_specific_ip(self, address, interface):
 
         if not self.contains(address):
             raise AddressDoesNotBelongError(
@@ -396,9 +384,7 @@ class IpBlock(ModelBase):
 
         return IpAddress.create(address=address,
                                 ip_block_id=self.id,
-                                interface_id=interface_id,
-                                used_by_tenant=used_by_tenant,
-                                used_by_device=used_by_device)
+                                interface_id=interface.id)
 
     def _address_is_allocatable(self, policy, address):
         unavailable_addresses = [self.gateway, self.broadcast]
@@ -561,7 +547,7 @@ class IpBlock(ModelBase):
 
 class IpAddress(ModelBase):
 
-    _data_fields = ['ip_block_id', 'address', 'version', 'used_by_tenant']
+    _data_fields = ['ip_block_id', 'address', 'version']
 
     def _validate(self):
         self._validate_presence_of("interface_id")
@@ -652,8 +638,9 @@ class IpAddress(ModelBase):
     def data(self, **options):
         data = super(IpAddress, self).data(**options)
         iface = self.interface
-        data['used_by_device'] = iface.device_id if iface else None
-        data['interface_id'] = iface.virtual_interface_id if iface else None
+        data['used_by_tenant'] = iface.tenant_id
+        data['used_by_device'] = iface.device_id
+        data['interface_id'] = iface.virtual_interface_id
         return data
 
     def __str__(self):
@@ -729,22 +716,24 @@ class MacAddress(ModelBase):
 class Interface(ModelBase):
 
     @classmethod
-    def find_or_configure(cls, virtual_interface_id=None,
-                          device_id=None):
-        if virtual_interface_id is None and device_id is None:
-            return None
-
+    def find_or_configure(cls, virtual_interface_id=None, device_id=None,
+                          tenant_id=None):
         interface = Interface.get_by(virtual_interface_id=virtual_interface_id,
-                                     device_id=device_id)
+                                     device_id=device_id,
+                                     tenant_id=tenant_id)
         if interface is not None:
             return interface
 
-        return cls.create_and_configure(virtual_interface_id, device_id)
+        return cls.create_and_configure(virtual_interface_id,
+                                        device_id,
+                                        tenant_id)
 
     @classmethod
-    def create_and_configure(cls, virtual_interface_id=None, device_id=None):
+    def create_and_configure(cls, virtual_interface_id=None, device_id=None,
+                             tenant_id=None):
         interface = Interface.create(virtual_interface_id=virtual_interface_id,
-                                     device_id=device_id)
+                                     device_id=device_id,
+                                     tenant_id=tenant_id)
         if MacAddressRange.mac_allocation_enabled():
             MacAddressRange.allocate_next_free_mac(interface_id=interface.id)
         return interface
@@ -765,6 +754,15 @@ class Interface(ModelBase):
 
     def _validate(self):
         self._validate_presence_of('virtual_interface_id')
+        self._validate_uniqueness_of_virtual_interface_id()
+
+    def _validate_uniqueness_of_virtual_interface_id(self):
+        existing_interface = self.get_by(
+            virtual_interface_id=self.virtual_interface_id)
+        if existing_interface and self != existing_interface:
+            msg = ("Virtual Interface %s already exists")
+            self._add_error('virtual_interface_id',
+                            msg % self.virtual_interface_id)
 
 
 class Policy(ModelBase):

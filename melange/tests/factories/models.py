@@ -90,6 +90,7 @@ class InterfaceFactory(factory.Factory):
     virtual_interface_id = factory.LazyAttribute(lambda a:
                                                  utils.generate_uuid())
     device_id = "instance_id"
+    tenant_id = "RAX"
 
 
 class AllocatableIpFactory(factory.Factory):

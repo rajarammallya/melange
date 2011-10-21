@@ -438,12 +438,12 @@ class TestIpAddressController(BaseTestController):
         self.app.post_json(self._address_path(block),
                            {'ip_address': {
                                'tenant_id': "RAX",
-                               'interface_id': "virt_interface_id",
+                               'interface_id': "vif_id",
                                }
                             })
 
-        allocated_address = models.IpAddress.find_by(ip_block_id=block.id)
-        self.assertEqual(allocated_address.used_by_tenant, "RAX")
+        interface = models.Interface.find_by(virtual_interface_id="vif_id")
+        self.assertEqual(interface.tenant_id, "RAX")
 
     def test_create_given_the_device_using_the_ip(self):
         block = factory_models.IpBlockFactory()
@@ -481,8 +481,7 @@ class TestIpAddressController(BaseTestController):
                                                        ip_block_id=block.id)
         self.mock.StubOutWithMock(models.IpBlock, "allocate_ip")
 
-        models.IpBlock.allocate_ip(interface_id=mox.IgnoreArg(),
-                                   used_by_tenant="111",
+        models.IpBlock.allocate_ip(interface=mox.IgnoreArg(),
                                    mac_address="10:23:56:78:90:01",
                                    ).AndReturn(generated_ip)
 
@@ -509,14 +508,16 @@ class TestIpAddressController(BaseTestController):
         mac_range = factory_models.MacAddressRangeFactory(
             cidr="BC:AD:CE:0:0:0/40")
         block = factory_models.IpBlockFactory(cidr="10.0.0.0/24")
-        interface = factory_models.InterfaceFactory(
-                            virtual_interface_id="iface_id")
-        mac_range.allocate_mac(interface_id=interface.id)
+        iface = factory_models.InterfaceFactory(
+            virtual_interface_id="iface_id")
+        mac_range.allocate_mac(interface_id=iface.id)
 
         response = self.app.post_json(self._address_path(block),
                                       {'ip_address': {
                                           "interface_id": "iface_id",
-                                          "used_by_device": "instance_id"}
+                                          "used_by_device": iface.device_id,
+                                          "tenant_id": iface.tenant_id,
+                                          }
                                        })
 
         self.assertEqual(models.Interface.count(), 1)
@@ -865,7 +866,7 @@ class TestAllocatedIpAddressController(BaseTestController):
         block1_ips, block2_ips = _allocate_ips((ip_block1, 3), (ip_block2, 4))
 
         allocated_ips = models.sort(block1_ips + block2_ips)
-        response = self.app.get("/ipam/allocated_ip_addresses?"
+        response = self.app.get("/ipam/allocated_ip_addresses.json?"
                                 "limit=4&marker=%s" % allocated_ips[1].id)
         self.assertEqual(response.status_int, 200)
         self.assertEqual(len(response.json['ip_addresses']), 4)
@@ -877,11 +878,14 @@ class TestAllocatedIpAddressController(BaseTestController):
                                                tenant_id="1")
         block2 = factory_models.IpBlockFactory(cidr="20.0.0.0/24",
                                                tenant_id="2")
-        tenant1_ip1 = _allocate_ip(block1)
-        tenant1_ip2 = _allocate_ip(block2, used_by_tenant="1")
-        tenant2_ip1 = _allocate_ip(block2)
+        interface1 = factory_models.InterfaceFactory(tenant_id="tnt1")
+        interface2 = factory_models.InterfaceFactory(tenant_id="tnt2")
 
-        response = self.app.get("/ipam/tenants/1/allocated_ip_addresses.json")
+        tenant1_ip1 = _allocate_ip(block1, interface=interface1)
+        tenant1_ip2 = _allocate_ip(block2, interface=interface1)
+        tenant2_ip1 = _allocate_ip(block2, interface=interface2)
+
+        response = self.app.get("/ipam/tenants/tnt1/allocated_ip_addresses")
 
         self.assertItemsEqual(response.json['ip_addresses'],
                               _data([tenant1_ip1, tenant1_ip2]))
@@ -895,9 +899,9 @@ class TestAllocatedIpAddressController(BaseTestController):
         interface1 = factory_models.InterfaceFactory(device_id="1")
         interface2 = factory_models.InterfaceFactory(device_id="2")
 
-        instance1_ip1 = block1.allocate_ip(interface_id=interface1.id)
-        instance1_ip2 = block2.allocate_ip(interface_id=interface1.id)
-        instance2_ip1 = block2.allocate_ip(interface_id=interface2.id)
+        instance1_ip1 = _allocate_ip(block1, interface=interface1)
+        instance1_ip2 = _allocate_ip(block2, interface=interface1)
+        instance2_ip1 = _allocate_ip(block2, interface=interface2)
 
         response = self.app.get("/ipam/allocated_ip_addresses?"
                                 "used_by_device=1")
@@ -911,32 +915,34 @@ class TestAllocatedIpAddressController(BaseTestController):
         block2 = factory_models.IpBlockFactory(cidr="20.0.0.0/24",
                                                tenant_id="2")
 
-        interface1 = factory_models.InterfaceFactory(device_id="1")
-        interface2 = factory_models.InterfaceFactory(device_id="2")
-        tnt1_device1_ip1 = block1.allocate_ip(interface_id=interface1.id,
-                                              used_by_tenant="1")
-        tnt1_device1_ip2 = block2.allocate_ip(interface_id=interface1.id,
-                                              used_by_tenant="1")
-        tnt1_device2_ip1 = block1.allocate_ip(interface_id=interface2.id,
-                                              used_by_tenant="1")
-        tnt2_device1_ip1 = block2.allocate_ip(interface_id=interface1.id,
-                                              used_by_tenant="2")
+        interface1 = factory_models.InterfaceFactory(tenant_id="tnt1",
+                                                     device_id="device1")
+        interface2 = factory_models.InterfaceFactory(tenant_id="tnt1",
+                                                     device_id="device2")
+        interface3 = factory_models.InterfaceFactory(tenant_id="tnt2",
+                                                     device_id="device1")
 
-        response = self.app.get("/ipam/tenants/1/allocated_ip_addresses?"
-                                "used_by_device=1")
+        tnt1_device1_ip1 = block1.allocate_ip(interface=interface1)
+        tnt1_device1_ip2 = block2.allocate_ip(interface=interface1)
+        tnt1_device2_ip1 = block1.allocate_ip(interface=interface2)
+        tnt2_device1_ip1 = block2.allocate_ip(interface=interface3)
+
+        response = self.app.get("/ipam/tenants/tnt1/allocated_ip_addresses?"
+                                "used_by_device=device1")
 
         self.assertItemsEqual(response.json['ip_addresses'],
                               _data([tnt1_device1_ip1, tnt1_device1_ip2]))
 
     def test_index_doesnt_return_soft_deallocated_ips(self):
-        block = factory_models.IpBlockFactory(tenant_id="1")
+        block = factory_models.IpBlockFactory()
+        interface = factory_models.InterfaceFactory(tenant_id="tnt1")
 
-        ip1 = _allocate_ip(block)
-        ip2 = _allocate_ip(block)
-        ip3 = _allocate_ip(block)
+        ip1 = _allocate_ip(block, interface=interface)
+        ip2 = _allocate_ip(block, interface=interface)
+        ip3 = _allocate_ip(block, interface=interface)
 
         ip2.deallocate()
-        response = self.app.get("/ipam/tenants/1/allocated_ip_addresses")
+        response = self.app.get("/ipam/tenants/tnt1/allocated_ip_addresses")
 
         self.assertItemsEqual(response.json['ip_addresses'], _data([ip1, ip3]))
 
@@ -1905,7 +1911,7 @@ class TestInterfaceIpAllocationsController(BaseTestController):
 
         ip_address = models.IpAddress.find_by(ip_block_id=ip_block.id)
         interface = models.Interface.find(ip_address.interface_id)
-        self.assertEqual(ip_address.used_by_tenant, "RAX")
+        self.assertEqual(interface.tenant_id, "RAX")
         self.assertEqual(interface.virtual_interface_id, "123")
         self.assertEqual(interface.device_id, "instance_id")
 
@@ -1964,7 +1970,7 @@ class TestInterfaceIpAllocationsController(BaseTestController):
                                                         network_id=1)
 
         interface = factory_models.InterfaceFactory(virtual_interface_id="123")
-        ip = ip_block.allocate_ip(interface_id=interface.id)
+        ip = ip_block.allocate_ip(interface=interface)
 
         response = self.app.delete("{0}/networks/1/interfaces/123/"
                                    "ip_allocations".format(self.network_path))
@@ -1988,9 +1994,9 @@ class TestInterfaceIpAllocationsController(BaseTestController):
                              tenant_id="tnt_id")
         ipv6_block = factory(cidr="fe::/96", network_id=1, tenant_id="tnt_id")
         iface = factory_models.InterfaceFactory(virtual_interface_id="123")
-        ip1 = ipv4_block.allocate_ip(interface_id=iface.id)
-        ip2 = ipv4_block.allocate_ip(interface_id=iface.id)
-        ip3 = ipv6_block.allocate_ip(interface_id=iface.id,
+        ip1 = ipv4_block.allocate_ip(interface=iface)
+        ip2 = ipv4_block.allocate_ip(interface=iface)
+        ip3 = ipv6_block.allocate_ip(interface=iface,
                                      mac_address="aa:bb:cc:dd:ee:ff")
 
         response = self.app.get("{0}/networks/1/interfaces/123/"
@@ -2003,7 +2009,7 @@ class TestInterfaceIpAllocationsController(BaseTestController):
 
 def _allocate_ips(*args):
     interface = factory_models.InterfaceFactory()
-    return [models.sort([_allocate_ip(ip_block, interface_id=interface.id)
+    return [models.sort([_allocate_ip(ip_block, interface=interface)
                          for i in range(num_of_ips)])
             for ip_block, num_of_ips in args]
 
@@ -2014,7 +2020,7 @@ def _data(resource, **options):
     return [_data(model, **options) for model in resource]
 
 
-def _allocate_ip(block, interface_id=None, **kwargs):
-    if interface_id is None:
-        interface_id = factory_models.InterfaceFactory().id
-    return block.allocate_ip(interface_id=interface_id, **kwargs)
+def _allocate_ip(block, interface=None, **kwargs):
+    if interface is None:
+        interface = factory_models.InterfaceFactory()
+    return block.allocate_ip(interface=interface, **kwargs)

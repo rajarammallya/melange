@@ -177,14 +177,18 @@ def find_all_ips_in_network(network_id, **conditions):
            filter(ipam.models.IpBlock.network_id == network_id)
 
 
-def find_all_allocated_ips(model, used_by_device=None, **conditions):
+def find_all_allocated_ips(model, used_by_device=None, used_by_tenant=None,
+                           **conditions):
     query = _query_by(ipam.models.IpAddress, **conditions).\
             filter(or_(ipam.models.IpAddress.marked_for_deallocation == None,
                        ipam.models.IpAddress.marked_for_deallocation == False))
 
+    if used_by_device or used_by_tenant:
+        query = query.join(ipam.models.Interface)
     if used_by_device:
-        query = query.join(ipam.models.Interface).\
-                filter(ipam.models.Interface.device_id == used_by_device)
+        query = query.filter(ipam.models.Interface.device_id == used_by_device)
+    if used_by_tenant:
+        query = query.filter(ipam.models.Interface.tenant_id == used_by_tenant)
 
     return query
 

@@ -1032,20 +1032,24 @@ class TestInsideGlobalsController(BaseTestController):
         other_tenant_global_block = factory_models.PrivateIpBlockFactory(
             cidr="10.1.1.0/28", tenant_id="other_tenant_id")
 
+        local_ip = _allocate_ip(local_block)
+        global_ip = _allocate_ip(other_tenant_global_block)
+
         json_data = [{
             'ip_block_id': other_tenant_global_block.id,
-             'ip_address': "10.1.1.2",
+             'ip_address': global_ip.address,
             }]
         request_data = {'ip_addresses': json_data}
 
-        response = self.app.post_json(self._nat_path(local_block, "77.1.1.0"),
+        response = self.app.post_json(self._nat_path(local_block,
+                                                     local_ip.address),
                                       request_data, status="*")
 
         self.assertEqual(response.status_int, 404)
         self.assertErrorResponse(response, webob.exc.HTTPNotFound,
                                  "IpBlock Not Found")
 
-    def test_create_for_nonexistent_block(self):
+    def test_create_for_nonexistent_block_raises_not_found_error(self):
         non_existant_block_id = 1234
 
         url = "/ipam/tenants/tnt/ip_blocks/%s/ip_addresses/%s/inside_globals"
@@ -1061,7 +1065,7 @@ class TestInsideGlobalsController(BaseTestController):
         self.assertErrorResponse(response, webob.exc.HTTPNotFound,
                                  "IpBlock Not Found")
 
-    def test_create_for_nonexistent_block_for_given_tenant(self):
+    def test_create_for_nonexistent_block_for_given_tenant_raises_404(self):
         block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.0/24",
                                                      tenant_id="tnt_id")
 
@@ -1207,37 +1211,45 @@ class TestInsideLocalsController(BaseTestController):
         local_block1 = factory_models.PrivateIpBlockFactory(cidr="10.1.1.0/28")
         local_block2 = factory_models.PrivateIpBlockFactory(cidr="10.0.0.0/28")
 
+        global_ip = _allocate_ip(global_block)
+        local_ip1 = _allocate_ip(local_block1)
+        local_ip2 = _allocate_ip(local_block2)
+
         json_data = [
-            {'ip_block_id': local_block1.id, 'ip_address': "10.1.1.2"},
-            {'ip_block_id': local_block2.id, 'ip_address': "10.0.0.2"},
+            {'ip_block_id': local_block1.id, 'ip_address': local_ip1.address},
+            {'ip_block_id': local_block2.id, 'ip_address': local_ip2.address},
         ]
         request_data = {'ip_addresses': json_data}
-        response = self.app.post_json(self._nat_path(global_block, "77.1.1.0"),
+        response = self.app.post_json(self._nat_path(global_block,
+                                                     global_ip.address),
                                       request_data)
 
         self.assertEqual(response.status, "200 OK")
-        ips = global_block.find_allocated_ip("77.1.1.0").inside_locals()
-        inside_locals = [ip.address for ip in ips]
+        inside_locals = global_ip.inside_locals()
 
         self.assertEqual(len(inside_locals), 2)
-        self.assertTrue("10.1.1.2" in inside_locals)
-        self.assertTrue("10.0.0.2" in inside_locals)
-        local_ip = models.IpAddress.find_by(ip_block_id=local_block1.id,
-                                            address="10.1.1.2")
-        self.assertEqual(local_ip.inside_globals()[0].address, "77.1.1.0")
+        self.assertModelsEqual(inside_locals, [local_ip1, local_ip2])
+        self.assertEqual(inside_locals[0].inside_globals()[0].address,
+                         global_ip.address)
+        self.assertEqual(inside_locals[1].inside_globals()[0].address,
+                         global_ip.address)
 
     def test_create_throws_error_for_ips_of_other_tenants_blocks(self):
         global_block = factory_models.PublicIpBlockFactory(cidr="77.1.1.0/28")
         other_tenant_local_block = factory_models.PrivateIpBlockFactory(
             cidr="10.1.1.0/28", tenant_id="other_tenant_id")
 
+        global_ip = _allocate_ip(global_block)
+        local_ip = _allocate_ip(other_tenant_local_block)
+
         json_data = [{
             'ip_block_id': other_tenant_local_block.id,
-             'ip_address': "10.1.1.2",
+             'ip_address': local_ip.address,
             }]
         request_data = {'ip_addresses': json_data}
 
-        response = self.app.post_json(self._nat_path(global_block, "77.1.1.0"),
+        response = self.app.post_json(self._nat_path(global_block,
+                                                     global_ip.address),
                                       request_data, status="*")
 
         self.assertEqual(response.status_int, 404)

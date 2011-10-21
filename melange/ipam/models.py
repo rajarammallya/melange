@@ -265,17 +265,12 @@ class IpBlock(ModelBase):
                     'netmask']
 
     @classmethod
-    #TODO (Banka): This is not needed
-    def find_or_allocate_ip(cls, ip_block_id, address, tenant_id):
+    def find_allocated_ip(cls, ip_block_id, address, tenant_id):
         block = IpBlock.find_by(id=ip_block_id, tenant_id=tenant_id)
-        allocated_ip = IpAddress.get_by(ip_block_id=block.id, address=address)
-
-        if allocated_ip and allocated_ip.locked():
+        allocated_ip = block.find_ip(address=address)
+        if allocated_ip.locked():
             raise AddressLockedError()
-        if allocated_ip:
-            return allocated_ip
-        iface = Interface.create(virtual_interface_id=utils.generate_uuid())
-        return block.allocate_ip(address=address, interface_id=iface.id)
+        return allocated_ip
 
     @classmethod
     def delete_all_deallocated_ips(cls):
@@ -421,11 +416,8 @@ class IpBlock(ModelBase):
         other_network = netaddr.IPNetwork(other_block.cidr)
         return network in other_network or other_network in network
 
-    def find_allocated_ip(self, address):
-        ip_address = IpAddress.find_by(ip_block_id=self.id, address=address)
-        if ip_address is None:
-            raise ModelNotFoundError(_("IpAddress Not Found"))
-        return ip_address
+    def find_ip(self, address):
+        return IpAddress.find_by(ip_block_id=self.id, address=address)
 
     def deallocate_ip(self, address):
         ip_address = IpAddress.find_by(ip_block_id=self.id, address=address)

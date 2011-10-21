@@ -131,7 +131,7 @@ class IpAddressController(BaseController):
 
     def show(self, request, address, ip_block_id, tenant_id):
         ip_block = self._find_block(id=ip_block_id, tenant_id=tenant_id)
-        return dict(ip_address=ip_block.find_allocated_ip(address).data())
+        return dict(ip_address=ip_block.find_ip(address).data())
 
     def delete(self, request, address, ip_block_id, tenant_id):
         ip_block = self._find_block(id=ip_block_id, tenant_id=tenant_id)
@@ -155,7 +155,7 @@ class IpAddressController(BaseController):
 
     def restore(self, request, ip_block_id, address, tenant_id, body=None):
         ip_block = self._find_block(id=ip_block_id, tenant_id=tenant_id)
-        ip_address = ip_block.find_allocated_ip(address)
+        ip_address = ip_block.find_ip(address)
         ip_address.restore()
 
 
@@ -213,57 +213,55 @@ class IpRoutesController(BaseController):
 
 class InsideGlobalsController(BaseController):
 
-    #TODO (Banka) : create should only associate between already existing ips
     def create(self, request, ip_block_id, address, tenant_id, body=None):
-        local_ip = models.IpBlock.find_or_allocate_ip(ip_block_id,
-                                                      address,
-                                                      tenant_id)
+        local_ip = models.IpBlock.find_allocated_ip(ip_block_id,
+                                                    address,
+                                                    tenant_id)
         addresses = body['ip_addresses']
-        global_ips = [models.IpBlock.find_or_allocate_ip(ip["ip_block_id"],
-                                                         ip["ip_address"],
-                                                         tenant_id)
+        global_ips = [models.IpBlock.find_allocated_ip(ip["ip_block_id"],
+                                                       ip["ip_address"],
+                                                       tenant_id)
                       for ip in addresses]
         local_ip.add_inside_globals(global_ips)
 
     def index(self, request, ip_block_id, tenant_id, address):
         ip_block = models.IpBlock.find_by(id=ip_block_id, tenant_id=tenant_id)
-        ip = ip_block.find_allocated_ip(address)
+        ip = ip_block.find_ip(address)
         global_ips = ip.inside_globals(**self._extract_limits(request.params))
         return dict(ip_addresses=[ip.data() for ip in global_ips])
 
     def delete(self, request, ip_block_id, address, tenant_id,
                inside_globals_address=None):
         ip_block = models.IpBlock.find_by(id=ip_block_id, tenant_id=tenant_id)
-        local_ip = ip_block.find_allocated_ip(address)
+        local_ip = ip_block.find_ip(address)
         local_ip.remove_inside_globals(inside_globals_address)
 
 
 class InsideLocalsController(BaseController):
 
-    #TODO (Banka) : create should only associate between already existing ips
     def create(self, request, ip_block_id, address, tenant_id, body=None):
-        global_ip = models.IpBlock.find_or_allocate_ip(ip_block_id,
-                                                       address,
-                                                       tenant_id)
+        global_ip = models.IpBlock.find_allocated_ip(ip_block_id,
+                                                     address,
+                                                     tenant_id)
 
         addresses = body['ip_addresses']
-        local_ips = [models.IpBlock.find_or_allocate_ip(ip["ip_block_id"],
-                                                        ip["ip_address"],
-                                                        tenant_id)
+        local_ips = [models.IpBlock.find_allocated_ip(ip["ip_block_id"],
+                                                      ip["ip_address"],
+                                                      tenant_id)
                       for ip in addresses]
 
         global_ip.add_inside_locals(local_ips)
 
     def index(self, request, ip_block_id, address, tenant_id):
         ip_block = models.IpBlock.find_by(id=ip_block_id, tenant_id=tenant_id)
-        ip = ip_block.find_allocated_ip(address)
+        ip = ip_block.find_ip(address)
         local_ips = ip.inside_locals(**self._extract_limits(request.params))
         return dict(ip_addresses=[ip.data() for ip in local_ips])
 
     def delete(self, request, ip_block_id, address, tenant_id,
                inside_locals_address=None):
         ip_block = models.IpBlock.find_by(id=ip_block_id, tenant_id=tenant_id)
-        global_ip = ip_block.find_allocated_ip(address)
+        global_ip = ip_block.find_ip(address)
         global_ip.remove_inside_locals(inside_locals_address)
 
 

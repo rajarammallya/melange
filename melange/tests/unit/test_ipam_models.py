@@ -466,17 +466,17 @@ class TestIpBlock(tests.BaseTest):
     def test_find_ip_block_for_nonexistent_block(self):
         self.assertRaises(models.ModelNotFoundError, models.IpBlock.find, 123)
 
-    def test_find_allocated_ip(self):
+    def test_find_ip(self):
         block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.1/8")
         ip = _allocate_ip(block)
-        self.assertEqual(block.find_allocated_ip(ip.address).id, ip.id)
+        self.assertEqual(block.find_ip(ip.address).id, ip.id)
 
-    def test_find_allocated_ip_for_nonexistent_address(self):
+    def test_find_ip_for_nonexistent_address(self):
         block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.1/8")
 
         self.assertRaisesExcMessage(models.ModelNotFoundError,
                                     "IpAddress Not Found",
-                                    block.find_allocated_ip,
+                                    block.find_ip,
                                     "10.0.0.1")
 
     def test_policy(self):
@@ -735,23 +735,36 @@ class TestIpBlock(tests.BaseTest):
                           block.allocate_ip,
                           address="fe::2")
 
-    def test_find_or_allocate_ip(self):
+    def test_find_allocated_ip(self):
+        block = factory_models.PrivateIpBlockFactory()
+        actual_ip = _allocate_ip(block)
+
+        expected_ip = models.IpBlock.find_allocated_ip(block.id,
+                                                       actual_ip.address,
+                                                       block.tenant_id)
+
+        self.assertEqual(expected_ip, actual_ip)
+
+    def test_find_allocated_ip_raises_locked_error_for_deallocated_ips(self):
         block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.0/30")
+        ip = _allocate_ip(block)
 
-        models.IpBlock.find_or_allocate_ip(block.id,
-                                           '10.0.0.2',
-                                           block.tenant_id)
+        ip.deallocate()
 
-        address = models.IpAddress.find_by(ip_block_id=block.id,
-                                           address='10.0.0.2')
-        self.assertTrue(address is not None)
-
-    def test_find_or_allocate_ip_when_ip_block_not_belongs_to_tenant(self):
-        block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.0/30")
-        self.assertRaises(models.ModelNotFoundError,
-                          models.IpBlock.find_or_allocate_ip,
+        self.assertRaises(models.AddressLockedError,
+                          models.IpBlock.find_allocated_ip,
                           block.id,
-                          "10.0.0.2",
+                          ip.address,
+                          block.tenant_id)
+
+    def test_find_allocated_ip_when_ip_block_not_belongs_to_tenant(self):
+        block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.0/30")
+        ip = _allocate_ip(block)
+
+        self.assertRaises(models.ModelNotFoundError,
+                          models.IpBlock.find_allocated_ip,
+                          block.id,
+                          ip.address,
                           "wrong_tenant_id_for_block")
 
     def test_deallocate_ip(self):
@@ -762,7 +775,7 @@ class TestIpBlock(tests.BaseTest):
         block.deallocate_ip(ip.address)
 
         self.assertRaises(models.AddressLockedError,
-                          models.IpBlock.find_or_allocate_ip,
+                          models.IpBlock.find_allocated_ip,
                           block.id,
                           ip.address,
                           block.tenant_id)

@@ -760,7 +760,7 @@ class Interface(ModelBase):
         return data
 
     def _validate(self):
-        self._validate_presence_of('virtual_interface_id')
+        self._validate_presence_of('virtual_interface_id', 'tenant_id')
         self._validate_uniqueness_of_virtual_interface_id()
 
     def _validate_uniqueness_of_virtual_interface_id(self):

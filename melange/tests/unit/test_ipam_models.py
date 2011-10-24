@@ -1927,6 +1927,14 @@ class TestInterface(tests.BaseTest):
         self.assertEqual(dup_iface.errors['virtual_interface_id'],
                          ["Virtual Interface iface_id already exists"])
 
+    def test_validate_presence_of_tenant_id(self):
+        interface = factory_models.InterfaceFactory.build(
+            tenant_id=None)
+
+        self.assertFalse(interface.is_valid())
+        self.assertEqual(interface.errors['tenant_id'],
+                         ["tenant_id should be present"])
+
     def test_update(self):
         interface = factory_models.InterfaceFactory(device_id="device_id")
 

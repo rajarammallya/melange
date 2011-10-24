@@ -144,7 +144,7 @@ class IpAddressController(BaseController):
         interface = models.Interface.find_or_configure(
             virtual_interface_id=params.pop('interface_id', None),
             device_id=params.pop('used_by_device', None),
-            tenant_id=params.pop('tenant_id', None))
+            tenant_id=params.pop('tenant_id', tenant_id))
 
         ip_address = ip_block.allocate_ip(interface=interface, **params)
         return wsgi.Result(dict(ip_address=ip_address.data()), 201)
@@ -361,7 +361,7 @@ class InterfaceIpAllocationsController(BaseController):
         interface = models.Interface.find_or_configure(
             virtual_interface_id=interface_id,
             device_id=params.pop('used_by_device', None),
-            tenant_id=params.get('tenant_id', None))
+            tenant_id=params.get('tenant_id', tenant_id))
 
         ips = network.allocate_ips(interface=interface, **options)
         ip_config_view = views.IpConfigurationView(*ips)
@@ -384,15 +384,14 @@ class InterfacesController(BaseController):
 
     def create(self, request, body=None):
         params = self._extract_required_params(body, 'interface')
-        network_id = params.pop('network_id', None)
         params['virtual_interface_id'] = params.pop('interface_id', None)
-        ip_params = utils.filter_dict(params, "addresses", "mac_address")
-
+        network_params = utils.stringify_keys(params.pop('network', None))
         interface = models.Interface.create_and_configure(**params)
-        if network_id:
-            network = models.Network.find_or_create_by(network_id,
-                                                       params['tenant_id'])
-            network.allocate_ips(interface=interface, **ip_params)
+
+        if network_params:
+            network = models.Network.find_or_create_by(
+                network_params.pop('id'), params['tenant_id'])
+            network.allocate_ips(interface=interface, **network_params)
         return wsgi.Result(dict(interface=interface.data()), 201)
 
 

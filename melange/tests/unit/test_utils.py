@@ -15,19 +15,18 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import unittest
-
+from melange import tests
 from melange.common import utils
 
 
-class TestUtils(unittest.TestCase):
+class TestUtils(tests.BaseTest):
 
     def test_remove_nones(self):
         hash = utils.remove_nones(dict(a=1, b=None, c=3))
         self.assertEqual(hash, dict(a=1, c=3))
 
 
-class ParseIntTest(unittest.TestCase):
+class ParseIntTest(tests.BaseTest):
 
     def test_converts_invalid_int_to_none(self):
         self.assertEqual(utils.parse_int("a2z"), None)
@@ -39,7 +38,7 @@ class ParseIntTest(unittest.TestCase):
         self.assertEqual(utils.parse_int("123"), 123)
 
 
-class TestExclude(unittest.TestCase):
+class TestExclude(tests.BaseTest):
 
     def test_excludes_given_keys(self):
         dictionary = {'key1': "value1", 'key2': "value2", 'key3': "value3"}
@@ -51,8 +50,11 @@ class TestExclude(unittest.TestCase):
         self.assertEqual(utils.exclude(dictionary, 'key2', 'nonexistant'),
                          {'key1': "value1", 'key3': "value3"})
 
+    def test_returns_none_if_dict_is_none(self):
+        self.assertIsNone(utils.exclude(None, 'key1'))
 
-class TestFilterDict(unittest.TestCase):
+
+class TestFilterDict(tests.BaseTest):
 
     def test_filters_given_keys(self):
         dictionary = {'key1': "value1", 'key2': "value2", 'key3': "value3"}
@@ -64,8 +66,11 @@ class TestFilterDict(unittest.TestCase):
         self.assertEqual(utils.filter_dict(dictionary, 'key2', 'nonexistant'),
                          {'key2': "value2"})
 
+    def test_returns_none_if_dict_is_none(self):
+        self.assertIsNone(utils.filter_dict(None, 'key1'))
 
-class TestStringifyKeys(unittest.TestCase):
+
+class TestStringifyKeys(tests.BaseTest):
 
     def test_converts_keys_to_string(self):
         dictionary = {u'key1': "value1", 'key2': u"value2"}
@@ -73,6 +78,9 @@ class TestStringifyKeys(unittest.TestCase):
 
         for key in converted_dictionary:
             self.assertEqual(type(key), str)
+
+    def test_returns_none_if_dict_is_none(self):
+        self.assertIsNone(utils.stringify_keys(None))
 
 
 class Foo(object):
@@ -84,7 +92,7 @@ class Foo(object):
         return 42
 
 
-class TestCachedProperty(unittest.TestCase):
+class TestCachedProperty(tests.BaseTest):
     def test_retrives_the_value_returned_by_method(self):
         foo = Foo()
 
@@ -108,7 +116,7 @@ class TestCachedProperty(unittest.TestCase):
         self.assertTrue(isinstance(Foo.bar, utils.cached_property))
 
 
-class TestFind(unittest.TestCase):
+class TestFind(tests.BaseTest):
 
     def test_find_returns_first_item_matching_predicate(self):
         items = [1, 2, 3, 4]
@@ -125,7 +133,7 @@ class TestFind(unittest.TestCase):
         self.assertEqual(item, None)
 
 
-class TestMethodInspector(unittest.TestCase):
+class TestMethodInspector(tests.BaseTest):
 
     def test_method_without_optional_args(self):
         def foo(bar):

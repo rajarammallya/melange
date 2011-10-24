@@ -69,16 +69,22 @@ def utcnow():
 
 
 def exclude(key_values, *exclude_keys):
+    if key_values is None:
+        return None
     return dict((key, value) for key, value in key_values.iteritems()
                 if key not in exclude_keys)
 
 
 def filter_dict(key_values, *include_keys):
+    if key_values is None:
+        return None
     return dict((key, value) for key, value in key_values.iteritems()
                 if key in include_keys)
 
 
 def stringify_keys(dictionary):
+    if dictionary is None:
+        return None
     return dict((str(key), value) for key, value in dictionary.iteritems())
 
 

@@ -2007,6 +2007,60 @@ class TestInterfaceIpAllocationsController(BaseTestController):
                               response.json["ip_addresses"])
 
 
+class TestInterfaceController(BaseTestController):
+
+    def test_create_interface(self):
+        response = self.app.post_json("/ipam/interfaces",
+                                      {'interface': {
+                                          'interface_id': "virt_iface",
+                                          'device_id': "instance",
+                                          'tenant_id': "tnt",
+                                          }
+                                       })
+
+        self.assertEqual(response.status_int, 201)
+        created_interface = models.Interface.find_by(
+            virtual_interface_id='virt_iface')
+
+        self.assertEqual(created_interface.device_id, 'instance')
+        self.assertEqual(created_interface.tenant_id, 'tnt')
+        self.assertEqual(response.json['interface'], _data(created_interface))
+
+    def test_create_interface_allocates_mac(self):
+        factory_models.MacAddressRangeFactory()
+        self.app.post_json("/ipam/interfaces",
+                           {'interface': {
+                               'interface_id': "virt_iface",
+                               'device_id': "instance",
+                               'tenant_id': "tnt",
+                               }
+                            })
+
+        created_interface = models.Interface.find_by(
+            virtual_interface_id='virt_iface')
+        allocated_mac = models.MacAddress.get_by(
+            interface_id=created_interface.id)
+        self.assertIsNotNone(allocated_mac)
+
+    def test_create_interface_allocates_ips_from_network(self):
+        block = factory_models.IpBlockFactory(network_id="net1",
+                                              tenant_id="tnt1")
+        self.app.post_json("/ipam/interfaces",
+                           {'interface': {
+                               'interface_id': "virt_iface",
+                               'device_id': "instance",
+                               'tenant_id': "tnt1",
+                               'network_id': "net1"
+                               }
+                            })
+
+        created_interface = models.Interface.find_by(
+            virtual_interface_id='virt_iface')
+
+        allocated_ip = models.IpAddress.find_by(ip_block_id=block.id)
+        self.assertEquals(allocated_ip.interface_id, created_interface.id)
+
+
 def _allocate_ips(*args):
     interface = factory_models.InterfaceFactory()
     return [models.sort([_allocate_ip(ip_block, interface=interface)

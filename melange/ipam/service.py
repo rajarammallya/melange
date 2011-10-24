@@ -380,6 +380,22 @@ class InterfaceIpAllocationsController(BaseController):
         return dict(ip_addresses=ip_configuration_view.data())
 
 
+class InterfacesController(BaseController):
+
+    def create(self, request, body=None):
+        params = self._extract_required_params(body, 'interface')
+        network_id = params.pop('network_id', None)
+        params['virtual_interface_id'] = params.pop('interface_id', None)
+        ip_params = utils.filter_dict(params, "addresses", "mac_address")
+
+        interface = models.Interface.create_and_configure(**params)
+        if network_id:
+            network = models.Network.find_or_create_by(network_id,
+                                                       params['tenant_id'])
+            network.allocate_ips(interface=interface, **ip_params)
+        return wsgi.Result(dict(interface=interface.data()), 201)
+
+
 class API(wsgi.Router):
 
     def __init__(self):
@@ -396,6 +412,7 @@ class API(wsgi.Router):
         self._network_mapper(mapper)
         self._allocated_ips_mapper(mapper)
         self._ip_routes_mapper(mapper)
+        self._interface_mapper(mapper)
 
     def _allocated_ips_mapper(self, mapper):
         allocated_ips_res = AllocatedIpAddressesController().create_resource()
@@ -415,6 +432,11 @@ class API(wsgi.Router):
         path = ("/ipam/tenants/{tenant_id}/ip_blocks/{source_block_id}"
                 "/ip_routes")
         mapper.resource("ip_routes", path, controller=ip_routes_res)
+
+    def _interface_mapper(self, mapper):
+        interface_res = InterfacesController().create_resource()
+        path = ("/ipam/interfaces")
+        mapper.resource("ip_interfaces", path, controller=interface_res)
 
     def _network_mapper(self, mapper):
         path = ("/ipam/tenants/{tenant_id}/networks"

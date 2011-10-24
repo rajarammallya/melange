@@ -1955,6 +1955,17 @@ class TestInterface(tests.BaseTest):
         self.assertTrue(models.IpAddress.get(ip1.id).locked())
         self.assertTrue(models.IpAddress.get(ip2.id).locked())
 
+    def test_data(self):
+        interface = factory_models.InterfaceFactory()
+
+        data = interface.data()
+
+        self.assertEqual(data['id'], interface.virtual_interface_id)
+        self.assertEqual(data['device_id'], interface.device_id)
+        self.assertEqual(data['tenant_id'], interface.tenant_id)
+        self.assertEqual(data['created_at'], interface.created_at)
+        self.assertEqual(data['updated_at'], interface.updated_at)
+
 
 def _allocate_ip(block, interface=None, **kwargs):
     if interface is None:

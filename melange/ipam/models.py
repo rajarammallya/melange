@@ -715,6 +715,8 @@ class MacAddress(ModelBase):
 
 class Interface(ModelBase):
 
+    _data_fields = ["device_id", "tenant_id"]
+
     @classmethod
     def find_or_configure(cls, virtual_interface_id=None, device_id=None,
                           tenant_id=None):
@@ -751,6 +753,11 @@ class Interface(ModelBase):
             ip.deallocate()
 
         super(Interface, self).delete()
+
+    def data(self, **options):
+        data = super(Interface, self).data()
+        data['id'] = self.virtual_interface_id
+        return data
 
     def _validate(self):
         self._validate_presence_of('virtual_interface_id')

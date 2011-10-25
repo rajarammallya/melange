@@ -442,6 +442,58 @@ class TestIpRoutesCLI(tests.BaseTest):
         self.assertIsNone(models.IpRoute.get(ip_route.id))
 
 
+class TestInterfaceCLI(tests.BaseTest):
+
+    def test_create(self):
+        mac_range = factory_models.MacAddressRangeFactory()
+        exitcode, out, err = run("interface create vif_id tenant_id "
+                                 "device_id network_id")
+
+        self.assertEqual(exitcode, 0)
+        created_interface = models.Interface.find_by(
+            virtual_interface_id="vif_id")
+
+        self.assertEqual(created_interface.tenant_id, "tenant_id")
+        self.assertEqual(created_interface.device_id, "device_id")
+        self.assertIsNotNone(created_interface.mac_address_eui_format)
+        self.assertIsNotNone(created_interface.ip_addresses)
+
+    def test_show(self):
+        interface = factory_models.InterfaceFactory(
+            virtual_interface_id="vif_id", tenant_id="tenant_id")
+        mac = models.MacAddress.create(address="ab-bc-cd-12-23-34",
+                                       interface_id=interface.id)
+        ip1 = factory_models.IpAddressFactory(interface_id=interface.id)
+        ip2 = factory_models.IpAddressFactory(interface_id=interface.id)
+        noise_ip = factory_models.IpAddressFactory()
+
+        exitcode, out, err = run("interface show vif_id -t tenant_id")
+
+        self.assertEqual(exitcode, 0)
+        self.assertIn("vif_id", out)
+        self.assertIn(mac.eui_format, out)
+        self.assertIn(ip1.address, out)
+        self.assertIn(ip2.address, out)
+        self.assertNotIn(noise_ip.address, out)
+
+    def test_delete(self):
+        interface = factory_models.InterfaceFactory(
+            virtual_interface_id="vif_id")
+        mac = models.MacAddress.create(address="ab-bc-cd-12-23-34",
+                                       interface_id=interface.id)
+        ip1 = factory_models.IpAddressFactory(interface_id=interface.id)
+        ip2 = factory_models.IpAddressFactory(interface_id=interface.id)
+        noise_ip = factory_models.IpAddressFactory()
+
+        exitcode, out, err = run("interface delete vif_id")
+
+        self.assertEqual(exitcode, 0)
+        self.assertIsNone(models.Interface.get(interface.id))
+        self.assertIsNone(models.MacAddress.get(mac.id))
+        self.assertTrue(models.IpAddress.get(ip1.id).marked_for_deallocation)
+        self.assertTrue(models.IpAddress.get(ip2.id).marked_for_deallocation)
+
+
 class TestDBSyncCLI(tests.BaseTest):
 
     def test_db_sync_executes(self):

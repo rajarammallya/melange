@@ -386,7 +386,7 @@ class InterfacesController(BaseController):
 
     def create(self, request, body=None):
         params = self._extract_required_params(body, 'interface')
-        params['virtual_interface_id'] = params.pop('interface_id', None)
+        params['virtual_interface_id'] = params.pop('id', None)
         network_params = utils.stringify_keys(params.pop('network', None))
         interface = models.Interface.create_and_configure(**params)
 

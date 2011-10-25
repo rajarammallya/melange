@@ -66,14 +66,12 @@ class Resource(object):
 
 class BaseClient(object):
 
+    TENANT_ID_REQUIRED = True
+
     def __init__(self, client, auth_client, tenant_id):
         self.client = client
         self.auth_client = auth_client
         self.tenant_id = tenant_id
-
-    @classmethod
-    def is_tenant_id_required(cls):
-        return True
 
 
 class IpBlockClient(BaseClient):
@@ -199,16 +197,14 @@ class UnusableIpOctetsClient(BaseClient):
 
 class AllocatedIpAddressesClient(BaseClient):
 
+    TENANT_ID_REQUIRED = False
+
     def __init__(self, client, auth_client, tenant_id=None):
         self._resource = Resource("allocated_ip_addresses",
                                   "allocated_ip_addresses",
                                   client,
                                   auth_client,
                                   tenant_id)
-
-    @classmethod
-    def is_tenant_id_required(cls):
-        return False
 
     def list(self, used_by_device=None):
         return self._resource.all(used_by_device=used_by_device)
@@ -266,3 +262,29 @@ class IpRouteClient(BaseClient):
 
     def delete(self, ip_block_id, route_id):
         return self._resource(ip_block_id).delete(route_id)
+
+
+class InterfaceClient(BaseClient):
+
+    TENANT_ID_REQUIRED = False
+
+    def __init__(self, client, auth_client, tenant_id=None):
+        self._resource = Resource("interfaces",
+                                  "interface",
+                                  client,
+                                  auth_client,
+                                  tenant_id)
+
+    def create(self, vif_id, tenant_id, device_id=None, network_id=None):
+        request_params = dict(id=vif_id, tenant_id=tenant_id,
+                              device_id=device_id)
+        if network_id:
+            request_params['network'] = dict(id=network_id)
+
+        return self._resource.create(**request_params)
+
+    def show(self, vif_id):
+        return self._resource.find(vif_id)
+
+    def delete(self, vif_id):
+        return self._resource.delete(vif_id)

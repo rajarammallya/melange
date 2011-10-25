@@ -2035,7 +2035,7 @@ class TestInterfacesController(BaseTestController):
     def test_create_interface(self):
         response = self.app.post_json("/ipam/interfaces",
                                       {'interface': {
-                                          'interface_id': "virt_iface",
+                                          'id': "virt_iface",
                                           'device_id': "instance",
                                           'tenant_id': "tnt",
                                           }
@@ -2056,7 +2056,7 @@ class TestInterfacesController(BaseTestController):
 
         self.app.post_json("/ipam/interfaces",
                            {'interface': {
-                               'interface_id': "virt_iface",
+                               'id': "virt_iface",
                                'device_id': "instance",
                                'tenant_id': "tnt_id",
                                'network': {
@@ -2076,7 +2076,7 @@ class TestInterfacesController(BaseTestController):
         factory_models.MacAddressRangeFactory()
         self.app.post_json("/ipam/interfaces",
                            {'interface': {
-                               'interface_id': "virt_iface",
+                               'id': "virt_iface",
                                'device_id': "instance",
                                'tenant_id': "tnt",
                                }
@@ -2093,7 +2093,7 @@ class TestInterfacesController(BaseTestController):
                                               tenant_id="tnt1")
         self.app.post_json("/ipam/interfaces",
                            {'interface': {
-                               'interface_id': "virt_iface",
+                               'id': "virt_iface",
                                'device_id': "instance",
                                'tenant_id': "tnt1",
                                'network': {'id': "net1"}
@@ -2122,7 +2122,7 @@ class TestInterfacesController(BaseTestController):
 
         self.app.post_json("/ipam/interfaces",
                            {'interface': {
-                               'interface_id': "virt_iface",
+                               'id': "virt_iface",
                                'device_id': "instance",
                                'tenant_id': "tnt_id",
                                'mac_address': mac_address,
@@ -2141,7 +2141,7 @@ class TestInterfacesController(BaseTestController):
     def test_create_when_network_not_found_creates_default_cidr_block(self):
         self.app.post_json("/ipam/interfaces",
                            {'interface': {
-                               'interface_id': "virt_iface",
+                               'id': "virt_iface",
                                'device_id': "instance",
                                'tenant_id': "tnt_id",
                                'network': {'id': "net1"},

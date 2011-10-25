@@ -122,6 +122,7 @@ categories = {
     'allocated_ips': client.AllocatedIpAddressesClient,
     'ip_address': client.IpAddressesClient,
     'ip_route': client.IpRouteClient,
+    'interface': client.InterfaceClient,
 }
 
 
@@ -189,7 +190,7 @@ def main():
         print_keys(client_actions)
         sys.exit(2)
 
-    if category_client_class.is_tenant_id_required() and not options.tenant:
+    if category_client_class.TENANT_ID_REQUIRED and not options.tenant:
         print _("Please provide a tenant id for this action."
                 "You can use option '-t' to provide the tenant id.")
         sys.exit(2)

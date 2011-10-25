@@ -531,6 +531,17 @@ class TestDeleteDeallocatedIps(tests.BaseTest):
         deallocated_ip.update(deallocated_at=(new_deallocated_date))
 
 
+class TestMacAddressRangeCLI(tests.BaseTest):
+
+    def test_create(self):
+        exitcode, out, err = run("mac_address_range create "
+                                 "ab-bc-cd-12-23-34/24")
+
+        self.assertEqual(exitcode, 0)
+        self.assertIsNotNone(models.MacAddressRange.get_by(
+            cidr="ab-bc-cd-12-23-34/24"))
+
+
 def run_melange_manage(command):
     melange_manage = melange.melange_bin_path('melange-manage')
     config_file = functional.test_config_file()

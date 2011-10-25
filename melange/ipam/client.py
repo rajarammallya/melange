@@ -288,3 +288,18 @@ class InterfaceClient(BaseClient):
 
     def delete(self, vif_id):
         return self._resource.delete(vif_id)
+
+
+class MacAddressRangeClient(BaseClient):
+
+    TENANT_ID_REQUIRED = False
+
+    def __init__(self, client, auth_client, tenant_id=None):
+        self._resource = Resource("mac_address_ranges",
+                                  "mac_address_range",
+                                  client,
+                                  auth_client,
+                                  tenant_id)
+
+    def create(self, cidr):
+        return self._resource.create(cidr=cidr)

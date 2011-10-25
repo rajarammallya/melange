@@ -123,6 +123,7 @@ categories = {
     'ip_address': client.IpAddressesClient,
     'ip_route': client.IpRouteClient,
     'interface': client.InterfaceClient,
+    'mac_address_range': client.MacAddressRangeClient,
 }
 
 

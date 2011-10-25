@@ -408,6 +408,15 @@ class InterfacesController(BaseController):
         return dict(interface=view_data)
 
 
+class MacAddressRangesController(BaseController):
+
+    def create(self, request, body=None):
+        params = self._extract_required_params(body, 'mac_address_range')
+        mac_range = models.MacAddressRange.create(**params)
+
+        return wsgi.Result(dict(mac_address_range=mac_range.data()), 201)
+
+
 class API(wsgi.Router):
 
     def __init__(self):
@@ -425,6 +434,7 @@ class API(wsgi.Router):
         self._allocated_ips_mapper(mapper)
         self._ip_routes_mapper(mapper)
         self._interface_mapper(mapper)
+        self._mac_address_range_mapper(mapper)
 
     def _allocated_ips_mapper(self, mapper):
         allocated_ips_res = AllocatedIpAddressesController().create_resource()
@@ -453,6 +463,11 @@ class API(wsgi.Router):
                       controller=interface_res,
                       action="show",
                       conditions=dict(method=['GET']))
+
+    def _mac_address_range_mapper(self, mapper):
+        range_res = MacAddressRangesController().create_resource()
+        path = ("/ipam/mac_address_ranges")
+        mapper.resource("mac_address_ranges", path, controller=range_res)
 
     def _network_mapper(self, mapper):
         path = ("/ipam/tenants/{tenant_id}/networks"

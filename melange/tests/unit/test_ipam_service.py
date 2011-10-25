@@ -2194,6 +2194,19 @@ class TestInterfacesController(BaseTestController):
                          views.IpConfigurationView(*iface.ip_addresses).data())
 
 
+class TestMacAddressRangesController(BaseTestController):
+
+    def test_create(self):
+        params = {'mac_address_range': {'cidr': "ab-bc-cd-12-23-34/40"}}
+        response = self.app.post_json("/ipam/mac_address_ranges", params)
+
+        mac_range = models.MacAddressRange.get_by(cidr="ab-bc-cd-12-23-34/40")
+        self.assertEqual(response.status_int, 201)
+        self.assertIsNotNone(mac_range)
+        self.assertEqual(response.json['mac_address_range'],
+                         _data(mac_range))
+
+
 def _allocate_ips(*args):
     interface = factory_models.InterfaceFactory()
     return [models.sort([_allocate_ip(ip_block, interface=interface)

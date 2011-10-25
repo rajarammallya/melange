@@ -160,7 +160,7 @@ class AllocatedIpAddressesController(BaseController):
 
     def index(self, request, tenant_id=None):
         filter_conditions = utils.filter_dict(request.params, 'used_by_device')
-        if tenant_id is not None:
+        if tenant_id:
             filter_conditions['used_by_tenant'] = tenant_id
         ips = models.IpAddress.find_all_allocated_ips(**filter_conditions)
         return self._paginated_response('ip_addresses', ips, request)
@@ -401,6 +401,12 @@ class InterfacesController(BaseController):
         interface = models.Interface.find_by(virtual_interface_id=id)
         interface.delete()
 
+    def show(self, request, id, tenant_id=None):
+        interface = models.Interface.find_by(virtual_interface_id=id,
+                                             tenant_id=tenant_id)
+        view_data = views.InterfaceConfigurationView(interface).data()
+        return dict(interface=view_data)
+
 
 class API(wsgi.Router):
 
@@ -443,6 +449,10 @@ class API(wsgi.Router):
         interface_res = InterfacesController().create_resource()
         path = ("/ipam/interfaces")
         mapper.resource("ip_interfaces", path, controller=interface_res)
+        self._connect(mapper, "/ipam/tenants/{tenant_id}/interfaces/{id}",
+                      controller=interface_res,
+                      action="show",
+                      conditions=dict(method=['GET']))
 
     def _network_mapper(self, mapper):
         path = ("/ipam/tenants/{tenant_id}/networks"

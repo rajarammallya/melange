@@ -17,7 +17,6 @@
 import string
 import unittest
 
-import mox
 import netaddr
 import routes
 import webob.exc
@@ -2174,6 +2173,25 @@ class TestInterfacesController(BaseTestController):
         self.assertTrue(models.IpAddress.get(ip1.id).marked_for_deallocation)
         self.assertTrue(models.IpAddress.get(ip2.id).marked_for_deallocation)
         self.assertIsNone(models.MacAddress.get(mac.id))
+
+    def test_show_returns_allocated_ips(self):
+        iface = factory_models.InterfaceFactory(tenant_id="tnt_id",
+                                                virtual_interface_id="vif_id")
+        mac = models.MacAddress.create(address="ab:bc:cd:12:23:34",
+                                       interface_id=iface.id)
+        ip1 = factory_models.IpAddressFactory(interface_id=iface.id)
+        ip2 = factory_models.IpAddressFactory(interface_id=iface.id)
+        noise_ip = factory_models.IpAddressFactory()
+
+        response = self.app.get("/ipam/tenants/tnt_id/interfaces/vif_id")
+
+        self.assertEqual(response.status_int, 200)
+        iface_data = response.json["interface"]
+        self.assertEqual(iface_data['id'], iface.virtual_interface_id)
+        self.assertEqual(iface_data['mac_address'], mac.eui_format)
+        self.assertEqual(len(iface_data['ip_addresses']), 2)
+        self.assertEqual(iface_data['ip_addresses'],
+                         views.IpConfigurationView(*iface.ip_addresses).data())
 
 
 def _allocate_ips(*args):

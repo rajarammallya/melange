@@ -158,7 +158,7 @@ class ModelBase(object):
     def _validate_existence_of(self, attribute, model_class, **conditions):
         model_id = self[attribute]
         conditions['id'] = model_id
-        if model_id is not None and model_class.get_by(**conditions) is None:
+        if model_id and model_class.get_by(**conditions) is None:
             conditions_str = ", ".join(["{0} = {1}".format(key, repr(value))
                                      for key, value in conditions.iteritems()])
             model_class_name = model_class.__name__
@@ -363,7 +363,7 @@ class IpBlock(ModelBase):
                                  self._address_is_allocatable(policy, address),
                                  IpAddressIterator(generator))
 
-            if address is not None:
+            if address:
                 return address
 
             self.update(is_full=True)
@@ -727,7 +727,7 @@ class Interface(ModelBase):
         interface = Interface.get_by(virtual_interface_id=virtual_interface_id,
                                      device_id=device_id,
                                      tenant_id=tenant_id)
-        if interface is not None:
+        if interface:
             return interface
 
         return cls.create_and_configure(virtual_interface_id,
@@ -768,6 +768,10 @@ class Interface(ModelBase):
     @utils.cached_property
     def mac_address(self):
         return MacAddress.get_by(interface_id=self.id)
+
+    @property
+    def ip_addresses(self):
+        return IpAddress.find_all(interface_id=self.id).all()
 
     @property
     def mac_address_eui_format(self):
@@ -911,7 +915,7 @@ class Network(ModelBase):
     def _allocate_specific_ip(self, address, **kwargs):
         ip_block = utils.find(lambda ip_block: ip_block.contains(address),
                               self.ip_blocks)
-        if ip_block is not None:
+        if ip_block:
             try:
                 return ip_block.allocate_ip(address=address, **kwargs)
             except DuplicateAddressError:

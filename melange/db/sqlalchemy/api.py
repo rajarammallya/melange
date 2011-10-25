@@ -241,6 +241,6 @@ def _query_by(cls, **conditions):
 def _limits(query_func, model, conditions, limit, marker, marker_column=None):
     query = query_func(model, **conditions)
     marker_column = marker_column or model.id
-    if marker is not None:
+    if marker:
         query = query.filter(marker_column > marker)
     return query.order_by(marker_column).limit(limit)

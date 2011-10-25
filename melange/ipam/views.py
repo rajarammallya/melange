@@ -62,3 +62,16 @@ class IpConfigurationView(object):
             'gateway': route.gateway,
             'netmask': route.netmask,
             }
+
+
+class InterfaceConfigurationView(object):
+
+    def __init__(self, interface):
+        self.interface = interface
+
+    def data(self):
+        data = self.interface.data()
+        data['mac_address'] = self.interface.mac_address_eui_format
+        ip_addresses = self.interface.ip_addresses
+        data['ip_addresses'] = IpConfigurationView(*ip_addresses).data()
+        return data

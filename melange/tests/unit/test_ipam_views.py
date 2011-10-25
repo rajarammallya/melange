@@ -16,6 +16,7 @@
 #    under the License.
 
 from melange import tests
+from melange.ipam import models
 from melange.ipam import views
 from melange.tests.factories import models as factory_models
 
@@ -70,3 +71,28 @@ def _route_data(route):
         'gateway': route.gateway,
         'netmask': route.netmask,
         }
+
+
+class TestInterfaceConfigurationView(tests.BaseTest):
+
+    def test_data_returns_mac_address(self):
+        interface = factory_models.InterfaceFactory()
+        mac = models.MacAddress.create(interface_id=interface.id,
+                                       address="ab-bc-cd-12-23-34")
+
+        data = views.InterfaceConfigurationView(interface).data()
+
+        self.assertEqual(data['mac_address'], mac.eui_format)
+        self.assertEqual(data['id'], interface.virtual_interface_id)
+
+    def test_data_returns_ip_address_configuration_information(self):
+        interface = factory_models.InterfaceFactory()
+
+        ip1 = factory_models.IpAddressFactory(interface_id=interface.id)
+        ip2 = factory_models.IpAddressFactory(interface_id=interface.id)
+
+        data = views.InterfaceConfigurationView(interface).data()
+
+        self.assertEqual(len(data['ip_addresses']), 2)
+        self.assertEqual(data['ip_addresses'],
+                         views.IpConfigurationView(ip1, ip2).data())

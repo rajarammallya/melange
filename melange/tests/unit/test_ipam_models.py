@@ -2018,6 +2018,16 @@ class TestInterface(tests.BaseTest):
 
         self.assertIsNone(interface.mac_address_eui_format)
 
+    def test_ip_addresses(self):
+        interface = factory_models.InterfaceFactory()
+
+        ip1 = factory_models.IpAddressFactory(interface_id=interface.id)
+        ip2 = factory_models.IpAddressFactory(interface_id=interface.id)
+        noise_ip = factory_models.IpAddressFactory()
+
+        self.assertEqual(len(interface.ip_addresses), 2)
+        self.assertModelsEqual(interface.ip_addresses, [ip1, ip2])
+
 
 def _allocate_ip(block, interface=None, **kwargs):
     if interface is None:

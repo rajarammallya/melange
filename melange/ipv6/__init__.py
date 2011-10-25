@@ -29,8 +29,10 @@ def address_generator_factory(cidr, **kwargs):
     required_params = ip_generator.required_params\
         if hasattr(ip_generator, "required_params") else []
 
-    missing_params = set(required_params) - set(kwargs.keys())
+    not_none_kwargs = utils.remove_nones(kwargs)
+    missing_params = set(required_params) - set(not_none_kwargs.keys())
     if missing_params:
         raise exception.ParamsMissingError(_("Required params are missing: %s")
                                            % (', '.join(missing_params)))
+
     return ip_generator(cidr, **kwargs)

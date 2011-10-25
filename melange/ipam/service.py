@@ -144,7 +144,8 @@ class IpAddressController(BaseController):
         interface = models.Interface.find_or_configure(
             virtual_interface_id=params.pop('interface_id', None),
             device_id=params.pop('used_by_device', None),
-            tenant_id=params.pop('tenant_id', tenant_id))
+            tenant_id=params.pop('tenant_id', tenant_id),
+            mac_address=params.pop('mac_address', None))
 
         ip_address = ip_block.allocate_ip(interface=interface, **params)
         return wsgi.Result(dict(ip_address=ip_address.data()), 201)
@@ -356,14 +357,15 @@ class InterfaceIpAllocationsController(BaseController):
                      tenant_id, body=None):
         network = models.Network.find_or_create_by(network_id, tenant_id)
         params = self._extract_required_params(body, 'network')
-        options = utils.filter_dict(params, "addresses", "mac_address")
+        network_params = utils.filter_dict(params, "addresses")
 
         interface = models.Interface.find_or_configure(
             virtual_interface_id=interface_id,
-            device_id=params.pop('used_by_device', None),
-            tenant_id=params.get('tenant_id', tenant_id))
+            tenant_id=params.get('tenant_id', tenant_id),
+            device_id=params.get('used_by_device', None),
+            mac_address=params.get('mac_address', None))
 
-        ips = network.allocate_ips(interface=interface, **options)
+        ips = network.allocate_ips(interface=interface, **network_params)
         ip_config_view = views.IpConfigurationView(*ips)
         return wsgi.Result(dict(ip_addresses=ip_config_view.data()), 201)
 
@@ -390,9 +392,14 @@ class InterfacesController(BaseController):
 
         if network_params:
             network = models.Network.find_or_create_by(
-                network_params.pop('id'), params['tenant_id'])
+                network_params.pop('id'),
+                params['tenant_id'])
             network.allocate_ips(interface=interface, **network_params)
         return wsgi.Result(dict(interface=interface.data()), 201)
+
+    def delete(self, request, id):
+        interface = models.Interface.find_by(virtual_interface_id=id)
+        interface.delete()
 
 
 class API(wsgi.Router):

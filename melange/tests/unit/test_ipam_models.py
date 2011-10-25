@@ -257,7 +257,7 @@ class TestIpBlock(tests.BaseTest):
         self.assertEqual(ip_block.errors['cidr'],
                          ["cidr should be within parent block's cidr"])
 
-    def test_doesnot_perform_subnetting_validations_for_invalid__cidr(self):
+    def test_does_not_perform_subnetting_validations_for_invalid__cidr(self):
         factory = factory_models.PrivateIpBlockFactory
         parent_block = factory(cidr="10.0.0.0/28")
         ip_block = factory.build(cidr="10.0.0.20////29",
@@ -1426,6 +1426,16 @@ class TestMacAddress(tests.BaseTest):
         self.assertIsNotNone(mac)
         self.assertEqual(mac.eui_format, "BC-76-4E-20-00-00")
 
+    def test_mac_address_is_saved_in_int_format(self):
+        mac = models.MacAddress.create(address="BC-76-4E-20-00-00")
+        self.assertEqual(mac.address, int(netaddr.EUI("BC-76-4E-20-00-00")))
+
+        mac = mac.update(address="BC-76-4E-20-00-01")
+        self.assertEqual(mac.address, int(netaddr.EUI("BC-76-4E-20-00-01")))
+
+        mac = mac.update(address=int(netaddr.EUI("BC-76-4E-20-00-02")))
+        self.assertEqual(mac.address, int(netaddr.EUI("BC-76-4E-20-00-02")))
+
 
 class TestPolicy(tests.BaseTest):
 
@@ -1733,8 +1743,11 @@ class TestNetwork(tests.BaseTest):
                                                          tenant_id="111")
         network = models.Network.find_by(id=1, tenant_id="111")
         interface = factory_models.InterfaceFactory()
-        allocated_ips = network.allocate_ips(interface=interface,
-                                             mac_address="aa:bb:cc:dd:ee:ff")
+        models.MacAddress.create(interface_id=interface.id,
+                                 address="aa:bb:cc:dd:ee:ff")
+
+        allocated_ips = network.allocate_ips(interface=interface)
+
         allocated_ip_blocks_ids = [ip.ip_block_id for ip in allocated_ips]
         self.assertEqual(len(allocated_ips), 2)
         self.assertItemsEqual(allocated_ip_blocks_ids,
@@ -1815,15 +1828,15 @@ class TestNetwork(tests.BaseTest):
 
         network = models.Network(id=1, ip_blocks=[ip_block1, ip_block2])
         interface = factory_models.InterfaceFactory()
-
-        ips = network.allocate_ips(interface=interface,
-                                   mac_address="00:22:11:77:88:22")
+        ip1 = factory_models.IpAddressFactory(ip_block_id=ip_block1.id,
+                                              interface_id=interface.id)
+        ip2 = factory_models.IpAddressFactory(ip_block_id=ip_block2.id,
+                                              interface_id=interface.id)
 
         network.deallocate_ips(interface_id=interface.id)
 
-        for ip in ips:
-            ip_address = models.IpAddress.get(ip.id)
-            self.assertTrue(ip_address.marked_for_deallocation)
+        self.assertTrue(models.IpAddress.get(ip1.id).marked_for_deallocation)
+        self.assertTrue(models.IpAddress.get(ip2.id).marked_for_deallocation)
 
     def test_retrives_allocated_ips(self):
         ip_block1 = factory_models.IpBlockFactory(network_id=1,
@@ -1900,6 +1913,17 @@ class TestInterface(tests.BaseTest):
         mac = models.MacAddress.find_by(mac_address_range_id=mac_range.id)
         self.assertEqual(mac.interface_id, interface.id)
 
+    def test_find_or_configure_allocates_mac_for_given_mac_address(self):
+        interface = models.Interface.find_or_configure(
+            virtual_interface_id="new_interface",
+            tenant_id="tenant",
+            mac_address="ab:bc:cd:01:12:23")
+
+        mac = models.MacAddress.find_by(interface_id=interface.id)
+        self.assertEqual(mac.eui_format,
+                         str(netaddr.EUI("ab:bc:cd:01:12:23")))
+        self.assertEqual(mac.address, int(netaddr.EUI("ab:bc:cd:01:12:23")))
+
     def test_find_or_configure_cant_allocate_mac_if_allocation_disabled(self):
         self.assertFalse(models.MacAddressRange.mac_allocation_enabled())
 
@@ -1973,6 +1997,26 @@ class TestInterface(tests.BaseTest):
         self.assertEqual(data['tenant_id'], interface.tenant_id)
         self.assertEqual(data['created_at'], interface.created_at)
         self.assertEqual(data['updated_at'], interface.updated_at)
+
+    def test_mac_address(self):
+        interface = factory_models.InterfaceFactory()
+        mac = models.MacAddress.create(interface_id=interface.id,
+                                       address="ab:bc:cd:12:23:34")
+
+        self.assertEqual(interface.mac_address, mac)
+
+    def test_returns_eui_formatted_mac_address(self):
+        interface = factory_models.InterfaceFactory()
+        models.MacAddress.create(interface_id=interface.id,
+                                 address="ab:bc:cd:12:23:34")
+
+        self.assertEqual(interface.mac_address_eui_format,
+                         str(netaddr.EUI("ab-bc-cd-12-23-34")))
+
+    def test_mac_address_eui_format_is_none_when_no_mac_address(self):
+        interface = factory_models.InterfaceFactory()
+
+        self.assertIsNone(interface.mac_address_eui_format)
 
 
 def _allocate_ip(block, interface=None, **kwargs):

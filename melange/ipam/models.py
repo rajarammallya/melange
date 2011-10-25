@@ -330,12 +330,13 @@ class IpBlock(ModelBase):
         return self._allocate_available_ip(interface, **kwargs)
 
     def _allocate_available_ip(self, interface, **kwargs):
-
         max_allowed_retry = int(config.Config.get("ip_allocation_retries", 10))
 
         for retries in range(max_allowed_retry):
             address = self._generate_ip_address(
-                used_by_tenant=interface.tenant_id, **kwargs)
+                used_by_tenant=interface.tenant_id,
+                mac_address=interface.mac_address_eui_format,
+                **kwargs)
             try:
                 return IpAddress.create(address=address,
                                         ip_block_id=self.id,
@@ -712,6 +713,9 @@ class MacAddress(ModelBase):
     def eui_format(self):
         return str(netaddr.EUI(self.address))
 
+    def _before_save(self):
+        self.address = int(netaddr.EUI(self.address))
+
 
 class Interface(ModelBase):
 
@@ -719,7 +723,7 @@ class Interface(ModelBase):
 
     @classmethod
     def find_or_configure(cls, virtual_interface_id=None, device_id=None,
-                          tenant_id=None):
+                          tenant_id=None, mac_address=None):
         interface = Interface.get_by(virtual_interface_id=virtual_interface_id,
                                      device_id=device_id,
                                      tenant_id=tenant_id)
@@ -728,15 +732,17 @@ class Interface(ModelBase):
 
         return cls.create_and_configure(virtual_interface_id,
                                         device_id,
-                                        tenant_id)
+                                        tenant_id, mac_address)
 
     @classmethod
     def create_and_configure(cls, virtual_interface_id=None, device_id=None,
-                             tenant_id=None):
+                             tenant_id=None, mac_address=None):
         interface = Interface.create(virtual_interface_id=virtual_interface_id,
                                      device_id=device_id,
                                      tenant_id=tenant_id)
-        if MacAddressRange.mac_allocation_enabled():
+        if mac_address:
+            MacAddress.create(address=mac_address, interface_id=interface.id)
+        elif MacAddressRange.mac_allocation_enabled():
             MacAddressRange.allocate_next_free_mac(interface_id=interface.id)
         return interface
 
@@ -758,6 +764,15 @@ class Interface(ModelBase):
         data = super(Interface, self).data()
         data['id'] = self.virtual_interface_id
         return data
+
+    @utils.cached_property
+    def mac_address(self):
+        return MacAddress.get_by(interface_id=self.id)
+
+    @property
+    def mac_address_eui_format(self):
+        if self.mac_address:
+            return self.mac_address.eui_format
 
     def _validate(self):
         self._validate_presence_of('virtual_interface_id', 'tenant_id')

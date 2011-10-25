@@ -470,7 +470,7 @@ class TestIpAddressController(BaseTestController):
         interface = models.Interface.find(allocated_address.interface_id)
         self.assertEqual(interface.device_id, "instance_id")
 
-    def test_create_ipv6_address_fails_when_mac_address_not_given(self):
+    def test_create_ipv6_address_fails_when_mac_address_not_allocated(self):
         block = factory_models.IpBlockFactory(cidr="ff::/64")
 
         response = self.app.post_json(self._address_path(block),
@@ -482,6 +482,14 @@ class TestIpAddressController(BaseTestController):
 
     def test_create_passes_request_params_to_ipv6_allocation_algorithm(self):
         block = factory_models.IpBlockFactory(cidr="ff::/64")
+
+        ipv6_generator = mock_generator.MockIpV6Generator("ff::/64")
+        self.mock.StubOutWithMock(ipv6, "address_generator_factory")
+        ipv6.address_generator_factory("ff::/64",
+                                       mac_address="10-23-56-78-90-01",
+                                       used_by_tenant="111").\
+                                       AndReturn(ipv6_generator)
+
         params = {
             'ip_address': {
                 "interface_id": "123",
@@ -489,13 +497,6 @@ class TestIpAddressController(BaseTestController):
                 'tenant_id': "111",
                 },
             }
-        generated_ip = factory_models.IpAddressFactory(address="ff::1",
-                                                       ip_block_id=block.id)
-        self.mock.StubOutWithMock(models.IpBlock, "allocate_ip")
-
-        models.IpBlock.allocate_ip(interface=mox.IgnoreArg(),
-                                   mac_address="10:23:56:78:90:01",
-                                   ).AndReturn(generated_ip)
 
         self.mock.ReplayAll()
         response = self.app.post_json(self._address_path(block), params)
@@ -1950,7 +1951,7 @@ class TestInterfaceIpAllocationsController(BaseTestController):
                          "AD-BC-CE-00-00-00")
 
     def test_create_allocates_v6_address_with_given_params(self):
-        mac_address = "11:22:33:44:55:66"
+        mac_address = "11-22-33-44-55-66"
         ipv6_generator = mock_generator.MockIpV6Generator("fe::/96")
         ipv6_block = factory_models.PrivateIpBlockFactory(tenant_id="tnt_id",
                                                           network_id=1,
@@ -2015,10 +2016,12 @@ class TestInterfaceIpAllocationsController(BaseTestController):
                              tenant_id="tnt_id")
         ipv6_block = factory(cidr="fe::/96", network_id=1, tenant_id="tnt_id")
         iface = factory_models.InterfaceFactory(virtual_interface_id="123")
+        models.MacAddress.create(interface_id=iface.id,
+                                 address="aa:bb:cc:dd:ee:ff")
+
         ip1 = ipv4_block.allocate_ip(interface=iface)
         ip2 = ipv4_block.allocate_ip(interface=iface)
-        ip3 = ipv6_block.allocate_ip(interface=iface,
-                                     mac_address="aa:bb:cc:dd:ee:ff")
+        ip3 = ipv6_block.allocate_ip(interface=iface)
 
         response = self.app.get("{0}/networks/1/interfaces/123/"
                                 "ip_allocations".format(self.network_path))
@@ -2105,7 +2108,7 @@ class TestInterfacesController(BaseTestController):
         self.assertEquals(allocated_ip.interface_id, created_interface.id)
 
     def test_create_allocates_v6_address_with_given_params(self):
-        mac_address = "11:22:33:44:55:66"
+        mac_address = "11-22-33-44-55-66"
         ipv6_generator = mock_generator.MockIpV6Generator("fe::/96")
         ipv6_block = factory_models.PrivateIpBlockFactory(tenant_id="tnt_id",
                                                           network_id="net1",
@@ -2123,9 +2126,9 @@ class TestInterfacesController(BaseTestController):
                                'interface_id': "virt_iface",
                                'device_id': "instance",
                                'tenant_id': "tnt_id",
+                               'mac_address': mac_address,
                                'network': {
                                    'id': "net1",
-                                   'mac_address': mac_address,
                                    },
                                },
                             })
@@ -2153,6 +2156,24 @@ class TestInterfacesController(BaseTestController):
         self.assertEqual(created_block.cidr, config.Config.get('default_cidr'))
         self.assertEqual(created_block.type, "private")
         self.assertEqual(created_block.tenant_id, "tnt_id")
+
+    def test_delete_deallocates_mac_and_ips_too(self):
+        ip_block1 = factory_models.PrivateIpBlockFactory(tenant_id="tnt_id",
+                                                        network_id="1")
+        ip_block2 = factory_models.PrivateIpBlockFactory(tenant_id="tnt_id",
+                                                         network_id="1")
+        mac_range = factory_models.MacAddressRangeFactory()
+        interface = factory_models.InterfaceFactory(virtual_interface_id="123")
+        mac = mac_range.allocate_mac(interface_id=interface.id)
+        ip1 = ip_block1.allocate_ip(interface=interface)
+        ip2 = ip_block2.allocate_ip(interface=interface)
+
+        response = self.app.delete("/ipam/interfaces/123")
+
+        self.assertEqual(response.status_int, 200)
+        self.assertTrue(models.IpAddress.get(ip1.id).marked_for_deallocation)
+        self.assertTrue(models.IpAddress.get(ip2.id).marked_for_deallocation)
+        self.assertIsNone(models.MacAddress.get(mac.id))
 
 
 def _allocate_ips(*args):

@@ -2047,7 +2047,8 @@ class TestInterfacesController(BaseTestController):
 
         self.assertEqual(created_interface.device_id, 'instance')
         self.assertEqual(created_interface.tenant_id, 'tnt')
-        self.assertEqual(response.json['interface'], _data(created_interface))
+        self.assertEqual(response.json['interface']['tenant_id'], "tnt")
+        self.assertEqual(response.json['interface']['device_id'], "instance")
 
     def test_create_with_given_address_in_network_details(self):
         ip_block = factory_models.PrivateIpBlockFactory(tenant_id="tnt_id",
@@ -2074,7 +2075,7 @@ class TestInterfacesController(BaseTestController):
 
     def test_create_interface_allocates_mac(self):
         factory_models.MacAddressRangeFactory()
-        self.app.post_json("/ipam/interfaces",
+        response = self.app.post_json("/ipam/interfaces",
                            {'interface': {
                                'id': "virt_iface",
                                'device_id': "instance",
@@ -2087,6 +2088,8 @@ class TestInterfacesController(BaseTestController):
         allocated_mac = models.MacAddress.get_by(
             interface_id=created_interface.id)
         self.assertIsNotNone(allocated_mac)
+        self.assertEqual(response.json['interface']['mac_address'],
+                         allocated_mac.eui_format)
 
     def test_create_interface_allocates_ips_from_network(self):
         block = factory_models.IpBlockFactory(network_id="net1",

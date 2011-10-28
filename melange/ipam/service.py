@@ -395,7 +395,9 @@ class InterfacesController(BaseController):
                 network_params.pop('id'),
                 params['tenant_id'])
             network.allocate_ips(interface=interface, **network_params)
-        return wsgi.Result(dict(interface=interface.data()), 201)
+
+        view_data = views.InterfaceConfigurationView(interface).data()
+        return wsgi.Result(dict(interface=view_data), 201)
 
     def delete(self, request, id):
         interface = models.Interface.find_by(virtual_interface_id=id)

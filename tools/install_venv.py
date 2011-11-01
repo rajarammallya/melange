@@ -20,7 +20,7 @@
 #    under the License.
 
 """
-Installation script for Nova's development virtualenv
+Installation script for Melange's development virtualenv
 """
 
 import os
@@ -29,7 +29,7 @@ import sys
 
 
 ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-VENV = os.path.join(ROOT, '.nova-venv')
+VENV = os.path.join(ROOT, '.melange-venv')
 PIP_REQUIRES = os.path.join(ROOT, 'tools', 'pip-requires')
 PY_VERSION = "python%s.%s" % (sys.version_info[0], sys.version_info[1])
 
@@ -77,7 +77,7 @@ def check_dependencies():
             print 'Installing virtualenv via easy_install...',
             if not (run_command(['which', 'easy_install']) and
                     run_command(['easy_install', 'virtualenv'])):
-                die('ERROR: virtualenv not found.\n\nNova development'
+                die('ERROR: virtualenv not found.\n\nMelange development'
                     ' requires virtualenv, please install it using your'
                     ' favorite package management tool')
             print 'done.'
@@ -110,24 +110,24 @@ def install_dependencies(venv=VENV):
                  "openstack-skeleton.git#egg=skeleton"],
                 redirect_output=False)
 
-    # Tell the virtual env how to "import nova"
+    # Tell the virtual env how to "import melange"
     pthfile = os.path.join(venv, "lib", PY_VERSION, "site-packages",
-                        "nova.pth")
+                        "melange.pth")
     f = open(pthfile, 'w')
     f.write("%s\n" % ROOT)
 
 
 def print_help():
     help = """
-    Nova development environment setup is complete.
+    Melange development environment setup is complete.
 
-    Nova development uses virtualenv to track and manage Python dependencies
-    while in development and testing.
+    Melange development uses virtualenv to track and manage Python
+    dependencies while in development and testing.
 
-    To activate the Nova virtualenv for the extent of your current shell
+    To activate the Melange virtualenv for the extent of your current shell
     session you can run:
 
-    $ source .nova-venv/bin/activate
+    $ source .melange-venv/bin/activate
 
     Or, if you prefer, you can run commands in the virtualenv on a case by case
     basis by running:

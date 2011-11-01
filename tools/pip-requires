@@ -2,6 +2,7 @@ SQLAlchemy
 pep8
 pylint
 eventlet
+kombu==1.0.4
 routes
 WebOb
 mox

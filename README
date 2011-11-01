@@ -1,5 +1,5 @@
 # Running Melange App
->cd <nova_root>
+>cd <melange_root>
 >cp etc/melange/melange.conf.sample  ~/melange.conf
 >bin/melange-manage db_sync
 >bin/melange

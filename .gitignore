@@ -1,13 +1,10 @@
 *.pyc
 *.DS_Store
 local_settings.py
-CA/
 keeper
-instances
-keys
 build/*
 build-stamp
-nova.egg-info
-.nova-venv
+melange.egg-info
+.melange-venv
 *.sqlite
 *.log

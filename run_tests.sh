@@ -4,7 +4,7 @@ set -eu
 
 function usage {
   echo "Usage: $0 [OPTION]..."
-  echo "Run Nova's test suite(s)"
+  echo "Run Melange's test suite(s)"
   echo ""
   echo "  -V, --virtual-env        Always use virtualenv.  Install automatically if not present"
   echo "  -N, --no-virtual-env     Don't use virtualenv.  Run tests in local environment"
@@ -40,7 +40,7 @@ function process_option {
   esac
 }
 
-venv=.nova-venv
+venv=.melange-venv
 with_venv=tools/with_venv.sh
 always_venv=0
 never_venv=0
@@ -57,9 +57,9 @@ for arg in "$@"; do
   process_option $arg
 done
 
-# If enabled, tell nose to collect coverage data 
+# If enabled, tell nose to collect coverage data
 if [ $coverage -eq 1 ]; then
-    noseopts="$noseopts --with-coverage --cover-package=nova"
+    noseopts="$noseopts --with-coverage --cover-package=melange"
 fi
 
 function run_tests {
@@ -81,14 +81,12 @@ function run_tests {
 function run_pep8 {
   echo "Running pep8 ..."
   # Opt-out files from pep8
-  ignore_scripts="*.sh:*nova-debug:*clean-vlans"
+  ignore_scripts="*.sh:*melange-debug:*clean-vlans"
   ignore_files="*eventlet-patch:*pip-requires"
-  ignore_dirs="*ajaxterm*"
   GLOBIGNORE="$ignore_scripts:$ignore_files:$ignore_dirs"
-  srcfiles=`find bin -type f ! -name "nova.conf*"`
+  srcfiles=`find bin -type f ! -name "melange.conf*"`
   srcfiles+=" `find tools/*`"
-  srcfiles+=" nova setup.py plugins/xenserver/xenapi/etc/xapi.d/plugins/glance"
-  srcfiles+=" bin melange"
+  srcfiles+=" setup.py bin"
   # Just run PEP8 in current environment
   #
   # NOTE(sirp): W602 (deprecated 3-arg raise) is being ignored for the

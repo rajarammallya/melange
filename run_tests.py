@@ -57,18 +57,17 @@ To run a single test module:
 
 import gettext
 import heapq
+import logging
 import os
 import unittest
 import sys
 import time
 
-gettext.install('nova', unicode=1)
+gettext.install('melange', unicode=1)
 
 from nose import config
 from nose import core
 from nose import result
-
-from nova import log as logging
 
 
 class _AnsiColorizer(object):
@@ -193,7 +192,7 @@ def get_elapsed_time_color(elapsed_time):
         return 'green'
 
 
-class NovaTestResult(result.TextTestResult):
+class MelangeTestResult(result.TextTestResult):
     def __init__(self, *args, **kw):
         self.show_elapsed = kw.pop('show_elapsed')
         result.TextTestResult.__init__(self, *args, **kw)
@@ -304,17 +303,17 @@ class NovaTestResult(result.TextTestResult):
             self.stream.flush()
 
 
-class NovaTestRunner(core.TextTestRunner):
+class MelangeTestRunner(core.TextTestRunner):
     def __init__(self, *args, **kwargs):
         self.show_elapsed = kwargs.pop('show_elapsed')
         core.TextTestRunner.__init__(self, *args, **kwargs)
 
     def _makeResult(self):
-        return NovaTestResult(self.stream,
-                              self.descriptions,
-                              self.verbosity,
-                              self.config,
-                              show_elapsed=self.show_elapsed)
+        return MelangeTestResult(self.stream,
+                                 self.descriptions,
+                                 self.verbosity,
+                                 self.config,
+                                 show_elapsed=self.show_elapsed)
 
     def _writeSlowTests(self, result_):
         # Pare out 'fast' tests
@@ -336,28 +335,33 @@ class NovaTestRunner(core.TextTestRunner):
 
 
 if __name__ == '__main__':
-    logging.setup()
-    # If any argument looks like a test name but doesn't have "nova.tests" in
+    logger = logging.getLogger()
+    hdlr = logging.StreamHandler()
+    formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+    hdlr.setFormatter(formatter)
+    logger.addHandler(hdlr)
+    logger.setLevel(logging.DEBUG)
+    # If any argument looks like a test name but doesn't have "melange.tests" in
     # front of it, automatically add that so we don't have to type as much
     show_elapsed = True
     argv = []
     for x in sys.argv:
         if x.startswith('test_'):
-            argv.append('nova.tests.%s' % x)
+            argv.append('melange.tests.%s' % x)
         elif x.startswith('--hide-elapsed'):
             show_elapsed = False
         else:
             argv.append(x)
 
-    testdir = os.path.abspath(os.path.join("nova", "tests"))
+    testdir = os.path.abspath(os.path.join("melange", "tests"))
     c = config.Config(stream=sys.stdout,
                       env=os.environ,
                       verbosity=3,
                       workingDir=testdir,
                       plugins=core.DefaultPluginManager())
 
-    runner = NovaTestRunner(stream=c.stream,
-                            verbosity=c.verbosity,
-                            config=c,
-                            show_elapsed=show_elapsed)
+    runner = MelangeTestRunner(stream=c.stream,
+                               verbosity=c.verbosity,
+                               config=c,
+                               show_elapsed=show_elapsed)
     sys.exit(not core.run(config=c, testRunner=runner, argv=argv))

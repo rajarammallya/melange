@@ -33,7 +33,7 @@ try:
 except ImportError:
     from setuptools import setup
     print "Warning: DistUtilsExtra required to use i18n builders. "
-    print "To build nova with support for message catalogs, you need "
+    print "To build melange with support for message catalogs, you need "
     print "  https://launchpad.net/python-distutils-extra >= 2.18"
 
 gettext.install('melange', unicode=1)

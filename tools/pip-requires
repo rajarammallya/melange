@@ -15,4 +15,4 @@ coverage
 nosexcover
 webtest
 factory_boy
-openstack.common
+-e git+https://github.com/jkoelker/openstack-common.git#egg=openstack.common

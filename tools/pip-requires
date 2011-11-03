@@ -16,4 +16,5 @@ coverage
 nosexcover
 webtest
 factory_boy
+httplib2
 -e git+https://github.com/jkoelker/openstack-common.git#egg=openstack.common

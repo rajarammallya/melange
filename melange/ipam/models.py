@@ -346,7 +346,8 @@ class IpBlock(ModelBase):
                 LOG.debug("IP allocation retry count :{0}".format(retries + 1))
                 LOG.exception(error)
 
-        raise IpAddressConcurrentAllocationError(block_id=self.id)
+        raise ConcurrentAllocationError(
+            _("Cannot allocate address for block %s at this time") % self.id)
 
     def _generate_ip_address(self, **kwargs):
         if self.is_ipv6():
@@ -667,8 +668,10 @@ class MacAddressRange(ModelBase):
     def allocate_next_free_mac(cls, **kwargs):
         ranges = cls.find_all()
         for range in ranges:
-            if not range.is_full():
+            try:
                 return range.allocate_mac(**kwargs)
+            except NoMoreMacAddressesError:
+                LOG.debug("no more addresses in range %s" % range.id)
 
         raise NoMoreMacAddressesError()
 
@@ -680,16 +683,32 @@ class MacAddressRange(ModelBase):
         if self.is_full():
             raise NoMoreMacAddressesError()
 
+        max_retry_count = int(config.Config.get("mac_allocation_retries", 10))
         next_address = self._next_eligible_address()
-        mac = MacAddress.create(address=next_address,
-                                mac_address_range_id=self.id,
-                                **kwargs)
-        self.update(next_address=next_address + 1)
-        return mac
+        for retries in range(max_retry_count):
+            try:
+                mac = MacAddress.create(address=next_address,
+                                        mac_address_range_id=self.id,
+                                        **kwargs)
+                self.update(next_address=next_address + 1)
+                return mac
+            except exception.DBConstraintError as error:
+                LOG.debug("MAC allocation retry count:{0}".format(retries + 1))
+                LOG.exception(error)
+                next_address = next_address + 1
+                if not self.contains(next_address):
+                    raise NoMoreMacAddressesError()
+
+        raise ConcurrentAllocationError(
+            _("Cannot allocate mac address at this time"))
+
+    def contains(self, address):
+        address = int(netaddr.EUI(address))
+        return (address >= self._first_address() and
+                address <= self._last_address())
 
     def is_full(self):
-        last_address = self._first_address() + self.length()
-        return self._next_eligible_address() >= last_address
+        return self._next_eligible_address() > self._last_address()
 
     def length(self):
         base_address, slash, prefix_length = self.cidr.partition("/")
@@ -703,6 +722,9 @@ class MacAddressRange(ModelBase):
         base_address = netaddr.EUI(base_address)
         return int(netaddr.EUI(int(base_address) & netmask))
 
+    def _last_address(self):
+        return self._first_address() + self.length() - 1
+
     def _next_eligible_address(self):
         return self.next_address or self._first_address()
 
@@ -715,6 +737,15 @@ class MacAddress(ModelBase):
 
     def _before_save(self):
         self.address = int(netaddr.EUI(self.address))
+
+    def _validate_belongs_to_mac_address_range(self):
+        if self.mac_address_range_id:
+            rng = MacAddressRange.find(self.mac_address_range_id)
+            if not rng.contains(self.address):
+                self._add_error('address', "address does not belong to range")
+
+    def _validate(self):
+        self._validate_belongs_to_mac_address_range()
 
 
 class Interface(ModelBase):
@@ -987,9 +1018,9 @@ class InvalidModelError(exception.MelangeError):
         super(InvalidModelError, self).__init__(message, errors=errors)
 
 
-class IpAddressConcurrentAllocationError(exception.MelangeError):
+class ConcurrentAllocationError(exception.MelangeError):
 
-    message = _("Cannot allocate address for block %(block_id)s at this time")
+    message = _("Cannot allocate resource at this time")
 
 
 class NoMoreMacAddressesError(exception.MelangeError):

@@ -44,7 +44,7 @@ class BaseController(wsgi.Controller):
             ],
         webob.exc.HTTPConflict: [
             models.DuplicateAddressError,
-            models.IpAddressConcurrentAllocationError,
+            models.ConcurrentAllocationError,
             ],
         }
 

@@ -221,6 +221,11 @@ class RequestTest(tests.BaseTest):
 
         self.assertIsNone(request.url_version)
 
+    def test_request_params_returns_non_unicode_strings(self):
+        request = wsgi.Request.blank("/resource?x=y&a=b")
+        for key in request.params:
+            self.assertEqual(type(key), str)
+
 
 class DummyApp(wsgi.Router):
 

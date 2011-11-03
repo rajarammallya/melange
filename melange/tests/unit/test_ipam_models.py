@@ -660,7 +660,7 @@ class TestIpBlock(tests.BaseTest):
 
         expected_error_msg = ("Cannot allocate address for block {0} "
                               "at this time".format(ip_block.id))
-        expected_exception = models.IpAddressConcurrentAllocationError
+        expected_exception = models.ConcurrentAllocationError
         with unit.StubConfig(ip_allocation_retries=no_of_retries):
             self.assertRaisesExcMessage(expected_exception,
                                         expected_error_msg,
@@ -1392,14 +1392,91 @@ class TestMacAddressRange(tests.BaseTest):
                          netaddr.EUI("BC:76:4E:30:00:01"))
 
     def test_allocate_next_free_mac_raises_error_when_no_more_free_macs(self):
-        rng1 = factory_models.MacAddressRangeFactory(cidr="BC:76:4E:20:0:0/48")
-        rng2 = factory_models.MacAddressRangeFactory(cidr="BC:76:4E:30:0:0/48")
+        factory_models.MacAddressRangeFactory(cidr="BC:76:4E:20:0:0/48")
+        factory_models.MacAddressRangeFactory(cidr="BC:76:4E:30:0:0/48")
 
         models.MacAddressRange.allocate_next_free_mac()
         models.MacAddressRange.allocate_next_free_mac()
 
         self.assertRaises(models.NoMoreMacAddressesError,
                           models.MacAddressRange.allocate_next_free_mac)
+
+    def test_allocate_next_free_mac_goes_to_next_range_on_nomoreaddrserr(self):
+        already_full_rng = factory_models.MacAddressRangeFactory(
+            cidr="BC:76:4E:20:0:0/48")
+        allocatable_rng = factory_models.MacAddressRangeFactory(
+            cidr="BC:76:4E:30:0:0/48")
+
+        self.mock.StubOutWithMock(models.MacAddressRange, "find_all")
+        models.MacAddressRange.find_all().AndReturn([already_full_rng,
+                                                     allocatable_rng])
+
+        self.mock.StubOutWithMock(already_full_rng, "allocate_mac")
+        already_full_rng.allocate_mac().AndRaise(
+            models.NoMoreMacAddressesError())
+
+        self.mock.StubOutWithMock(allocatable_rng, "allocate_mac")
+        expected_mac = models.MacAddress()
+        allocatable_rng.allocate_mac().AndReturn(expected_mac)
+
+        self.mock.ReplayAll()
+
+        actual_mac = models.MacAddressRange.allocate_next_free_mac()
+        self.assertEqual(expected_mac, actual_mac)
+
+    def test_allocate_mac_retries_on_mac_creation_constraint_failure(self):
+        rng = factory_models.MacAddressRangeFactory(cidr="BC:76:4E:20:0:0/24")
+        no_of_retries = 3
+        self.mock.StubOutWithMock(models.MacAddress, 'create')
+        for i in range(no_of_retries - 1):
+            self._mock_mac_creation().AndRaise(exception.DBConstraintError())
+        expected_mac = models.MacAddress(id=1, address=int(
+            netaddr.EUI("BC:76:4E:20:0:0")))
+
+        self._mock_mac_creation().AndReturn(expected_mac)
+        self.mock.ReplayAll()
+
+        with unit.StubConfig(mac_allocation_retries=no_of_retries):
+            actual_mac = rng.allocate_mac()
+
+        self.assertEqual(actual_mac, expected_mac)
+
+    def test_allocate_mac_raises_error_after_max_retries(self):
+        rng = factory_models.MacAddressRangeFactory(cidr="BC:76:4E:20:0:0/24")
+        no_of_retries = 3
+
+        self.mock.StubOutWithMock(models.MacAddress, 'create')
+
+        for i in range(no_of_retries):
+            self._mock_mac_creation().AndRaise(exception.DBConstraintError())
+
+        self.mock.ReplayAll()
+
+        expected_error_msg = ("Cannot allocate mac address at this time")
+        expected_exception = models.ConcurrentAllocationError
+        with unit.StubConfig(mac_allocation_retries=no_of_retries):
+            self.assertRaisesExcMessage(expected_exception,
+                                        expected_error_msg,
+                                        rng.allocate_mac)
+
+    def test_allocate_mac_raises_nomoreaddrs_if_retries_exceed_capacity(self):
+        rng = factory_models.MacAddressRangeFactory(cidr="BC:76:4E:20:0:0/47")
+        no_of_retries = 10
+
+        self.mock.StubOutWithMock(models.MacAddress, 'create')
+
+        for i in range(rng.length()):
+            self._mock_mac_creation().AndRaise(exception.DBConstraintError())
+
+        self.mock.ReplayAll()
+
+        with unit.StubConfig(mac_allocation_retries=no_of_retries):
+            self.assertRaises(models.NoMoreMacAddressesError,
+                              rng.allocate_mac)
+
+    def _mock_mac_creation(self):
+        return models.MacAddress.create(address=mox.IgnoreArg(),
+                                        mac_address_range_id=mox.IgnoreArg())
 
     def test_range_is_full(self):
         rng = factory_models.MacAddressRangeFactory(cidr="BC:76:4E:20:0:0/48")
@@ -1415,6 +1492,15 @@ class TestMacAddressRange(tests.BaseTest):
 
     def test_mac_allocation_disabled_when_no_ranges_exist(self):
         self.assertFalse(models.MacAddressRange.mac_allocation_enabled())
+
+    def test_contains_mac_address(self):
+        rng = factory_models.MacAddressRangeFactory(cidr="BC:76:4E:20:0:0/40")
+        print netaddr.EUI(rng._last_address())
+
+        self.assertTrue(rng.contains("BC:76:4E:20:00:00"))
+        self.assertTrue(rng.contains("BC:76:4E:20:00:FF"))
+        self.assertFalse(rng.contains("BC:76:4E:20:01:00"))
+        self.assertFalse(rng.contains("AA:BB:CC:20:00:00"))
 
 
 class TestMacAddress(tests.BaseTest):
@@ -1435,6 +1521,15 @@ class TestMacAddress(tests.BaseTest):
 
         mac = mac.update(address=int(netaddr.EUI("BC-76-4E-20-00-02")))
         self.assertEqual(mac.address, int(netaddr.EUI("BC-76-4E-20-00-02")))
+
+    def test_mac_address_is_within_range(self):
+        rng = factory_models.MacAddressRangeFactory(cidr="BC:76:4E:20:0:0/40")
+        mac = models.MacAddress(address="AA:AA:AA:20:0:0",
+                                mac_address_range_id=rng.id)
+
+        self.assertFalse(mac.is_valid())
+        self.assertEqual(mac.errors['address'],
+                         ["address does not belong to range"])
 
 
 class TestPolicy(tests.BaseTest):

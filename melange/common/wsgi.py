@@ -68,6 +68,10 @@ class VersionedURLMap(object):
 
 class Request(openstack_wsgi.Request):
 
+    @property
+    def params(self):
+        return utils.stringify_keys(super(Request, self).params)
+
     def best_match_content_type(self, supported_content_types=None):
         """Determine the most acceptable content-type.
 

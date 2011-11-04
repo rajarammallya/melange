@@ -18,24 +18,29 @@
 import kombu.connection
 import netaddr
 
+from melange.common import config
+from melange.common import utils
+
 
 class IpPublisher(object):
 
-    def __init__(self, block, **connection_options):
+    def __init__(self, block):
         self.block = block
-        self.conn_options = dict(hostname="localhost",
-                                 userid="guest",
-                                 password="guest",
-                                 ssl=False,
-                                 port=5672,
-                                 virtual_host="/",
-                                 transport="memory")
-        self.conn_options.update(connection_options)
 
     def execute(self):
-        with kombu.connection.BrokerConnection(**self.conn_options) as conn:
+        with kombu.connection.BrokerConnection(
+            **self.queue_connection_options()) as conn:
             ips = netaddr.IPNetwork(self.block.cidr)
             queue = conn.SimpleQueue("block.%s" % self.block.id, no_ack=True)
 
             for ip in ips:
                 queue.put(str(ip))
+
+    @classmethod
+    def queue_connection_options(cls):
+        queue_params = config.Config.get_params_group("ipv4_queue")
+        queue_params['ssl'] = utils.bool_from_string(queue_params.get('ssl',
+                                                                      "false"))
+        queue_params['port'] = int(queue_params.get('port', 5672))
+
+        return queue_params

@@ -47,3 +47,10 @@ class Config(object):
     @classmethod
     def get(cls, key, default=None):
         return cls.instance.get(key, default)
+
+    @classmethod
+    def get_params_group(cls, group_key):
+        group_key = group_key + "_"
+        return dict((key.replace(group_key, "", 1), cls.instance.get(key))
+                    for key in cls.instance
+                    if key.startswith(group_key))

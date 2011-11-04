@@ -24,16 +24,11 @@ from melange.ipv4 import queue_based_ip_generator
 from melange.tests.factories import models as factory_models
 
 
-class TestIpPrefetch(tests.BaseTest):
+class TestIpPublisher(tests.BaseTest):
 
     def setUp(self):
-        self.connection = kombu_conn.BrokerConnection(hostname="localhost",
-                                                      userid="guest",
-                                                      password="guest",
-                                                      ssl=False,
-                                                      port=5672,
-                                                      virtual_host="/",
-                                                      transport="memory")
+        self.connection = kombu_conn.BrokerConnection(
+            **queue_based_ip_generator.IpPublisher.queue_connection_options())
         self._queues = []
 
     def test_prefetches_ips_into_Q(self):

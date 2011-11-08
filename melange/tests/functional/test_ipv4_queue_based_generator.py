@@ -28,10 +28,10 @@ class TestIpPublisher(tests.BaseTest):
 
     def setUp(self):
         self.connection = kombu_conn.BrokerConnection(
-            **queue_based_ip_generator.IpPublisher.queue_connection_options())
+            **queue_based_ip_generator.Queue.queue_connection_options())
         self._queues = []
 
-    def test_prefetches_ips_into_Q(self):
+    def test_pushes_ips_into_Q(self):
         block = factory_models.IpBlockFactory(cidr="10.0.0.0/28",
                                               prefetch=True)
         queue_based_ip_generator.IpPublisher(block).execute()

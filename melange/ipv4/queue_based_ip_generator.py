@@ -28,13 +28,34 @@ class IpPublisher(object):
         self.block = block
 
     def execute(self):
-        with kombu.connection.BrokerConnection(
-            **self.queue_connection_options()) as conn:
+        with Queue("block.%s" % self.block.id) as queue:
             ips = netaddr.IPNetwork(self.block.cidr)
-            queue = conn.SimpleQueue("block.%s" % self.block.id, no_ack=True)
-
             for ip in ips:
                 queue.put(str(ip))
+
+
+class Queue(object):
+
+    def __init__(self, name):
+        self.name = name
+
+    def __enter__(self):
+        self.connect()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+
+    def connect(self):
+        self.conn = kombu.connection.BrokerConnection(
+            **self.queue_connection_options())
+
+    def put(self, msg):
+            queue = self.conn.SimpleQueue(self.name, no_ack=True)
+            queue.put(msg)
+
+    def close(self):
+        self.conn.close()
 
     @classmethod
     def queue_connection_options(cls):

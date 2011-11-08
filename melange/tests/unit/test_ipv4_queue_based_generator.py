@@ -31,7 +31,7 @@ class TestIpPublisher(tests.BaseTest):
                              ipv4_queue_virtual_host="/",
                              ipv4_queue_transport="memory")):
 
-            queue_params = generator.IpPublisher.queue_connection_options()
+            queue_params = generator.Queue.queue_connection_options()
 
         self.assertEqual(queue_params, dict(hostname="localhost",
                                             userid="guest",

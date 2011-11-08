@@ -15,11 +15,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import kombu.connection
 import netaddr
 
-from melange.common import config
-from melange.common import utils
+from melange.common import queue
 
 
 class IpPublisher(object):
@@ -28,40 +26,7 @@ class IpPublisher(object):
         self.block = block
 
     def execute(self):
-        with Queue("block.%s" % self.block.id) as queue:
+        with queue.Queue("block.%s" % self.block.id) as q:
             ips = netaddr.IPNetwork(self.block.cidr)
             for ip in ips:
-                queue.put(str(ip))
-
-
-class Queue(object):
-
-    def __init__(self, name):
-        self.name = name
-
-    def __enter__(self):
-        self.connect()
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.close()
-
-    def connect(self):
-        self.conn = kombu.connection.BrokerConnection(
-            **self.queue_connection_options())
-
-    def put(self, msg):
-            queue = self.conn.SimpleQueue(self.name, no_ack=True)
-            queue.put(msg)
-
-    def close(self):
-        self.conn.close()
-
-    @classmethod
-    def queue_connection_options(cls):
-        queue_params = config.Config.get_params_group("ipv4_queue")
-        queue_params['ssl'] = utils.bool_from_string(queue_params.get('ssl',
-                                                                      "false"))
-        queue_params['port'] = int(queue_params.get('port', 5672))
-
-        return queue_params
+                q.put(str(ip))

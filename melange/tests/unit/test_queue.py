@@ -16,11 +16,11 @@
 #    under the License.
 
 from melange import tests
-from melange.ipv4 import queue_based_ip_generator as generator
+from melange.common import queue
 from melange.tests import unit
 
 
-class TestIpPublisher(tests.BaseTest):
+class TestQueue(tests.BaseTest):
 
     def test_queue_connection_options_are_read_from_config(self):
         with(unit.StubConfig(ipv4_queue_hostname="localhost",
@@ -30,8 +30,7 @@ class TestIpPublisher(tests.BaseTest):
                              ipv4_queue_port="5555",
                              ipv4_queue_virtual_host="/",
                              ipv4_queue_transport="memory")):
-
-            queue_params = generator.Queue.queue_connection_options()
+            queue_params = queue.queue_connection_options("ipv4_queue")
 
         self.assertEqual(queue_params, dict(hostname="localhost",
                                             userid="guest",

@@ -50,3 +50,8 @@ class DBConstraintError(MelangeError):
 class NoMoreAddressesError(MelangeError):
 
     message = _("no more addresses")
+
+
+class InvalidNotifier(MelangeError):
+
+    message = _("no such notifier %(notifier)s exists")

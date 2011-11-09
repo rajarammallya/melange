@@ -17,7 +17,7 @@
 
 import netaddr
 
-from melange.common import queue
+from melange.common import messaging
 
 
 class IpPublisher(object):
@@ -26,7 +26,7 @@ class IpPublisher(object):
         self.block = block
 
     def execute(self):
-        with queue.Queue("block.%s" % self.block.id) as q:
+        with messaging.Queue("block.%s" % self.block.id) as q:
             ips = netaddr.IPNetwork(self.block.cidr)
             for ip in ips:
                 q.put(str(ip))

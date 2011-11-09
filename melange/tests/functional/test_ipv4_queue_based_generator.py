@@ -20,7 +20,7 @@ import Queue
 import netaddr
 
 from melange import tests
-from melange.common import queue
+from melange.common import messaging
 from melange.ipv4 import queue_based_ip_generator
 from melange.tests.factories import models as factory_models
 
@@ -29,7 +29,7 @@ class TestIpPublisher(tests.BaseTest):
 
     def setUp(self):
         self.connection = kombu_conn.BrokerConnection(
-            **queue.queue_connection_options("ipv4_queue"))
+            **messaging.queue_connection_options("ipv4_queue"))
         self._queues = []
 
     def test_pushes_ips_into_Q(self):

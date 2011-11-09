@@ -16,7 +16,7 @@
 #    under the License.
 
 from melange import tests
-from melange.common import queue
+from melange.common import messaging
 from melange.tests import unit
 
 
@@ -30,7 +30,7 @@ class TestQueue(tests.BaseTest):
                              ipv4_queue_port="5555",
                              ipv4_queue_virtual_host="/",
                              ipv4_queue_transport="memory")):
-            queue_params = queue.queue_connection_options("ipv4_queue")
+            queue_params = messaging.queue_connection_options("ipv4_queue")
 
         self.assertEqual(queue_params, dict(hostname="localhost",
                                             userid="guest",

@@ -351,6 +351,13 @@ class PoliciesController(BaseController):
         policy.delete()
 
 
+class NetworksController(BaseController):
+
+    def index(self, request, tenant_id, network_id):
+        network = models.Network.find_by(network_id, tenant_id=tenant_id)
+        return dict(ip_blocks=[block.data() for block in network.ip_blocks])
+
+
 class InterfaceIpAllocationsController(BaseController):
 
     def create(self, request, network_id, interface_id,
@@ -432,7 +439,8 @@ class API(wsgi.Router):
                              InsideLocalsController().create_resource())
         self._block_and_nested_resource_mapper(mapper)
         self._policy_and_rules_mapper(mapper)
-        self._network_mapper(mapper)
+        self._networks_maper(mapper)
+        self._interface_ip_allocations_mapper(mapper)
         self._allocated_ips_mapper(mapper)
         self._ip_routes_mapper(mapper)
         self._interface_mapper(mapper)
@@ -471,7 +479,12 @@ class API(wsgi.Router):
         path = ("/ipam/mac_address_ranges")
         mapper.resource("mac_address_ranges", path, controller=range_res)
 
-    def _network_mapper(self, mapper):
+    def _networks_maper(self, mapper):
+        resource = NetworksController().create_resource()
+        path = "/ipam/tenants/{tenant_id}/networks/{network_id}"
+        mapper.resource("networks", path, controller=resource)
+
+    def _interface_ip_allocations_mapper(self, mapper):
         path = ("/ipam/tenants/{tenant_id}/networks"
                 "/{network_id}/interfaces/{interface_id}")
         resource = InterfaceIpAllocationsController().create_resource()

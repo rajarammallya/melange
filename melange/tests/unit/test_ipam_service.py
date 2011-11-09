@@ -1870,18 +1870,33 @@ class TestPoliciesController(BaseTestController):
                                  "Policy Not Found")
 
 
+class TestNetworksController(BaseTestController):
+
+    def test_index_returns_all_ip_blocks_in_subnet(self):
+        factory = factory_models.PrivateIpBlockFactory
+        blocks = [factory(tenant_id="tnt_id", network_id="1"),
+                  factory(tenant_id="tnt_id", network_id="1")]
+        other_tenant_block = factory(tenant_id="other_tnt_id", network_id="1")
+        other_networks_block = factory(tenant_id="tnt_id", network_id="22")
+
+        response = self.app.get("/ipam/tenants/tnt_id/networks/1")
+
+        self.assertEqual(response.status_int, 200)
+        response_blocks = response.json['ip_blocks']
+        self.assertItemsEqual(response_blocks, _data(blocks))
+
+
 class TestInterfaceIpAllocationsController(BaseTestController):
 
     def setUp(self):
-        self.network_path = "/ipam/tenants/tnt_id"
         super(TestInterfaceIpAllocationsController, self).setUp()
 
     def test_create(self):
         ip_block = factory_models.PrivateIpBlockFactory(tenant_id="tnt_id",
                                                         network_id=1)
 
-        response = self.app.post("{0}/networks/1/interfaces/123/"
-                                 "ip_allocations".format(self.network_path))
+        response = self.app.post("/ipam/tenants/tnt_id/networks/1/"
+                                 "interfaces/123/ip_allocations")
 
         ip_address = models.IpAddress.find_by(ip_block_id=ip_block.id)
         self.assertEqual(response.status_int, 201)
@@ -1904,9 +1919,9 @@ class TestInterfaceIpAllocationsController(BaseTestController):
                                                         network_id=1,
                                                         cidr="10.0.0.0/24")
 
-        response = self.app.post_json("{0}/networks/1/interfaces/123"
-                                 "/ip_allocations".format(self.network_path),
-                                 {'network': {'addresses': ['10.0.0.2']}})
+        response = self.app.post_json("/ipam/tenants/tnt_id/networks/1/"
+                                      "interfaces/123/ip_allocations",
+                                      {'network': {'addresses': ['10.0.0.2']}})
 
         ip_address = models.IpAddress.find_by(ip_block_id=ip_block.id,
                                               address="10.0.0.2")
@@ -1926,9 +1941,8 @@ class TestInterfaceIpAllocationsController(BaseTestController):
                 }
             }
 
-        self.app.post_json("{0}/networks/1/interfaces/123"
-                           "/ip_allocations".format(self.network_path),
-                           body)
+        self.app.post_json("/ipam/tenants/tnt_id/networks/1/"
+                           "interfaces/123/ip_allocations", body)
 
         ip_address = models.IpAddress.find_by(ip_block_id=ip_block.id)
         interface = models.Interface.find(ip_address.interface_id)
@@ -1942,8 +1956,8 @@ class TestInterfaceIpAllocationsController(BaseTestController):
                                                         network_id=1,
                                                         cidr="10.0.0.0/24")
 
-        self.app.post_json("{0}/networks/1/interfaces/123"
-                           "/ip_allocations".format(self.network_path))
+        self.app.post_json("/ipam/tenants/tnt_id/networks/1/"
+                           "interfaces/123/ip_allocations")
 
         ip_address = models.IpAddress.find_by(ip_block_id=ip_block.id)
         self.assertEqual(ip_address.mac_address.eui_format,
@@ -1963,12 +1977,12 @@ class TestInterfaceIpAllocationsController(BaseTestController):
 
         self.mock.ReplayAll()
 
-        response = self.app.post_json("{0}/networks/1/interfaces/123"
-                                   "/ip_allocations".format(self.network_path),
-                                    {'network': {'mac_address': mac_address,
-                                                 'tenant_id': "tnt_id",
-                                                 },
-                                     })
+        response = self.app.post_json("/ipam/tenants/tnt_id/networks/1/"
+                                      "interfaces/123/ip_allocations",
+                                      {'network': {'mac_address': mac_address,
+                                                   'tenant_id': "tnt_id",
+                                                   },
+                                       })
 
         ipv6_address = models.IpAddress.find_by(ip_block_id=ipv6_block.id)
         self.assertEqual(views.IpConfigurationView(ipv6_address).data(),
@@ -1993,17 +2007,16 @@ class TestInterfaceIpAllocationsController(BaseTestController):
         interface = factory_models.InterfaceFactory(virtual_interface_id="123")
         ip = ip_block.allocate_ip(interface=interface)
 
-        response = self.app.delete("{0}/networks/1/interfaces/123/"
-                                   "ip_allocations".format(self.network_path))
+        response = self.app.delete("/ipam/tenants/tnt_id/networks/1/"
+                                   "interfaces/123/ip_allocations")
 
         ip_address = models.IpAddress.get(ip.id)
         self.assertEqual(response.status_int, 200)
         self.assertTrue(ip_address.marked_for_deallocation)
 
     def test_bulk_delete_when_network_does_not_exist(self):
-        response = self.app.delete("{0}/networks/1/interfaces/123/"
-                                   "ip_allocations".format(self.network_path),
-                                   status="*")
+        response = self.app.delete("/ipam/tenants/tnt_id/networks/1/"
+                                   "interfaces/123/ip_allocations", status="*")
 
         self.assertErrorResponse(response, webob.exc.HTTPNotFound,
                                  "Network 1 not found")
@@ -2022,8 +2035,8 @@ class TestInterfaceIpAllocationsController(BaseTestController):
         ip2 = ipv4_block.allocate_ip(interface=iface)
         ip3 = ipv6_block.allocate_ip(interface=iface)
 
-        response = self.app.get("{0}/networks/1/interfaces/123/"
-                                "ip_allocations".format(self.network_path))
+        response = self.app.get("/ipam/tenants/tnt_id/networks/1/"
+                                "interfaces/123/ip_allocations")
 
         self.assertEqual(response.status_int, 200)
         self.assertItemsEqual(views.IpConfigurationView(ip1, ip2, ip3).data(),

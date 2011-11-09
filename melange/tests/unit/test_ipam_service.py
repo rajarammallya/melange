@@ -1872,7 +1872,7 @@ class TestPoliciesController(BaseTestController):
 
 class TestNetworksController(BaseTestController):
 
-    def test_index_returns_all_ip_blocks_in_subnet(self):
+    def test_index_returns_all_ip_blocks_in_network(self):
         factory = factory_models.PrivateIpBlockFactory
         blocks = [factory(tenant_id="tnt_id", network_id="1"),
                   factory(tenant_id="tnt_id", network_id="1")]
@@ -1882,8 +1882,17 @@ class TestNetworksController(BaseTestController):
         response = self.app.get("/ipam/tenants/tnt_id/networks/1")
 
         self.assertEqual(response.status_int, 200)
-        response_blocks = response.json['ip_blocks']
-        self.assertItemsEqual(response_blocks, _data(blocks))
+        self.assertItemsEqual(response.json['ip_blocks'], _data(blocks))
+
+    def test_index_raises_404_if_no_ip_blocks_exist_for_network(self):
+        factory = factory_models.PrivateIpBlockFactory
+        other_tenant_block = factory(tenant_id="other_tnt_id", network_id="1")
+        other_networks_block = factory(tenant_id="tnt_id", network_id="22")
+
+        response = self.app.get("/ipam/tenants/tnt_id/networks/1", status="*")
+
+        self.assertErrorResponse(response, webob.exc.HTTPNotFound,
+                                 "Network 1 not found")
 
 
 class TestInterfaceIpAllocationsController(BaseTestController):

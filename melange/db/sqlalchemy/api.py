@@ -19,6 +19,7 @@ import sqlalchemy.exc
 from sqlalchemy import and_
 from sqlalchemy import or_
 from sqlalchemy.orm import aliased
+from sqlalchemy.orm import joinedload
 
 from melange import ipam
 from melange.common import exception
@@ -71,7 +72,7 @@ def delete_all(query_func, model, **conditions):
     query_func(model, **conditions).delete()
 
 
-def update(model, values):
+def update(model, **values):
     for k, v in values.iteritems():
         model[k] = v
 
@@ -106,7 +107,7 @@ def save_nat_relationships(nat_relationships):
     for relationship in nat_relationships:
         ip_nat = mappers.IpNat()
         relationship['id'] = utils.generate_uuid()
-        update(ip_nat, relationship)
+        update(ip_nat, **relationship)
         save(ip_nat)
 
 
@@ -201,6 +202,21 @@ def pop_allocatable_address(**conditions):
 
     delete(ip)
     return ip.address
+
+
+def save_allowed_ip(interface_id, ip_address_id):
+    allowed_ip = mappers.AllowedIp()
+    update(allowed_ip,
+           id=utils.generate_uuid(),
+           interface_id=interface_id,
+           ip_address_id=ip_address_id)
+    save(allowed_ip)
+
+
+def find_allowed_ips(**conditions):
+    query = _query_by(mappers.AllowedIp, **conditions).\
+            options(joinedload('ip_address'))
+    return [allowed_ip.ip_address for allowed_ip in query]
 
 
 def configure_db(options):

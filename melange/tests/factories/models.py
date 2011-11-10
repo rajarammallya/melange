@@ -26,8 +26,8 @@ class IpBlockFactory(factory.Factory):
     FACTORY_FOR = models.IpBlock
     cidr = factory.Sequence(lambda n: "192.168.{0}.0/24".format(int(n) % 255))
     type = "private"
-    dns1 = "ns1.example.com"
-    dns2 = "ns2.example.com"
+    dns1 = "8.8.8.8"
+    dns2 = "8.8.4.4"
     tenant_id = "tenant_id"
 
 
@@ -40,8 +40,8 @@ class PrivateIpBlockFactory(IpBlockFactory):
 
 
 class IpV6IpBlockFactory(IpBlockFactory):
-    cidr = factory.Sequence(lambda n: "fe::{0}00/120".format(hex(int(n) % 16)))
-    type = "public"
+    cidr = factory.Sequence(lambda n: "fe::{0}/120".format(hex(int(n))[2:]))
+    type = "private"
 
 
 class IpAddressFactory(factory.Factory):

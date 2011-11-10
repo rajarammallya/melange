@@ -2124,6 +2124,29 @@ class TestInterface(tests.BaseTest):
         self.assertModelsEqual(interface.ip_addresses, [ip1, ip2])
 
 
+class TestAllowedIps(tests.BaseTest):
+
+    def test_allow_an_ip_on_an_interface(self):
+        interface = factory_models.InterfaceFactory()
+        ip1 = factory_models.IpAddressFactory(interface_id=interface.id)
+        ip2 = factory_models.IpAddressFactory(interface_id=interface.id)
+        noise_ip = factory_models.IpAddressFactory(interface_id=interface.id)
+
+        interface.allow_ip(ip1)
+        interface.allow_ip(ip2)
+
+        actual_allowed_ips = interface.ips_allowed()
+        self.assertModelsEqual(actual_allowed_ips, [ip1, ip2])
+
+    def test_allocating_ips_allows_the_ip_on_the_interface(self):
+        interface = factory_models.InterfaceFactory()
+        block = factory_models.IpBlockFactory()
+
+        ip = block.allocate_ip(interface=interface)
+
+        self.assertEqual(interface.ips_allowed(), [ip])
+
+
 def _allocate_ip(block, interface=None, **kwargs):
     if interface is None:
         interface = factory_models.InterfaceFactory()

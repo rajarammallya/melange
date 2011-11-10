@@ -142,16 +142,24 @@ interfaces = Table('interfaces', meta,
         Column('updated_at', DateTime()),
         UniqueConstraint('virtual_interface_id'))
 
+allowed_ips = Table('allowed_ips', meta,
+        Column('id', String(36), primary_key=True, nullable=False),
+        Column('ip_address_id', String(36), ForeignKey('ip_addresses.id'),
+               nullable=False),
+        Column('interface_id', String(36), ForeignKey('interfaces.id'),
+               nullable=False),
+        UniqueConstraint('ip_address_id', 'interface_id'))
+
 
 def upgrade(migrate_engine):
     meta.bind = migrate_engine
     create_tables([policies, ip_ranges, ip_octets, ip_blocks, ip_routes,
                    mac_address_ranges, mac_addresses, interfaces, ip_addresses,
-                   ip_nats, allocatable_ips])
+                   ip_nats, allocatable_ips, allowed_ips])
 
 
 def downgrade(migrate_engine):
     meta.bind = migrate_engine
-    drop_tables([allocatable_ips, ip_nats, ip_addresses, interfaces,
-                 mac_addresses, mac_address_ranges, ip_routes, ip_blocks,
-                 ip_ranges, ip_octets, policies])
+    drop_tables([allowed_ips, allocatable_ips, ip_nats, ip_addresses,
+                 interfaces, mac_addresses, mac_address_ranges, ip_routes,
+                 ip_blocks, ip_ranges, ip_octets, policies])

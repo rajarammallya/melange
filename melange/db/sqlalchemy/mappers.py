@@ -33,6 +33,7 @@ def map(engine, models):
     mac_address_ranges_table = Table('mac_address_ranges', meta, autoload=True)
     mac_addresses_table = Table('mac_addresses', meta, autoload=True)
     interfaces_table = Table('interfaces', meta, autoload=True)
+    allowed_ips_table = Table('allowed_ips', meta, autoload=True)
 
     orm.mapper(models["IpBlock"], Table('ip_blocks', meta, autoload=True))
     orm.mapper(models["IpAddress"], ip_addresses_table)
@@ -60,8 +61,31 @@ def map(engine, models):
                        }
                )
 
+    orm.mapper(AllowedIp, allowed_ips_table,
+               properties={
+                   'interface': orm.relation(models["Interface"]),
+                   'ip_address': orm.relation(models["IpAddress"])
+                       }
+               )
+
 
 class IpNat(object):
+    """Many to Many table for natting inside globals and locals.
+
+    This resides in sqlalchemy mappers as its not a true model
+    and non-relational dbs may not expose many-to-many relationships as
+    another table
+
+    """
+
+    def __setitem__(self, key, value):
+        setattr(self, key, value)
+
+    def __getitem__(self, key):
+        return getattr(self, key)
+
+
+class AllowedIp(object):
     """Many to Many table for natting inside globals and locals.
 
     This resides in sqlalchemy mappers as its not a true model

@@ -338,10 +338,11 @@ class IpBlock(ModelBase):
                 mac_address=interface.mac_address_eui_format,
                 **kwargs)
             try:
-                return IpAddress.create(address=address,
-                                        ip_block_id=self.id,
-                                        interface_id=interface.id)
-
+                ip = IpAddress.create(address=address,
+                                      ip_block_id=self.id,
+                                      interface_id=interface.id)
+                interface.allow_ip(ip)
+                return ip
             except exception.DBConstraintError as error:
                 LOG.debug("IP allocation retry count :{0}".format(retries + 1))
                 LOG.exception(error)
@@ -795,6 +796,12 @@ class Interface(ModelBase):
         data = super(Interface, self).data()
         data['id'] = self.virtual_interface_id
         return data
+
+    def allow_ip(self, ip):
+        db_api.save_allowed_ip(self.id, ip.id)
+
+    def ips_allowed(self):
+        return db_api.find_allowed_ips(interface_id=self.id)
 
     @utils.cached_property
     def mac_address(self):

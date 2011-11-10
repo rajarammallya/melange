@@ -38,8 +38,8 @@ default_cidr = 10.0.0.0/24
 #ipv6_generator=melange.ipv6.tenant_based_generator.TenantBasedIpV6Generator
 
 #DNS info for a data_center
-dns1 = "ns1.example.com"
-dns2 = "ns2.example.com"
+dns1 = 8.8.8.8
+dns2 = 8.8.4.4
 
 #Number of days before deallocated IPs are deleted
 keep_deallocated_ips_for_days = 2

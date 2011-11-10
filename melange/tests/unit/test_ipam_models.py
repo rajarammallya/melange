@@ -1098,35 +1098,30 @@ class TestIpAddress(tests.BaseTest):
     def test_limited_show_inside_locals(self):
         global_block = factory_models.PrivateIpBlockFactory(cidr="192.0.0.1/8")
         local_block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.1/8")
-
         global_ip = _allocate_ip(global_block)
         local_ips = models.sort([_allocate_ip(local_block) for i in range(5)])
         global_ip.add_inside_locals(local_ips)
 
-        limited_local_addresses = [ip.address for ip in
-                                   global_ip.inside_locals(limit=2,
-                                                  marker=local_ips[1].id)]
+        inside_locals_query = global_ip.inside_locals()
+        expected_locals, next_mrk = inside_locals_query.paginated_collection(
+            limit=2, marker=local_ips[1].id)
 
-        self.assertEqual(len(limited_local_addresses), 2)
-        self.assertTrue(limited_local_addresses, [local_ips[2].address,
-                                                  local_ips[3].address])
+        self.assertModelsEqual(expected_locals, [local_ips[2], local_ips[3]])
 
     def test_limited_show_inside_globals(self):
         global_block = factory_models.PrivateIpBlockFactory(cidr="192.0.0.1/8")
         local_block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.1/8")
-
         global_ips = models.sort([_allocate_ip(global_block)
                                   for i in range(5)])
         local_ip = _allocate_ip(local_block)
         local_ip.add_inside_globals(global_ips)
 
-        limited_global_addresses = [ip.address for ip in
-                                    local_ip.inside_globals(limit=2,
-                                                  marker=global_ips[1].id)]
+        inside_globals_query = local_ip.inside_globals()
+        inside_globals, next_mrk = inside_globals_query.paginated_collection(
+                    limit=2, marker=global_ips[1].id)
 
-        self.assertEqual(len(limited_global_addresses), 2)
-        self.assertTrue(limited_global_addresses, [global_ips[2].address,
-                                                   global_ips[3].address])
+        self.assertModelsEqual(inside_globals, [global_ips[2], global_ips[3]])
+        self.assertEqual(next_mrk, global_ips[3].id)
 
     def test_remove_inside_globals(self):
         global_block = factory_models.PrivateIpBlockFactory(cidr="192.0.0.1/8")
@@ -1138,7 +1133,7 @@ class TestIpAddress(tests.BaseTest):
 
         local_ip.remove_inside_globals()
 
-        self.assertEqual(local_ip.inside_globals(), [])
+        self.assertEqual(local_ip.inside_globals().all(), [])
 
     def test_remove_inside_globals_for_specific_address(self):
         global_block = factory_models.PrivateIpBlockFactory(cidr="192.0.0.1/8")
@@ -1177,7 +1172,7 @@ class TestIpAddress(tests.BaseTest):
 
         global_ip.remove_inside_locals()
 
-        self.assertEqual(global_ip.inside_locals(), [])
+        self.assertEqual(global_ip.inside_locals().all(), [])
 
     def test_data(self):
         ip_block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.1/8")

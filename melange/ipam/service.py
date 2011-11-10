@@ -224,7 +224,8 @@ class InsideGlobalsController(BaseController):
     def index(self, request, ip_block_id, tenant_id, address):
         ip_block = models.IpBlock.find_by(id=ip_block_id, tenant_id=tenant_id)
         ip = ip_block.find_ip(address)
-        global_ips = ip.inside_globals(**self._extract_limits(request.params))
+        global_ips, marker = ip.inside_globals().paginated_collection(
+            **self._extract_limits(request.params))
         return dict(ip_addresses=[ip.data() for ip in global_ips])
 
     def delete(self, request, ip_block_id, address, tenant_id,
@@ -252,7 +253,8 @@ class InsideLocalsController(BaseController):
     def index(self, request, ip_block_id, address, tenant_id):
         ip_block = models.IpBlock.find_by(id=ip_block_id, tenant_id=tenant_id)
         ip = ip_block.find_ip(address)
-        local_ips = ip.inside_locals(**self._extract_limits(request.params))
+        local_ips, marker = ip.inside_locals().paginated_collection(
+            **self._extract_limits(request.params))
         return dict(ip_addresses=[ip.data() for ip in local_ips])
 
     def delete(self, request, ip_block_id, address, tenant_id,

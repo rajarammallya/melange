@@ -62,12 +62,13 @@ class Query(object):
         db_api.delete_all(self._query_func, self._model, **self._conditions)
 
     def limit(self, limit=200, marker=None, marker_column=None):
-        return db_api.list(db_api.find_all_by_limit(self._query_func,
-                                                  self._model,
-                                                  self._conditions,
-                                                  limit=limit,
-                                                  marker=marker,
-                                                  marker_column=marker_column))
+        limit_query = db_api.find_all_by_limit(self._query_func,
+                                               self._model,
+                                               self._conditions,
+                                               limit=limit,
+                                               marker=marker,
+                                               marker_column=marker_column)
+        return db_api.list(limit_query)
 
     def paginated_collection(self, limit=200, marker=None, marker_column=None):
         collection = self.limit(int(limit) + 1, marker, marker_column)
@@ -570,7 +571,10 @@ class IpAddress(ModelBase):
 
     @classmethod
     def find_all_by_network(cls, network_id, **conditions):
-        return db_api.find_all_ips_in_network(network_id, **conditions)
+        return Query(cls,
+                     query_func=db_api.find_all_ips_in_network,
+                     network_id=network_id,
+                     **conditions)
 
     @classmethod
     def find_all_allocated_ips(cls, **conditions):
@@ -604,7 +608,10 @@ class IpAddress(ModelBase):
         self.update(marked_for_deallocation=False, deallocated_at=None)
 
     def inside_globals(self, **kwargs):
-        return db_api.find_inside_globals_for(self.id, **kwargs)
+        return Query(IpAddress,
+                     query_func=db_api.find_inside_globals,
+                     local_address_id=self.id,
+                     **kwargs)
 
     def add_inside_globals(self, ip_addresses):
         db_api.save_nat_relationships([
@@ -615,7 +622,10 @@ class IpAddress(ModelBase):
             for global_address in ip_addresses])
 
     def inside_locals(self, **kwargs):
-        return db_api.find_inside_locals_for(self.id, **kwargs)
+        return Query(IpAddress,
+                     query_func=db_api.find_inside_locals,
+                     global_address_id=self.id,
+                     **kwargs)
 
     def remove_inside_globals(self, inside_global_address=None):
         return db_api.remove_inside_globals(self.id, inside_global_address)

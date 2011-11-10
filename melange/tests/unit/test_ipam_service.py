@@ -1040,10 +1040,10 @@ class TestInsideGlobalsController(BaseTestController):
                                        })
 
         self.assertEqual(response.status, "200 OK")
-
-        self.assertEqual(len(local_ip.inside_globals()), 1)
-        self.assertEqual(global_ip.id, local_ip.inside_globals()[0].id)
-        self.assertEqual(local_ip.id, global_ip.inside_locals()[0].id)
+        expected_globals = local_ip.inside_globals().all()
+        expected_locals = global_ip.inside_locals().all()
+        self.assertEqual([global_ip], expected_globals)
+        self.assertEqual([local_ip], expected_locals)
 
     def test_create_throws_error_for_ips_of_other_tenants_blocks(self):
         local_block = factory_models.PublicIpBlockFactory(cidr="77.1.1.0/28")
@@ -1112,7 +1112,7 @@ class TestInsideGlobalsController(BaseTestController):
                                                   local_ip.address))
 
         self.assertEqual(response.status, "200 OK")
-        self.assertEqual(local_ip.inside_globals(), [])
+        self.assertEqual(local_ip.inside_globals().all(), [])
 
     def test_delete_for_specific_address(self):
         local_block = factory_models.PrivateIpBlockFactory(cidr="10.1.1.1/8")
@@ -1126,9 +1126,8 @@ class TestInsideGlobalsController(BaseTestController):
                                                   local_ip.address),
                                    global_ips[1].address))
 
-        globals_left = [ip.address for ip in local_ip.inside_globals()]
-        self.assertEqual(globals_left, [global_ips[0].address,
-                                        global_ips[2].address])
+        globals_left = local_ip.inside_globals().all()
+        self.assertModelsEqual(globals_left, [global_ips[0], global_ips[2]])
 
     def test_delete_for_nonexistent_block(self):
         non_existant_block_id = 12122
@@ -1243,14 +1242,11 @@ class TestInsideLocalsController(BaseTestController):
                                       request_data)
 
         self.assertEqual(response.status, "200 OK")
-        inside_locals = global_ip.inside_locals()
+        inside_locals = global_ip.inside_locals().all()
 
-        self.assertEqual(len(inside_locals), 2)
         self.assertModelsEqual(inside_locals, [local_ip1, local_ip2])
-        self.assertEqual(inside_locals[0].inside_globals()[0].address,
-                         global_ip.address)
-        self.assertEqual(inside_locals[1].inside_globals()[0].address,
-                         global_ip.address)
+        [self.assertEqual(local.inside_globals().all(), [global_ip])
+         for local in inside_locals]
 
     def test_create_throws_error_for_ips_of_other_tenants_blocks(self):
         global_block = factory_models.PublicIpBlockFactory(cidr="77.1.1.0/28")
@@ -1304,8 +1300,8 @@ class TestInsideLocalsController(BaseTestController):
                                          local_ips[1].address))
 
         locals_left = [ip.address for ip in global_ip.inside_locals()]
-        self.assertEqual(locals_left,
-                         [local_ips[0].address, local_ips[2].address])
+        self.assertItemsEqual(locals_left,
+                              [local_ips[0].address, local_ips[2].address])
 
     def test_delete(self):
         local_block = factory_models.PrivateIpBlockFactory(cidr="10.1.1.1/24")
@@ -1319,7 +1315,7 @@ class TestInsideLocalsController(BaseTestController):
                                                   global_ip.address))
 
         self.assertEqual(response.status, "200 OK")
-        self.assertEqual(global_ip.inside_locals(), [])
+        self.assertEqual(global_ip.inside_locals().all(), [])
 
     def test_delete_for_nonexistent_block(self):
         non_existant_block_id = 12122

@@ -81,26 +81,18 @@ def update_all(query_func, model, conditions, values):
     query_func(model, **conditions).update(values)
 
 
-def find_inside_globals_for(local_address_id, **kwargs):
-    marker_column = mappers.IpNat.inside_global_address_id
-    limit = kwargs.pop('limit', 200)
-    marker = kwargs.pop('marker', None)
-
-    kwargs["inside_local_address_id"] = local_address_id
-    query = _limits(find_all_by, mappers.IpNat, kwargs, limit, marker,
-                    marker_column)
-    return [nat.inside_global_address for nat in query]
+def find_inside_globals(ip_model, local_address_id, **kwargs):
+    ip_nat = mappers.IpNat
+    return _base_query(ip_model).\
+           join(ip_nat, ip_nat.inside_global_address_id == ip_model.id).\
+           filter(ip_nat.inside_local_address_id == local_address_id)
 
 
-def find_inside_locals_for(global_address_id, **kwargs):
-    marker_column = mappers.IpNat.inside_local_address_id
-    limit = kwargs.pop('limit', 200)
-    marker = kwargs.pop('marker', None)
-
-    kwargs["inside_global_address_id"] = global_address_id
-    query = _limits(find_all_by, mappers.IpNat, kwargs, limit, marker,
-                    marker_column)
-    return [nat.inside_local_address for nat in query]
+def find_inside_locals(ip_model, global_address_id, **kwargs):
+    ip_nat = mappers.IpNat
+    return _base_query(ip_model).\
+           join(ip_nat, ip_nat.inside_local_address_id == ip_model.id).\
+           filter(ip_nat.inside_global_address_id == global_address_id)
 
 
 def save_nat_relationships(nat_relationships):
@@ -172,7 +164,7 @@ def find_all_top_level_blocks_in_network(network_id):
         filter(parent_block.id == None)
 
 
-def find_all_ips_in_network(network_id, **conditions):
+def find_all_ips_in_network(model, network_id=None, **conditions):
     return _query_by(ipam.models.IpAddress, **conditions).\
            join(ipam.models.IpBlock).\
            filter(ipam.models.IpBlock.network_id == network_id)

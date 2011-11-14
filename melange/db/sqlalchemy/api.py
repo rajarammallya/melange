@@ -205,10 +205,24 @@ def save_allowed_ip(interface_id, ip_address_id):
     save(allowed_ip)
 
 
-def find_allowed_ips(**conditions):
-    query = _query_by(mappers.AllowedIp, **conditions).\
-            options(joinedload('ip_address'))
-    return [allowed_ip.ip_address for allowed_ip in query]
+def find_allowed_ips(ip_address_model,
+                     allowed_on_interface_id=None,
+                     **conditions):
+    query = _query_by(ip_address_model).\
+            join(mappers.AllowedIp).\
+            filter_by(**conditions)
+
+    if allowed_on_interface_id:
+        query = query.filter(
+            mappers.AllowedIp.interface_id == allowed_on_interface_id)
+
+    return query
+
+
+def remove_allowd_ip(**conditions):
+    _query_by(mappers.AllowedIp).\
+    filter_by(**conditions).\
+    delete()
 
 
 def configure_db(options):

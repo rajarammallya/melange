@@ -2123,9 +2123,10 @@ class TestAllowedIps(tests.BaseTest):
 
     def test_allow_an_ip_on_an_interface(self):
         interface = factory_models.InterfaceFactory()
-        ip1 = factory_models.IpAddressFactory(interface_id=interface.id)
-        ip2 = factory_models.IpAddressFactory(interface_id=interface.id)
-        noise_ip = factory_models.IpAddressFactory(interface_id=interface.id)
+        ip1 = factory_models.IpAddressFactory()
+        ip2 = factory_models.IpAddressFactory()
+        noise_ip1 = factory_models.IpAddressFactory()
+        noise_ip2 = factory_models.IpAddressFactory()
 
         interface.allow_ip(ip1)
         interface.allow_ip(ip2)
@@ -2133,11 +2134,75 @@ class TestAllowedIps(tests.BaseTest):
         actual_allowed_ips = interface.ips_allowed()
         self.assertModelsEqual(actual_allowed_ips, [ip1, ip2])
 
+    def test_disallow_an_ip_on_an_interface(self):
+        interface1 = factory_models.InterfaceFactory()
+        interface2 = factory_models.InterfaceFactory()
+        ip1 = factory_models.IpAddressFactory()
+        ip2 = factory_models.IpAddressFactory()
+        ip3 = factory_models.IpAddressFactory()
+        noise_ip1 = factory_models.IpAddressFactory()
+        noise_ip2 = factory_models.IpAddressFactory()
+        interface1.allow_ip(ip1)
+        interface1.allow_ip(ip2)
+        interface1.allow_ip(ip3)
+        interface2.allow_ip(ip3)
+
+        interface1.disallow_ip(ip2)
+        self.assertModelsEqual(interface1.ips_allowed(), [ip1, ip3])
+
+        interface1.disallow_ip(ip3)
+        self.assertModelsEqual(interface1.ips_allowed(), [ip1])
+        self.assertModelsEqual(interface2.ips_allowed(), [ip3])
+
     def test_allocating_ips_allows_the_ip_on_the_interface(self):
         interface = factory_models.InterfaceFactory()
         block = factory_models.IpBlockFactory()
 
         ip = block.allocate_ip(interface=interface)
+
+        self.assertEqual(interface.ips_allowed(), [ip])
+
+    def test_deallocating_ip_disallows_that_ip_on_interface(self):
+        interface = factory_models.InterfaceFactory()
+        block = factory_models.IpBlockFactory()
+        ip = block.allocate_ip(interface=interface)
+        other_interface = factory_models.InterfaceFactory()
+        other_interface.allow_ip(ip)
+
+        block.deallocate_ip(ip.address)
+
+        self.assertEqual(interface.ips_allowed(), [])
+        self.assertEqual(other_interface.ips_allowed(), [ip])
+
+    def skip_deallocating_allowed_ip_only_disassociates_from_interface(self):
+        interface = factory_models.InterfaceFactory()
+        block = factory_models.IpBlockFactory()
+        ip = block.allocate_ip(interface=interface)
+        other_interface = factory_models.InterfaceFactory()
+        other_interface.allow_ip(ip)
+
+        block.deallocate_ip(ip.address)
+
+        reloaded_ip = models.IpAddress.find(ip.id)
+        self.assertFalse(reloaded_ip.marked_for_deallocation is True)
+        self.assertIsNone(reloaded_ip.interface_id)
+
+    def test_can_explicitly_allow_allocated_ip_on_same_interface(self):
+        interface = factory_models.InterfaceFactory()
+        block = factory_models.IpBlockFactory()
+        ip = block.allocate_ip(interface=interface)
+
+        interface.allow_ip(ip)
+
+        self.assertEqual(interface.ips_allowed(), [ip])
+
+    def test_if_ip_was_explicitly_allowed_deallocating_doesnt_disallow(self):
+        interface = factory_models.InterfaceFactory()
+        block = factory_models.IpBlockFactory()
+        ip = block.allocate_ip(interface=interface)
+        interface.allow_ip(ip)
+
+        ip.deallocate()
 
         self.assertEqual(interface.ips_allowed(), [ip])
 

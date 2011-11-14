@@ -339,11 +339,9 @@ class IpBlock(ModelBase):
                 mac_address=interface.mac_address_eui_format,
                 **kwargs)
             try:
-                ip = IpAddress.create(address=address,
-                                      ip_block_id=self.id,
-                                      interface_id=interface.id)
-                interface.allow_ip(ip)
-                return ip
+                return IpAddress.create(address=address,
+                                        ip_block_id=self.id,
+                                        interface_id=interface.id)
             except exception.DBConstraintError as error:
                 LOG.debug("IP allocation retry count :{0}".format(retries + 1))
                 LOG.exception(error)
@@ -578,7 +576,8 @@ class IpAddress(ModelBase):
 
     @classmethod
     def find_all_allocated_ips(cls, **conditions):
-        return Query(cls, query_func=db_api.find_all_allocated_ips,
+        return Query(cls,
+                     query_func=db_api.find_all_allocated_ips,
                      **conditions)
 
     def delete(self):
@@ -601,8 +600,8 @@ class IpAddress(ModelBase):
             for local_address in ip_addresses])
 
     def deallocate(self):
-        return self.update(marked_for_deallocation=True,
-                           deallocated_at=utils.utcnow())
+        self.update(marked_for_deallocation=True,
+                    deallocated_at=utils.utcnow())
 
     def restore(self):
         self.update(marked_for_deallocation=False, deallocated_at=None)
@@ -810,8 +809,15 @@ class Interface(ModelBase):
     def allow_ip(self, ip):
         db_api.save_allowed_ip(self.id, ip.id)
 
+    def disallow_ip(self, ip):
+        db_api.remove_allowd_ip(interface_id=self.id, ip_address_id=ip.id)
+
     def ips_allowed(self):
-        return db_api.find_allowed_ips(interface_id=self.id)
+        explicitly_allowed = Query(IpAddress,
+                                   query_func=db_api.find_allowed_ips,
+                                   allowed_on_interface_id=self.id)
+        allocated_ips = IpAddress.find_all_allocated_ips(interface_id=self.id)
+        return list(set(allocated_ips) | set(explicitly_allowed))
 
     @utils.cached_property
     def mac_address(self):

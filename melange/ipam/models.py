@@ -327,7 +327,7 @@ class IpBlock(ModelBase):
         if self.is_full:
             raise exception.NoMoreAddressesError(_("IpBlock is full"))
         if address:
-            return self._allocate_specific_ip(address, interface)
+            return self._allocate_specific_ip(interface, address)
         return self._allocate_available_ip(interface, **kwargs)
 
     def _allocate_available_ip(self, interface, **kwargs):
@@ -341,6 +341,7 @@ class IpBlock(ModelBase):
             try:
                 return IpAddress.create(address=address,
                                         ip_block_id=self.id,
+                                        used_by_tenant_id=interface.tenant_id,
                                         interface_id=interface.id)
             except exception.DBConstraintError as error:
                 LOG.debug("IP allocation retry count :{0}".format(retries + 1))
@@ -370,7 +371,7 @@ class IpBlock(ModelBase):
             self.update(is_full=True)
             raise exception.NoMoreAddressesError(_("IpBlock is full"))
 
-    def _allocate_specific_ip(self, address, interface):
+    def _allocate_specific_ip(self, interface, address):
 
         if not self.contains(address):
             raise AddressDoesNotBelongError(
@@ -386,6 +387,7 @@ class IpBlock(ModelBase):
 
         return IpAddress.create(address=address,
                                 ip_block_id=self.id,
+                                used_by_tenant_id=interface.tenant_id,
                                 interface_id=interface.id)
 
     def _address_is_allocatable(self, policy, address):
@@ -414,8 +416,9 @@ class IpBlock(ModelBase):
 
     def delete_deallocated_ips(self):
         self.update(is_full=False)
-        db_api.delete_deallocated_ips(
-            deallocated_by=self._deallocated_by_date(), ip_block_id=self.id)
+        for ip in db_api.find_deallocated_ips(
+            deallocated_by=self._deallocated_by_date(), ip_block_id=self.id):
+            ip.delete()
 
     def _deallocated_by_date(self):
         days = config.Config.get('keep_deallocated_ips_for_days', 2)
@@ -552,7 +555,6 @@ class IpAddress(ModelBase):
     _data_fields = ['ip_block_id', 'address', 'version']
 
     def _validate(self):
-        self._validate_presence_of("interface_id")
         self._validate_existence_of("interface_id", Interface)
 
     @classmethod
@@ -581,9 +583,19 @@ class IpAddress(ModelBase):
                      **conditions)
 
     def delete(self):
+        if self._explicitly_allowed_on_interfaces():
+            return self.update(marked_for_deallocation=False,
+                               deallocated_at=None,
+                               interface_id=None)
+
         AllocatableIp.create(ip_block_id=self.ip_block_id,
                              address=self.address)
         super(IpAddress, self).delete()
+
+    def _explicitly_allowed_on_interfaces(self):
+        return Query(IpAddress,
+                     query_func=db_api.find_allowed_ips,
+                     ip_address_id=self.id).count() > 0
 
     def _before_save(self):
         self.address = self._formatted(self.address)

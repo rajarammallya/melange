@@ -146,11 +146,10 @@ def find_all_blocks_with_deallocated_ips():
            filter(ipam.models.IpAddress.marked_for_deallocation == True)
 
 
-def delete_deallocated_ips(deallocated_by, **kwargs):
+def find_deallocated_ips(deallocated_by, **kwargs):
     return _query_by(ipam.models.IpAddress, **kwargs).\
            filter_by(marked_for_deallocation=True).\
-           filter(ipam.models.IpAddress.deallocated_at <= deallocated_by).\
-           delete()
+           filter(ipam.models.IpAddress.deallocated_at <= deallocated_by).all()
 
 
 def find_all_top_level_blocks_in_network(network_id):

@@ -495,13 +495,27 @@ class TestIpBlock(tests.BaseTest):
 
     def test_allocate_ip(self):
         block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.0/31")
-        block = models.IpBlock.find(block.id)
         interface = factory_models.InterfaceFactory()
         ip = block.allocate_ip(interface)
 
         saved_ip = models.IpAddress.find(ip.id)
         self.assertEqual(ip.address, saved_ip.address)
+        self.assertTrue(netaddr.IPAddress(ip.address)
+                        in netaddr.IPNetwork("10.0.0.0/31"))
         self.assertEqual(ip.interface_id, interface.id)
+        self.assertEqual(ip.ip_block_id, block.id)
+        self.assertEqual(ip.used_by_tenant_id, interface.tenant_id)
+
+    def test_allocate_specific_address(self):
+        block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.0/24")
+        interface = factory_models.InterfaceFactory(tenant_id="tnt_id")
+        ip = block.allocate_ip(interface, address="10.0.0.2")
+
+        expected_ip = models.IpAddress.find(ip.id)
+        self.assertEqual(expected_ip.address, "10.0.0.2")
+        self.assertEqual(ip.interface_id, interface.id)
+        self.assertEqual(ip.ip_block_id, block.id)
+        self.assertEqual(ip.used_by_tenant_id, "tnt_id")
 
     def test_allocate_ip_from_non_leaf_block_fails(self):
         parent_block = factory_models.IpBlockFactory(cidr="10.0.0.0/28")
@@ -670,6 +684,7 @@ class TestIpBlock(tests.BaseTest):
     def _mock_ip_creation(self):
         return models.IpAddress.create(address=mox.IgnoreArg(),
                                        interface_id=mox.IgnoreArg(),
+                                       used_by_tenant_id=mox.IgnoreArg(),
                                        ip_block_id=mox.IgnoreArg())
 
     def test_ip_block_is_not_full(self):
@@ -716,7 +731,7 @@ class TestIpBlock(tests.BaseTest):
 
         self.assertEqual(ip.address, "00ff:0000:0000:0000:0000:0000:0000:0002")
 
-    def test_allocate_ip_for_for_given_ipv6_address(self):
+    def test_allocate_ip_for_given_ipv6_address(self):
         block = factory_models.IpV6IpBlockFactory(cidr="ff::/120")
         interface = factory_models.InterfaceFactory()
 
@@ -957,6 +972,12 @@ class TestIpBlock(tests.BaseTest):
                 ip_block.delete_deallocated_ips()
 
         self.assertEqual(ip_block.addresses(), [ip2])
+        allocatable_ips = [(ip.address, ip.ip_block_id) for ip in
+                            models.AllocatableIp.find_all()]
+        self.assertItemsEqual(allocatable_ips, [(ip1.address, ip1.ip_block_id),
+                                                (ip3.address, ip2.ip_block_id),
+                                                (ip4.address, ip3.ip_block_id),
+                                                ])
 
     def test_is_full_flag_reset_when_addresses_are_deleted(self):
         interface = factory_models.InterfaceFactory()
@@ -1259,12 +1280,6 @@ class TestIpAddress(tests.BaseTest):
         ip = factory_models.IpAddressFactory(interface_id=interface.id)
 
         self.assertEqual(ip.mac_address, mac_address)
-
-    def test_validates_presence_of_inteface(self):
-        ip = factory_models.IpAddressFactory.build(interface_id=None)
-        self.assertFalse(ip.is_valid())
-        self.assertEqual(ip.errors['interface_id'],
-                         ["interface_id should be present"])
 
     def test_validates_existance_of_inteface(self):
         ip = factory_models.IpAddressFactory.build(interface_id="bad_id")
@@ -2119,9 +2134,9 @@ class TestInterface(tests.BaseTest):
         self.assertModelsEqual(interface.ip_addresses, [ip1, ip2])
 
 
-class TestAllowedIps(tests.BaseTest):
+class TestAllowedIp(tests.BaseTest):
 
-    def test_allow_an_ip_on_an_interface(self):
+    def test_allow_ip_on_an_interface(self):
         interface = factory_models.InterfaceFactory()
         ip1 = factory_models.IpAddressFactory()
         ip2 = factory_models.IpAddressFactory()
@@ -2174,17 +2189,23 @@ class TestAllowedIps(tests.BaseTest):
         self.assertEqual(interface.ips_allowed(), [])
         self.assertEqual(other_interface.ips_allowed(), [ip])
 
-    def skip_deallocating_allowed_ip_only_disassociates_from_interface(self):
+    def test_deallocating_allowed_ip_only_disassociates_from_interface(self):
         interface = factory_models.InterfaceFactory()
         block = factory_models.IpBlockFactory()
         ip = block.allocate_ip(interface=interface)
         other_interface = factory_models.InterfaceFactory()
         other_interface.allow_ip(ip)
+        current_time = datetime.datetime.now()
+        two_days_before = current_time - datetime.timedelta(days=2)
 
-        block.deallocate_ip(ip.address)
+        with unit.StubTime(time=two_days_before):
+            block.deallocate_ip(ip.address)
+        with unit.StubTime(time=current_time):
+            block.delete_deallocated_ips()
 
         reloaded_ip = models.IpAddress.find(ip.id)
-        self.assertFalse(reloaded_ip.marked_for_deallocation is True)
+        self.assertFalse(reloaded_ip.marked_for_deallocation)
+        self.assertIsNone(reloaded_ip.deallocated_at)
         self.assertIsNone(reloaded_ip.interface_id)
 
     def test_can_explicitly_allow_allocated_ip_on_same_interface(self):
@@ -2208,6 +2229,5 @@ class TestAllowedIps(tests.BaseTest):
 
 
 def _allocate_ip(block, interface=None, **kwargs):
-    if interface is None:
-        interface = factory_models.InterfaceFactory()
+    interface = interface or factory_models.InterfaceFactory()
     return block.allocate_ip(interface=interface, **kwargs)

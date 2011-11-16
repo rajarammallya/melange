@@ -86,7 +86,7 @@ function run_pep8 {
   GLOBIGNORE="$ignore_scripts:$ignore_files"
   srcfiles=`find bin -type f ! -name "melange.conf*"`
   srcfiles+=" `find tools/*`"
-  srcfiles+=" setup.py bin"
+  srcfiles+=" setup.py bin melange"
   # Just run PEP8 in current environment
   #
   # NOTE(sirp): W602 (deprecated 3-arg raise) is being ignored for the

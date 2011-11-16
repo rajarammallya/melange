@@ -469,7 +469,7 @@ class TestIpBlock(tests.BaseTest):
     def test_find_ip(self):
         block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.1/8")
         ip = _allocate_ip(block)
-        self.assertEqual(block.find_ip(ip.address).id, ip.id)
+        self.assertEqual(block.find_ip(address=ip.address).id, ip.id)
 
     def test_find_ip_for_nonexistent_address(self):
         block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.1/8")
@@ -477,7 +477,7 @@ class TestIpBlock(tests.BaseTest):
         self.assertRaisesExcMessage(models.ModelNotFoundError,
                                     "IpAddress Not Found",
                                     block.find_ip,
-                                    "10.0.0.1")
+                                    address="10.0.0.1")
 
     def test_policy(self):
         policy = factory_models.PolicyFactory(name="Some Policy")
@@ -763,9 +763,8 @@ class TestIpBlock(tests.BaseTest):
         block = factory_models.PrivateIpBlockFactory()
         actual_ip = _allocate_ip(block)
 
-        expected_ip = models.IpBlock.find_allocated_ip(block.id,
-                                                       actual_ip.address,
-                                                       block.tenant_id)
+        expected_ip = models.IpBlock.find_allocated_ip(
+            block.id, block.tenant_id, address=actual_ip.address)
 
         self.assertEqual(expected_ip, actual_ip)
 
@@ -778,8 +777,8 @@ class TestIpBlock(tests.BaseTest):
         self.assertRaises(models.AddressLockedError,
                           models.IpBlock.find_allocated_ip,
                           block.id,
-                          ip.address,
-                          block.tenant_id)
+                          block.tenant_id,
+                          address=ip.address)
 
     def test_find_allocated_ip_when_ip_block_not_belongs_to_tenant(self):
         block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.0/30")
@@ -788,8 +787,8 @@ class TestIpBlock(tests.BaseTest):
         self.assertRaises(models.ModelNotFoundError,
                           models.IpBlock.find_allocated_ip,
                           block.id,
-                          ip.address,
-                          "wrong_tenant_id_for_block")
+                          "wrong_tenant_id",
+                          address=ip.address)
 
     def test_deallocate_ip(self):
         interface = factory_models.InterfaceFactory()
@@ -801,8 +800,8 @@ class TestIpBlock(tests.BaseTest):
         self.assertRaises(models.AddressLockedError,
                           models.IpBlock.find_allocated_ip,
                           block.id,
-                          ip.address,
-                          block.tenant_id)
+                          block.tenant_id,
+                          address=ip.address)
 
         self.assertRaises(models.DuplicateAddressError,
                           block.allocate_ip,
@@ -1959,6 +1958,30 @@ class TestNetwork(tests.BaseTest):
         allocated_ips = network.allocated_ips(interface_id=interface1.id)
 
         self.assertModelsEqual(allocated_ips, [ip1, ip2, ip4])
+
+    def test_find_allocated_ip(self):
+        ip_block1 = factory_models.IpBlockFactory(network_id=1,
+                                                  cidr="10.0.0.0/24")
+        ip_block2 = factory_models.IpBlockFactory(network_id=1,
+                                                  cidr="20.0.0.0/24")
+        noise_block = factory_models.IpBlockFactory(network_id=1,
+                                                  cidr="30.0.0.0/24")
+        ip1 = _allocate_ip(ip_block1)
+        ip2 = _allocate_ip(ip_block2)
+        network = models.Network.find_by(id=1)
+
+        self.assertEqual(network.find_allocated_ip(address=ip1.address), ip1)
+        self.assertEqual(network.find_allocated_ip(address=ip2.address), ip2)
+
+    def test_find_allocated_ip_raises_model_not_found_for_invalid_ip(self):
+        ip_block = factory_models.IpBlockFactory(network_id=1,
+                                                 cidr="10.0.0.0/24")
+        network = models.Network.find_by(id=1)
+        self.assertRaisesExcMessage(models.ModelNotFoundError,
+                                    ("IpAddress with {'address': '10.1.1.1'} "
+                                     "for network %s not found" % network.id),
+                                    network.find_allocated_ip,
+                                    address="10.1.1.1")
 
 
 class TestInterface(tests.BaseTest):

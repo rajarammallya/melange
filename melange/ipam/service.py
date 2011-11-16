@@ -131,7 +131,7 @@ class IpAddressController(BaseController):
 
     def show(self, request, address, ip_block_id, tenant_id):
         ip_block = self._find_block(id=ip_block_id, tenant_id=tenant_id)
-        return dict(ip_address=ip_block.find_ip(address).data())
+        return dict(ip_address=ip_block.find_ip(address=address).data())
 
     def delete(self, request, address, ip_block_id, tenant_id):
         ip_block = self._find_block(id=ip_block_id, tenant_id=tenant_id)
@@ -152,7 +152,7 @@ class IpAddressController(BaseController):
 
     def restore(self, request, ip_block_id, address, tenant_id, body=None):
         ip_block = self._find_block(id=ip_block_id, tenant_id=tenant_id)
-        ip_address = ip_block.find_ip(address)
+        ip_address = ip_block.find_ip(address=address)
         ip_address.restore()
 
 
@@ -212,18 +212,18 @@ class InsideGlobalsController(BaseController):
 
     def create(self, request, ip_block_id, address, tenant_id, body=None):
         local_ip = models.IpBlock.find_allocated_ip(ip_block_id,
-                                                    address,
-                                                    tenant_id)
+                                                    tenant_id,
+                                                    address=address)
         addresses = body['ip_addresses']
         global_ips = [models.IpBlock.find_allocated_ip(ip["ip_block_id"],
-                                                       ip["ip_address"],
-                                                       tenant_id)
+                                                      tenant_id,
+                                                      address=ip["ip_address"])
                       for ip in addresses]
         local_ip.add_inside_globals(global_ips)
 
     def index(self, request, ip_block_id, tenant_id, address):
         ip_block = models.IpBlock.find_by(id=ip_block_id, tenant_id=tenant_id)
-        ip = ip_block.find_ip(address)
+        ip = ip_block.find_ip(address=address)
         global_ips, marker = ip.inside_globals().paginated_collection(
             **self._extract_limits(request.params))
         return dict(ip_addresses=[ip.data() for ip in global_ips])
@@ -231,7 +231,7 @@ class InsideGlobalsController(BaseController):
     def delete(self, request, ip_block_id, address, tenant_id,
                inside_globals_address=None):
         ip_block = models.IpBlock.find_by(id=ip_block_id, tenant_id=tenant_id)
-        local_ip = ip_block.find_ip(address)
+        local_ip = ip_block.find_ip(address=address)
         local_ip.remove_inside_globals(inside_globals_address)
 
 
@@ -239,20 +239,22 @@ class InsideLocalsController(BaseController):
 
     def create(self, request, ip_block_id, address, tenant_id, body=None):
         global_ip = models.IpBlock.find_allocated_ip(ip_block_id,
-                                                     address,
-                                                     tenant_id)
+                                                     tenant_id,
+                                                     address=address,
+                                                     )
 
         addresses = body['ip_addresses']
         local_ips = [models.IpBlock.find_allocated_ip(ip["ip_block_id"],
-                                                      ip["ip_address"],
-                                                      tenant_id)
+                                                      tenant_id,
+                                                      address=ip["ip_address"],
+                                                      )
                       for ip in addresses]
 
         global_ip.add_inside_locals(local_ips)
 
     def index(self, request, ip_block_id, address, tenant_id):
         ip_block = models.IpBlock.find_by(id=ip_block_id, tenant_id=tenant_id)
-        ip = ip_block.find_ip(address)
+        ip = ip_block.find_ip(address=address)
         local_ips, marker = ip.inside_locals().paginated_collection(
             **self._extract_limits(request.params))
         return dict(ip_addresses=[ip.data() for ip in local_ips])
@@ -260,7 +262,7 @@ class InsideLocalsController(BaseController):
     def delete(self, request, ip_block_id, address, tenant_id,
                inside_locals_address=None):
         ip_block = models.IpBlock.find_by(id=ip_block_id, tenant_id=tenant_id)
-        global_ip = ip_block.find_ip(address)
+        global_ip = ip_block.find_ip(address=address)
         global_ip.remove_inside_locals(inside_locals_address)
 
 
@@ -428,6 +430,23 @@ class MacAddressRangesController(BaseController):
         return wsgi.Result(dict(mac_address_range=mac_range.data()), 201)
 
 
+class InterfaceAllowedIpsController(BaseController):
+
+    def index(self, request, interface_id, tenant_id):
+        interface = models.Interface.find_by(virtual_interface_id=interface_id,
+                                             tenant_id=tenant_id)
+        return dict(ip_addresses=[ip.data() for ip in interface.ips_allowed()])
+
+    def create(self, request, interface_id, tenant_id, body=None):
+        params = self._extract_required_params(body, 'allowed_ip')
+        interface = models.Interface.find_by(
+            virtual_interface_id=interface_id, tenant_id=tenant_id)
+        network = models.Network.find_by(id=params['network_id'])
+        ip = network.find_allocated_ip(address=params['ip_address'])
+        interface.allow_ip(ip)
+        return wsgi.Result(dict(ip_address=ip.data()), 201)
+
+
 class API(wsgi.Router):
 
     def __init__(self):
@@ -469,12 +488,19 @@ class API(wsgi.Router):
 
     def _interface_mapper(self, mapper):
         interface_res = InterfacesController().create_resource()
-        path = ("/ipam/interfaces")
-        mapper.resource("ip_interfaces", path, controller=interface_res)
-        self._connect(mapper, "/ipam/tenants/{tenant_id}/interfaces/{id}",
+        interface_allowed_ips = InterfaceAllowedIpsController()
+        path = "/ipam/interfaces"
+        mapper.resource("interfaces", path, controller=interface_res)
+        self._connect(mapper,
+                      "/ipam/tenants/{tenant_id}/interfaces/{id}",
                       controller=interface_res,
                       action="show",
                       conditions=dict(method=['GET']))
+        mapper.resource("allowed_ips",
+                        "/allowed_ips",
+                        controller=interface_allowed_ips.create_resource(),
+                        path_prefix=("/ipam/tenants/{tenant_id}/"
+                                     "interfaces/{interface_id}"))
 
     def _mac_address_range_mapper(self, mapper):
         range_res = MacAddressRangesController().create_resource()
@@ -530,8 +556,7 @@ class API(wsgi.Router):
                             SubnetController().create_resource(),
                             block_as_parent)
 
-    def _subnet_mapper(self, mapper, subnet_controller,
-                       parent_resource):
+    def _subnet_mapper(self, mapper, subnet_controller, parent_resource):
         path_prefix = "%s/{%s_id}" % (parent_resource["collection_path"],
                                       parent_resource["member_name"])
         with mapper.submapper(controller=subnet_controller,

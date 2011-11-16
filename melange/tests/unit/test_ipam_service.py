@@ -2228,6 +2228,44 @@ class TestMacAddressRangesController(BaseTestController):
                          _data(mac_range))
 
 
+class TestInterfaceAllowedIpsController(BaseTestController):
+
+    def test_index(self):
+        interface = factory_models.InterfaceFactory(
+            tenant_id="tnt_id", virtual_interface_id="vif_id")
+        noise_interface = factory_models.InterfaceFactory()
+        ip1 = factory_models.IpAddressFactory()
+        ip2 = factory_models.IpAddressFactory()
+        ip3 = factory_models.IpAddressFactory()
+        ip4 = factory_models.IpAddressFactory()
+        interface.allow_ip(ip1)
+        interface.allow_ip(ip2)
+        interface.allow_ip(ip3)
+        noise_interface.allow_ip(ip3)
+        noise_interface.allow_ip(ip4)
+
+        response = self.app.get(
+            "/ipam/tenants/tnt_id/interfaces/vif_id/allowed_ips")
+
+        self.assertItemsEqual(response.json['ip_addresses'],
+                              _data([ip1, ip2, ip3]))
+
+    def test_create(self):
+        interface = factory_models.InterfaceFactory(
+            tenant_id="tnt_id", virtual_interface_id="vif_id")
+        block = factory_models.IpBlockFactory(network_id="net123")
+        ip = block.allocate_ip(factory_models.InterfaceFactory(
+            tenant_id="tnt_id"))
+
+        response = self.app.post_json(
+            ("/ipam/tenants/tnt_id/interfaces/%s/allowed_ips"
+             % interface.virtual_interface_id),
+            {'allowed_ip': {'network_id': "net123", 'ip_address': ip.address}})
+
+        self.assertEqual(response.status_int, 201)
+        self.assertEqual(response.json['ip_address'], _data(ip))
+
+
 def _allocate_ips(*args):
     interface = factory_models.InterfaceFactory()
     return [models.sort([_allocate_ip(ip_block, interface=interface)

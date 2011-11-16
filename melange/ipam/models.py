@@ -266,9 +266,9 @@ class IpBlock(ModelBase):
                     'netmask']
 
     @classmethod
-    def find_allocated_ip(cls, ip_block_id, address, tenant_id):
+    def find_allocated_ip(cls, ip_block_id, tenant_id, **conditions):
         block = IpBlock.find_by(id=ip_block_id, tenant_id=tenant_id)
-        allocated_ip = block.find_ip(address=address)
+        allocated_ip = block.find_ip(**conditions)
         if allocated_ip.locked():
             raise AddressLockedError()
         return allocated_ip
@@ -406,8 +406,8 @@ class IpBlock(ModelBase):
         other_network = netaddr.IPNetwork(other_block.cidr)
         return network in other_network or other_network in network
 
-    def find_ip(self, address):
-        return IpAddress.find_by(ip_block_id=self.id, address=address)
+    def find_ip(self, **kwargs):
+        return IpAddress.find_by(ip_block_id=self.id, **kwargs)
 
     def deallocate_ip(self, address):
         ip_address = IpAddress.find_by(ip_block_id=self.id, address=address)
@@ -822,7 +822,7 @@ class Interface(ModelBase):
         db_api.save_allowed_ip(self.id, ip.id)
 
     def disallow_ip(self, ip):
-        db_api.remove_allowd_ip(interface_id=self.id, ip_address_id=ip.id)
+        db_api.remove_allowed_ip(interface_id=self.id, ip_address_id=ip.id)
 
     def ips_allowed(self):
         explicitly_allowed = Query(IpAddress,
@@ -971,6 +971,17 @@ class Network(ModelBase):
         ips = IpAddress.find_all_by_network(self.id, interface_id=interface_id)
         for ip in ips:
             ip.deallocate()
+
+    def find_allocated_ip(self, **conditions):
+        for ip_block in self.ip_blocks:
+            try:
+                return IpAddress.find_by(ip_block_id=ip_block.id, **conditions)
+            except ModelNotFoundError:
+                pass
+        raise ModelNotFoundError(_("IpAddress with %(conditions)s for "
+                                    "network %(network)s not found")
+                                  % (dict(conditions=conditions,
+                                          network=self.id)))
 
     def _block_partitions(self):
         return [[block for block in self.ip_blocks

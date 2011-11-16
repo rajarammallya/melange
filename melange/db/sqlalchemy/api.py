@@ -218,7 +218,7 @@ def find_allowed_ips(ip_address_model,
     return query
 
 
-def remove_allowd_ip(**conditions):
+def remove_allowed_ip(**conditions):
     _query_by(mappers.AllowedIp).\
     filter_by(**conditions).\
     delete()

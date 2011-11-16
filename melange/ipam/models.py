@@ -831,6 +831,17 @@ class Interface(ModelBase):
         allocated_ips = IpAddress.find_all_allocated_ips(interface_id=self.id)
         return list(set(allocated_ips) | set(explicitly_allowed))
 
+    def find_allowed_ip(self, address):
+        ip = utils.find(lambda ip: ip.address == address,
+                        self.ips_allowed())
+        if ip is None:
+            raise ModelNotFoundError(
+                _("Ip Address %(address)s hasnt been allowed "
+                   "on interface %(vif_id)s")
+                % (dict(address=address,
+                        vif_id=self.virtual_interface_id)))
+        return ip
+
     @utils.cached_property
     def mac_address(self):
         return MacAddress.get_by(interface_id=self.id)
@@ -978,6 +989,7 @@ class Network(ModelBase):
                 return IpAddress.find_by(ip_block_id=ip_block.id, **conditions)
             except ModelNotFoundError:
                 pass
+
         raise ModelNotFoundError(_("IpAddress with %(conditions)s for "
                                     "network %(network)s not found")
                                   % (dict(conditions=conditions,

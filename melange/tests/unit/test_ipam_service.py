@@ -2250,6 +2250,28 @@ class TestInterfaceAllowedIpsController(BaseTestController):
         self.assertItemsEqual(response.json['ip_addresses'],
                               _data([ip1, ip2, ip3]))
 
+    def test_index_returns_404_when_interface_doesnt_exist(self):
+        noise_interface = factory_models.InterfaceFactory(
+            tenant_id="tnt_id", virtual_interface_id="vif_id")
+        response = self.app.get(
+            "/ipam/tenants/tnt_id/interfaces/bad_vif_id/allowed_ips",
+            status="*")
+
+        self.assertErrorResponse(response,
+                                 webob.exc.HTTPNotFound,
+                                 "Interface Not Found")
+
+    def test_index_return_404_when_interface_doesnt_belong_to_tenant(self):
+        interface = factory_models.InterfaceFactory(
+            tenant_id="tnt_id", virtual_interface_id="vif_id")
+        response = self.app.get(
+            "/ipam/tenants/bad_tnt_id/interfaces/vif_id/allowed_ips",
+            status="*")
+
+        self.assertErrorResponse(response,
+                                 webob.exc.HTTPNotFound,
+                                 "Interface Not Found")
+
     def test_create(self):
         interface = factory_models.InterfaceFactory(
             tenant_id="tnt_id", virtual_interface_id="vif_id")
@@ -2264,6 +2286,126 @@ class TestInterfaceAllowedIpsController(BaseTestController):
 
         self.assertEqual(response.status_int, 201)
         self.assertEqual(response.json['ip_address'], _data(ip))
+
+    def test_create_raises_404_when_interface_doesnt_exist(self):
+        noise_interface = factory_models.InterfaceFactory(
+            tenant_id="tnt_id", virtual_interface_id="vif_id")
+        block = factory_models.IpBlockFactory(network_id="net123")
+        ip = block.allocate_ip(factory_models.InterfaceFactory(
+            tenant_id="tnt_id"))
+
+        response = self.app.post_json(
+            "/ipam/tenants/tnt_id/interfaces/bad_iface_id/allowed_ips",
+            {'allowed_ip': {'network_id': "net123",
+                            'ip_address': ip.address}},
+            status="*")
+
+        self.assertErrorResponse(response,
+                                 webob.exc.HTTPNotFound,
+                                 "Interface Not Found")
+
+    def test_create_raises_404_when_ip_is_not_of_the_same_tenant(self):
+        interface = factory_models.InterfaceFactory(
+            tenant_id="tnt_id", virtual_interface_id="vif_id")
+        block = factory_models.IpBlockFactory(network_id="net123")
+        other_tenants_ip = block.allocate_ip(factory_models.InterfaceFactory(
+            tenant_id="blah"))
+
+        response = self.app.post_json(
+            ("/ipam/tenants/tnt_id/interfaces/%s/allowed_ips"
+             % interface.virtual_interface_id),
+            {'allowed_ip': {'network_id': "net123",
+                            'ip_address': other_tenants_ip.address}},
+            status="*")
+
+        err_msg = ("IpAddress with {'used_by_tenant_id': u'tnt_id', "
+                   "'address': u'%s'} for network net123 not found"
+                   % other_tenants_ip.address)
+
+        self.assertErrorResponse(response, webob.exc.HTTPNotFound, err_msg)
+
+    def test_delete(self):
+        interface = factory_models.InterfaceFactory(
+            tenant_id="tnt_id", virtual_interface_id="vif_id")
+        block = factory_models.IpBlockFactory(network_id="net123")
+        ip = block.allocate_ip(factory_models.InterfaceFactory())
+        interface.allow_ip(ip)
+
+        self.app.delete("/ipam/tenants/tnt_id/interfaces/vif_id/allowed_ips/%s"
+                        % ip.address)
+        self.assertEqual(interface.ips_allowed(), [])
+
+    def test_delete_fails_for_non_existent_interface(self):
+        noise_interface = factory_models.InterfaceFactory(
+            tenant_id="tnt_id", virtual_interface_id="vif_id")
+
+        response = self.app.delete("/ipam/tenants/tnt_id/interfaces/"
+                                   "bad_iface_id/allowed_ips/10.1.1.1",
+                                   status="*")
+
+        self.assertErrorResponse(response,
+                                 webob.exc.HTTPNotFound,
+                                 "Interface Not Found")
+
+    def test_delete_fails_when_allowed_ip_doesnt_exist(self):
+        factory_models.InterfaceFactory(
+            tenant_id="tnt_id", virtual_interface_id="vif_id")
+
+        response = self.app.delete("/ipam/tenants/tnt_id/interfaces/"
+                                   "vif_id/allowed_ips/10.1.1.1",
+                                   status="*")
+
+        self.assertErrorResponse(response,
+                                 webob.exc.HTTPNotFound,
+                                 "Ip Address 10.1.1.1 hasnt been "
+                                 "allowed on interface vif_id")
+
+    def test_show(self):
+        interface = factory_models.InterfaceFactory(
+            tenant_id="tnt_id", virtual_interface_id="vif_id")
+        block = factory_models.IpBlockFactory(network_id="net123")
+        ip = block.allocate_ip(factory_models.InterfaceFactory())
+        interface.allow_ip(ip)
+
+        response = self.app.get("/ipam/tenants/tnt_id/interfaces/vif_id/"
+                                "allowed_ips/%s" % ip.address)
+
+        self.assertEqual(response.status_int, 200)
+        self.assertEqual(response.json['ip_address'], _data(ip))
+
+    def test_show_raises_404_when_allowed_address_doesnt_exist(self):
+        factory_models.InterfaceFactory(
+            tenant_id="tnt_id", virtual_interface_id="vif_id")
+
+        response = self.app.get("/ipam/tenants/tnt_id/interfaces/vif_id/"
+                                "allowed_ips/10.1.1.1", status="*")
+
+        self.assertErrorResponse(response,
+                                 webob.exc.HTTPNotFound,
+                                 "Ip Address 10.1.1.1 hasnt been "
+                                 "allowed on interface vif_id")
+
+    def test_show_raises_404_when_interface_belongs_to_other_tenant(self):
+        factory_models.InterfaceFactory(
+            tenant_id="tnt_id", virtual_interface_id="vif_id")
+
+        response = self.app.get("/ipam/tenants/bad_tnt_id/interfaces/vif_id/"
+                                "allowed_ips/10.1.1.1", status="*")
+
+        self.assertErrorResponse(response,
+                                 webob.exc.HTTPNotFound,
+                                 "Interface Not Found")
+
+    def test_show_raises_404_when_interface_doesnt_exist(self):
+        factory_models.InterfaceFactory(
+            tenant_id="tnt_id", virtual_interface_id="vif_id")
+
+        response = self.app.get("/ipam/tenants/tnt_id/interfaces/bad_vif_id/"
+                                "allowed_ips/10.1.1.1", status="*")
+
+        self.assertErrorResponse(response,
+                                 webob.exc.HTTPNotFound,
+                                 "Interface Not Found")
 
 
 def _allocate_ips(*args):

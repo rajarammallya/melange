@@ -442,9 +442,22 @@ class InterfaceAllowedIpsController(BaseController):
         interface = models.Interface.find_by(
             virtual_interface_id=interface_id, tenant_id=tenant_id)
         network = models.Network.find_by(id=params['network_id'])
-        ip = network.find_allocated_ip(address=params['ip_address'])
+        ip = network.find_allocated_ip(address=params['ip_address'],
+                                       used_by_tenant_id=tenant_id)
         interface.allow_ip(ip)
         return wsgi.Result(dict(ip_address=ip.data()), 201)
+
+    def show(self, request, interface_id, tenant_id, address):
+        interface = models.Interface.find_by(
+            virtual_interface_id=interface_id, tenant_id=tenant_id)
+        ip = interface.find_allowed_ip(address)
+        return dict(ip_address=ip.data())
+
+    def delete(self, request, interface_id, tenant_id, address):
+        interface = models.Interface.find_by(
+            virtual_interface_id=interface_id, tenant_id=tenant_id)
+        ip = interface.find_allowed_ip(address)
+        interface.disallow_ip(ip)
 
 
 class API(wsgi.Router):
@@ -496,6 +509,17 @@ class API(wsgi.Router):
                       controller=interface_res,
                       action="show",
                       conditions=dict(method=['GET']))
+
+        mapper.connect("/ipam/tenants/{tenant_id}/"
+                       "interfaces/{interface_id}/allowed_ips/{address:.+?}",
+                       action="delete",
+                       controller=interface_allowed_ips.create_resource(),
+                       conditions=dict(method=["DELETE"]))
+        mapper.connect("/ipam/tenants/{tenant_id}/"
+                       "interfaces/{interface_id}/allowed_ips/{address:.+?}",
+                       action="show",
+                       controller=interface_allowed_ips.create_resource(),
+                       conditions=dict(method=["GET"]))
         mapper.resource("allowed_ips",
                         "/allowed_ips",
                         controller=interface_allowed_ips.create_resource(),

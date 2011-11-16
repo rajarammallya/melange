@@ -2250,6 +2250,31 @@ class TestAllowedIp(tests.BaseTest):
 
         self.assertEqual(interface.ips_allowed(), [ip])
 
+    def test_find_allowed_ip(self):
+        interface = factory_models.InterfaceFactory()
+        ip1 = factory_models.IpAddressFactory()
+        ip2 = factory_models.IpAddressFactory()
+        interface.allow_ip(ip1)
+        interface.allow_ip(ip2)
+
+        self.assertEqual(interface.find_allowed_ip(ip1.address), ip1)
+        self.assertEqual(interface.find_allowed_ip(ip2.address), ip2)
+
+    def test_find_allowed_ip_raises_model_not_found(self):
+        interface = factory_models.InterfaceFactory(
+            virtual_interface_id="vif_1")
+        ip1 = factory_models.IpAddressFactory()
+        ip2 = factory_models.IpAddressFactory()
+        unshared_ip = factory_models.IpAddressFactory()
+        interface.allow_ip(ip1)
+        interface.allow_ip(ip2)
+
+        self.assertRaisesExcMessage(models.ModelNotFoundError,
+                                    _("Ip Address %s hasnt been allowed on "
+                                    "interface vif_1") % unshared_ip.address,
+                                    interface.find_allowed_ip,
+                                    unshared_ip.address)
+
 
 def _allocate_ip(block, interface=None, **kwargs):
     interface = interface or factory_models.InterfaceFactory()

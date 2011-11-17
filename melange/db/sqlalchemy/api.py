@@ -19,7 +19,6 @@ import sqlalchemy.exc
 from sqlalchemy import and_
 from sqlalchemy import or_
 from sqlalchemy.orm import aliased
-from sqlalchemy.orm import joinedload
 
 from melange import ipam
 from melange.common import exception
@@ -29,21 +28,22 @@ from melange.db.sqlalchemy import mappers
 from melange.db.sqlalchemy import session
 
 
-def list(query):
-    return query.all()
+def list(query_func, *args, **kwargs):
+    return query_func(*args, **kwargs).all()
 
 
-def count(query):
-    return query.count()
+def count(query, *args, **kwargs):
+    return query(*args, **kwargs).count()
 
 
-def find_all_by(model, **conditions):
+def find_all(model, **conditions):
     return _query_by(model, **conditions)
 
 
 def find_all_by_limit(query_func, model, conditions, limit, marker=None,
                       marker_column=None):
-    return _limits(query_func, model, conditions, limit, marker, marker_column)
+    return _limits(query_func, model, conditions, limit, marker,
+                   marker_column).all()
 
 
 def find_by(model, **kwargs):

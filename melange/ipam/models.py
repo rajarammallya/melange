@@ -27,54 +27,10 @@ from melange.common import config
 from melange.common import exception
 from melange.common import utils
 from melange.db import db_api
+from melange.db import db_query
 
 
 LOG = logging.getLogger('melange.ipam.models')
-
-
-class Query(object):
-    """Mimics sqlalchemy query object.
-
-    This class allows us to store query conditions and use them with
-    bulk updates and deletes just like sqlalchemy query object.
-    Using this class makes the models independent of sqlalchemy
-
-    """
-    def __init__(self, model, query_func=None, **conditions):
-        self._query_func = query_func or db_api.find_all_by
-        self._model = model
-        self._conditions = conditions
-
-    def all(self):
-        return db_api.list(self._query_func(self._model, **self._conditions))
-
-    def count(self):
-        return db_api.count(self._query_func(self._model, **self._conditions))
-
-    def __iter__(self):
-        return iter(self.all())
-
-    def update(self, **values):
-        db_api.update_all(self._query_func, self._model, self._conditions,
-                          values)
-
-    def delete(self):
-        db_api.delete_all(self._query_func, self._model, **self._conditions)
-
-    def limit(self, limit=200, marker=None, marker_column=None):
-        limit_query = db_api.find_all_by_limit(self._query_func,
-                                               self._model,
-                                               self._conditions,
-                                               limit=limit,
-                                               marker=marker,
-                                               marker_column=marker_column)
-        return db_api.list(limit_query)
-
-    def paginated_collection(self, limit=200, marker=None, marker_column=None):
-        collection = self.limit(int(limit) + 1, marker, marker_column)
-        if len(collection) > int(limit):
-            return (collection[0:-1], collection[-2]['id'])
-        return (collection, None)
 
 
 class Converter(object):
@@ -193,11 +149,11 @@ class ModelBase(object):
 
     @classmethod
     def find_all(cls, **kwargs):
-        return Query(cls, **cls._process_conditions(kwargs))
+        return db_query.find_all(cls, **cls._process_conditions(kwargs))
 
     @classmethod
     def count(cls, **conditions):
-        return Query(cls, **conditions).count()
+        return cls.find_all(**conditions).count()
 
     def merge_attributes(self, values):
         """dict.update() behaviour."""
@@ -571,16 +527,13 @@ class IpAddress(ModelBase):
 
     @classmethod
     def find_all_by_network(cls, network_id, **conditions):
-        return Query(cls,
-                     query_func=db_api.find_all_ips_in_network,
-                     network_id=network_id,
-                     **conditions)
+        return db_query.find_all_ips_in_network(cls,
+                                             network_id=network_id,
+                                             **conditions)
 
     @classmethod
     def find_all_allocated_ips(cls, **conditions):
-        return Query(cls,
-                     query_func=db_api.find_all_allocated_ips,
-                     **conditions)
+        return db_query.find_all_allocated_ips(cls, **conditions)
 
     def delete(self):
         if self._explicitly_allowed_on_interfaces():
@@ -593,9 +546,8 @@ class IpAddress(ModelBase):
         super(IpAddress, self).delete()
 
     def _explicitly_allowed_on_interfaces(self):
-        return Query(IpAddress,
-                     query_func=db_api.find_allowed_ips,
-                     ip_address_id=self.id).count() > 0
+        return db_query.find_allowed_ips(IpAddress,
+                                      ip_address_id=self.id).count() > 0
 
     def _before_save(self):
         self.address = self._formatted(self.address)
@@ -619,10 +571,9 @@ class IpAddress(ModelBase):
         self.update(marked_for_deallocation=False, deallocated_at=None)
 
     def inside_globals(self, **kwargs):
-        return Query(IpAddress,
-                     query_func=db_api.find_inside_globals,
-                     local_address_id=self.id,
-                     **kwargs)
+        return db_query.find_inside_globals(IpAddress,
+                                         local_address_id=self.id,
+                                         **kwargs)
 
     def add_inside_globals(self, ip_addresses):
         db_api.save_nat_relationships([
@@ -633,10 +584,9 @@ class IpAddress(ModelBase):
             for global_address in ip_addresses])
 
     def inside_locals(self, **kwargs):
-        return Query(IpAddress,
-                     query_func=db_api.find_inside_locals,
-                     global_address_id=self.id,
-                     **kwargs)
+        return db_query.find_inside_locals(IpAddress,
+                                        global_address_id=self.id,
+                                        **kwargs)
 
     def remove_inside_globals(self, inside_global_address=None):
         return db_api.remove_inside_globals(self.id, inside_global_address)
@@ -825,9 +775,8 @@ class Interface(ModelBase):
         db_api.remove_allowed_ip(interface_id=self.id, ip_address_id=ip.id)
 
     def ips_allowed(self):
-        explicitly_allowed = Query(IpAddress,
-                                   query_func=db_api.find_allowed_ips,
-                                   allowed_on_interface_id=self.id)
+        explicitly_allowed = db_query.find_allowed_ips(
+            IpAddress, allowed_on_interface_id=self.id)
         allocated_ips = IpAddress.find_all_allocated_ips(interface_id=self.id)
         return list(set(allocated_ips) | set(explicitly_allowed))
 

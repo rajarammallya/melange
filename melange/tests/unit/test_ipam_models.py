@@ -22,6 +22,7 @@ import netaddr
 from melange import tests
 from melange.common import exception
 from melange.common import utils
+from melange.db import db_query
 from melange.ipam import models
 from melange.tests import unit
 from melange.tests.factories import models as factory_models
@@ -91,7 +92,7 @@ class TestQuery(tests.BaseTest):
         block2 = factory_models.IpBlockFactory(network_id="1")
         noise_block = factory_models.IpBlockFactory(network_id="999")
 
-        blocks = models.Query(models.IpBlock, network_id="1").all()
+        blocks = db_query.find_all(models.IpBlock, network_id="1").all()
 
         self.assertModelsEqual(blocks, [block1, block2])
 
@@ -100,7 +101,7 @@ class TestQuery(tests.BaseTest):
         factory_models.IpBlockFactory(network_id="1")
         noise_block = factory_models.IpBlockFactory(network_id="999")
 
-        count = models.Query(models.IpBlock, network_id="1").count()
+        count = db_query.find_all(models.IpBlock, network_id="1").count()
 
         self.assertEqual(count, 2)
 
@@ -109,7 +110,7 @@ class TestQuery(tests.BaseTest):
         block2 = factory_models.IpBlockFactory(network_id="1")
         noise_block = factory_models.IpBlockFactory(network_id="999")
 
-        query = models.Query(models.IpBlock, network_id="1")
+        query = db_query.find_all(models.IpBlock, network_id="1")
         blocks = [block for block in query]
 
         self.assertModelsEqual(blocks, [block1, block2])
@@ -123,8 +124,9 @@ class TestQuery(tests.BaseTest):
             ])
 
         marker_block = blocks[1]
-        paginated_blocks = models.Query(models.IpBlock).limit(limit=2,
-                                                marker=marker_block.id)
+        all_blocks_query = db_query.find_all(models.IpBlock)
+        paginated_blocks = all_blocks_query.limit(limit=2,
+                                                  marker=marker_block.id)
 
         self.assertEqual(len(paginated_blocks), 2)
         self.assertEqual(paginated_blocks, [blocks[2], blocks[3]])
@@ -134,7 +136,8 @@ class TestQuery(tests.BaseTest):
         block2 = factory_models.IpBlockFactory(network_id="1")
         noise_block = factory_models.IpBlockFactory(network_id="999")
 
-        models.Query(models.IpBlock, network_id="1").update(network_id="2")
+        db_query.find_all(models.IpBlock,
+                          network_id="1").update(network_id="2")
 
         self.assertEqual(models.IpBlock.find(block1.id).network_id, "2")
         self.assertEqual(models.IpBlock.find(block2.id).network_id, "2")
@@ -146,7 +149,7 @@ class TestQuery(tests.BaseTest):
         block2 = factory_models.IpBlockFactory(network_id="1")
         noise_block = factory_models.IpBlockFactory(network_id="999")
 
-        models.Query(models.IpBlock, network_id="1").delete()
+        db_query.find_all(models.IpBlock, network_id="1").delete()
 
         self.assertIsNone(models.IpBlock.get(block1.id))
         self.assertIsNone(models.IpBlock.get(block2.id))

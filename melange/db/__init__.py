@@ -25,6 +25,59 @@ db_api = utils.import_object(config.Config.get("db_api_implementation",
                                                "melange.db.sqlalchemy.api"))
 
 
+class Query(object):
+    """Mimics sqlalchemy query object.
+
+    This class allows us to store query conditions and use them with
+    bulk updates and deletes just like sqlalchemy query object.
+    Using this class makes the models independent of sqlalchemy
+
+    """
+    def __init__(self, model, query_func, **conditions):
+        self._query_func = query_func
+        self._model = model
+        self._conditions = conditions
+
+    def all(self):
+        return db_api.list(self._query_func, self._model, **self._conditions)
+
+    def count(self):
+        return db_api.count(self._query_func, self._model, **self._conditions)
+
+    def __iter__(self):
+        return iter(self.all())
+
+    def update(self, **values):
+        db_api.update_all(self._query_func, self._model, self._conditions,
+                          values)
+
+    def delete(self):
+        db_api.delete_all(self._query_func, self._model, **self._conditions)
+
+    def limit(self, limit=200, marker=None, marker_column=None):
+        return db_api.find_all_by_limit(self._query_func,
+                                               self._model,
+                                               self._conditions,
+                                               limit=limit,
+                                               marker=marker,
+                                               marker_column=marker_column)
+
+    def paginated_collection(self, limit=200, marker=None, marker_column=None):
+        collection = self.limit(int(limit) + 1, marker, marker_column)
+        if len(collection) > int(limit):
+            return (collection[0:-1], collection[-2]['id'])
+        return (collection, None)
+
+
+class Queryable(object):
+
+    def __getattr__(self, item):
+        return lambda model, **conditions: Query(
+            model, query_func=getattr(db_api, item), **conditions)
+
+db_query = Queryable()
+
+
 def add_options(parser):
     """Adds any configuration options that the db layer might have.
 

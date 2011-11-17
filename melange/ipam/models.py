@@ -33,20 +33,6 @@ from melange.db import db_query
 LOG = logging.getLogger('melange.ipam.models')
 
 
-class Converter(object):
-
-    data_type_converters = {
-        'integer': lambda value: int(value),
-        'boolean': lambda value: utils.bool_from_string(value),
-     }
-
-    def __init__(self, data_type):
-        self.data_type = data_type
-
-    def convert(self, value):
-        return self.data_type_converters[self.data_type](value)
-
-
 class ModelBase(object):
 
     _fields_for_type_conversion = {}
@@ -197,6 +183,20 @@ class ModelBase(object):
         self.errors[attribute_name].append(error_message)
 
 
+class Converter(object):
+
+    data_type_converters = {
+        'integer': lambda value: int(value),
+        'boolean': lambda value: utils.bool_from_string(value),
+     }
+
+    def __init__(self, data_type):
+        self.data_type = data_type
+
+    def convert(self, value):
+        return self.data_type_converters[self.data_type](value)
+
+
 class IpAddressIterator(object):
 
     def __init__(self, generator):
@@ -265,8 +265,10 @@ class IpBlock(ModelBase):
     def ip_routes(self):
         return IpRoute.find_all(source_block_id=self.id)
 
-    def get_address(self, address):
-        return IpAddress.get_by(ip_block_id=self.id, address=address)
+    def does_address_exists(self, address):
+        return (address in [self.broadcast, self.gateway]
+                or IpAddress.get_by(ip_block_id=self.id,
+                                    address=address) is not None)
 
     def addresses(self):
         return IpAddress.find_all(ip_block_id=self.id).all()
@@ -279,9 +281,17 @@ class IpBlock(ModelBase):
 
         if self.subnets():
             raise IpAllocationNotAllowedError(
-                _("Non Leaf block cannot allocate IPAddress"))
+                _("Subnetted block cannot allocate IPAddress"))
         if self.is_full:
             raise exception.NoMoreAddressesError(_("IpBlock is full"))
+
+        interface_network = interface.plugged_in_network_id()
+        if (interface_network is not None
+            and interface_network != self.network_id):
+            raise IpAllocationNotAllowedError(
+                _("Interface %s is configured on another network")
+                              % interface.virtual_interface_id)
+
         if address:
             return self._allocate_specific_ip(interface, address)
         return self._allocate_available_ip(interface, **kwargs)
@@ -312,7 +322,7 @@ class IpBlock(ModelBase):
                                                                **kwargs)
 
             return utils.find(lambda address:
-                              self.get_address(address) is None,
+                              self.does_address_exists(address) is False,
                               IpAddressIterator(address_generator))
         else:
             generator = ipv4.address_generator_factory(self)
@@ -333,8 +343,7 @@ class IpBlock(ModelBase):
             raise AddressDoesNotBelongError(
                 _("Address does not belong to IpBlock"))
 
-        if (address in [self.broadcast, self.gateway]
-            or (self.get_address(address) is not None)):
+        if self.does_address_exists(address):
             raise DuplicateAddressError()
 
         if not self._allowed_by_policy(self.policy(), address):
@@ -511,6 +520,7 @@ class IpAddress(ModelBase):
     _data_fields = ['ip_block_id', 'address', 'version']
 
     def _validate(self):
+        self._validate_presence_of("used_by_tenant_id")
         self._validate_existence_of("interface_id", Interface)
 
     @classmethod
@@ -552,6 +562,7 @@ class IpAddress(ModelBase):
     def _before_save(self):
         self.address = self._formatted(self.address)
 
+    @utils.cached_property
     def ip_block(self):
         return IpBlock.get(self.ip_block_id)
 
@@ -790,6 +801,10 @@ class Interface(ModelBase):
                 % (dict(address=address,
                         vif_id=self.virtual_interface_id)))
         return ip
+
+    def plugged_in_network_id(self):
+        interface_ip = IpAddress.get_by(interface_id=self.id)
+        return interface_ip.ip_block.network_id if interface_ip else None
 
     @utils.cached_property
     def mac_address(self):

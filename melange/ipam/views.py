@@ -24,10 +24,9 @@ class IpConfigurationView(object):
     def data(self):
         data = []
         for ip in self.ip_addresses:
-            block = ip.ip_block()
-            routes = block.ip_routes()
+            routes = ip.ip_block.ip_routes()
             ip_address_data = self._ip_address_data(ip)
-            block_data = self._block_data(block)
+            block_data = self._block_data(ip.ip_block)
             routes_data = [self._route_data(route) for route in routes]
 
             block_data['ip_routes'] = routes_data

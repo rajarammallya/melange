@@ -1999,7 +1999,7 @@ class TestInterfaceIpAllocationsController(BaseTestController):
 
         self.assertEqual(response.status_int, 201)
         ip_address_json = response.json['ip_addresses'][0]
-        created_block = models.IpAddress.find(ip_address_json['id']).ip_block()
+        created_block = models.IpAddress.find(ip_address_json['id']).ip_block
         self.assertEqual(created_block.network_id, "1")
         self.assertEqual(created_block.cidr, config.Config.get('default_cidr'))
         self.assertEqual(created_block.type, "private")
@@ -2029,9 +2029,11 @@ class TestInterfaceIpAllocationsController(BaseTestController):
     def test_index(self):
         factory = factory_models.PrivateIpBlockFactory
         ipv4_block = factory(cidr="10.0.0.0/8",
-                             network_id=1,
+                             network_id="1",
                              tenant_id="tnt_id")
-        ipv6_block = factory(cidr="fe::/96", network_id=1, tenant_id="tnt_id")
+        ipv6_block = factory(cidr="fe::/96",
+                             network_id="1",
+                             tenant_id="tnt_id")
         iface = factory_models.InterfaceFactory(virtual_interface_id="123")
         models.MacAddress.create(interface_id=iface.id,
                                  address="aa:bb:cc:dd:ee:ff")
@@ -2171,7 +2173,7 @@ class TestInterfacesController(BaseTestController):
         interface = models.Interface.find_by(virtual_interface_id='virt_iface')
 
         created_block = models.IpAddress.find_by(
-            interface_id=interface.id).ip_block()
+            interface_id=interface.id).ip_block
         self.assertEqual(created_block.network_id, "net1")
         self.assertEqual(created_block.cidr, config.Config.get('default_cidr'))
         self.assertEqual(created_block.type, "private")

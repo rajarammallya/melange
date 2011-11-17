@@ -524,7 +524,7 @@ class TestIpBlock(tests.BaseTest):
         parent_block = factory_models.IpBlockFactory(cidr="10.0.0.0/28")
         interface = factory_models.InterfaceFactory()
         parent_block.subnet(cidr="10.0.0.0/28")
-        expected_msg = "Non Leaf block cannot allocate IPAddress"
+        expected_msg = "Subnetted block cannot allocate IPAddress"
         self.assertRaisesExcMessage(models.IpAllocationNotAllowedError,
                                     expected_msg,
                                     parent_block.allocate_ip,
@@ -645,6 +645,20 @@ class TestIpBlock(tests.BaseTest):
         self.assertRaises(exception.NoMoreAddressesError,
                           ip_block.allocate_ip,
                           interface=interface)
+
+    def test_allocate_ip_fails_when_iface_configured_for_other_net_ip(self):
+        iface_with_net1 = factory_models.InterfaceFactory()
+        net1_block = factory_models.IpBlockFactory(network_id="1")
+        net1_ip = net1_block.allocate_ip(iface_with_net1)
+        net2_block = factory_models.IpBlockFactory(network_id="2")
+
+        expected_error_msg = ("Interface %s is configured on another network"
+                              % iface_with_net1.virtual_interface_id)
+
+        self.assertRaisesExcMessage(models.IpAllocationNotAllowedError,
+                                    expected_error_msg,
+                                    net2_block.allocate_ip,
+                                    iface_with_net1)
 
     def test_allocate_ip_retries_on_ip_creation_constraint_failure(self):
         interface = factory_models.InterfaceFactory()
@@ -1026,10 +1040,12 @@ class TestIpAddress(tests.BaseTest):
                                     models.IpAddress.create,
                                     ip_block_id=block1.id,
                                     address=block1_ip.address,
+                                    used_by_tenant_id="tnt_id",
                                     interface_id=interface.id)
 
         self.assertIsNotNone(models.IpAddress.create(ip_block_id=block2.id,
                                               address=block1_ip.address,
+                                              used_by_tenant_id="tnt_id",
                                               interface_id=interface.id))
 
     def test_find_ip_address(self):
@@ -1243,7 +1259,7 @@ class TestIpAddress(tests.BaseTest):
         ip_block = factory_models.PrivateIpBlockFactory()
         ip_address = factory_models.IpAddressFactory(ip_block_id=ip_block.id)
 
-        self.assertEqual(ip_address.ip_block(), ip_block)
+        self.assertEqual(ip_address.ip_block, ip_block)
 
     def test_find_by_takes_care_of_expanding_ipv6_addresses(self):
         actual_ip = factory_models.IpAddressFactory(address="00fe:0:0001::2")
@@ -1288,6 +1304,12 @@ class TestIpAddress(tests.BaseTest):
         self.assertFalse(ip.is_valid())
         self.assertEqual(ip.errors['interface_id'],
                          ["Interface with id = 'bad_id' doesn't exist"])
+
+    def test_validates_presence_of_used_by_tenant(self):
+        ip = factory_models.IpAddressFactory.build(used_by_tenant_id=None)
+        self.assertFalse(ip.is_valid())
+        self.assertEqual(ip.errors['used_by_tenant_id'],
+                         ["used_by_tenant_id should be present"])
 
 
 class TestIpRoute(tests.BaseTest):
@@ -1507,7 +1529,6 @@ class TestMacAddressRange(tests.BaseTest):
 
     def test_contains_mac_address(self):
         rng = factory_models.MacAddressRangeFactory(cidr="BC:76:4E:20:0:0/40")
-        print netaddr.EUI(rng._last_address())
 
         self.assertTrue(rng.contains("BC:76:4E:20:00:00"))
         self.assertTrue(rng.contains("BC:76:4E:20:00:FF"))
@@ -1946,9 +1967,9 @@ class TestNetwork(tests.BaseTest):
         self.assertTrue(models.IpAddress.get(ip2.id).marked_for_deallocation)
 
     def test_retrives_allocated_ips(self):
-        ip_block1 = factory_models.IpBlockFactory(network_id=1,
+        ip_block1 = factory_models.IpBlockFactory(network_id="1",
                                                   cidr="10.0.0.0/24")
-        ip_block2 = factory_models.IpBlockFactory(network_id=1,
+        ip_block2 = factory_models.IpBlockFactory(network_id="1",
                                                   cidr="20.0.0.0/24")
         interface1 = factory_models.InterfaceFactory()
         interface2 = factory_models.InterfaceFactory()
@@ -2158,6 +2179,13 @@ class TestInterface(tests.BaseTest):
 
         self.assertEqual(len(interface.ip_addresses), 2)
         self.assertModelsEqual(interface.ip_addresses, [ip1, ip2])
+
+    def test_network_plugged_into_is_network_of_ip_configured_on_network(self):
+        interface = factory_models.InterfaceFactory()
+        net1_block = factory_models.IpBlockFactory(network_id="net1")
+        net1_block.allocate_ip(interface)
+
+        self.assertEqual(interface.plugged_in_network_id(), "net1")
 
 
 class TestAllowedIp(tests.BaseTest):

@@ -780,7 +780,18 @@ class Interface(ModelBase):
         return data
 
     def allow_ip(self, ip):
+        if self._ip_cannot_be_allowed(ip):
+            err_msg = _("Ip %s cannot be allowed on interface %s as "
+                        "interface is not configured "
+                        "for ip's network") % (ip.address,
+                                               self.virtual_interface_id)
+            raise IpNotAllowedOnInterfaceError(err_msg)
+
         db_api.save_allowed_ip(self.id, ip.id)
+
+    def _ip_cannot_be_allowed(self, ip):
+        return (self.plugged_in_network_id() is None
+                or self.plugged_in_network_id() != ip.ip_block.network_id)
 
     def disallow_ip(self, ip):
         db_api.remove_allowed_ip(interface_id=self.id, ip_address_id=ip.id)
@@ -1027,9 +1038,9 @@ class IpAllocationNotAllowedError(exception.MelangeError):
     message = _("Ip Block can not allocate address")
 
 
-class InvalidTenantError(exception.MelangeError):
+class IpNotAllowedOnInterfaceError(exception.MelangeError):
 
-    message = _("Cannot access other tenant's block")
+    message = _("Ip cannot be allowed on interface")
 
 
 class InvalidModelError(exception.MelangeError):

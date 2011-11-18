@@ -363,6 +363,7 @@ class TestIpBlock(tests.BaseTest):
 
     def test_subnet_creates_child_block_with_the_given_params(self):
         ip_block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.0/28",
+                                                        network_id="1",
                                                         tenant_id="2")
 
         subnet = ip_block.subnet("10.0.0.0/29",
@@ -428,9 +429,9 @@ class TestIpBlock(tests.BaseTest):
                                               gateway=None)
         self.assertEqual(block.gateway, "10.0.0.1")
 
-        block = factory_models.IpBlockFactory(cidr="10.0.0.0/24",
-                                              gateway="10.0.0.10")
-        self.assertEqual(block.gateway, "10.0.0.10")
+        block = factory_models.IpBlockFactory(cidr="20.0.0.0/24",
+                                              gateway="20.0.0.10")
+        self.assertEqual(block.gateway, "20.0.0.10")
 
     def test_gateway_ip_is_not_auto_set_if_ip_block_has_only_one_ip(self):
         ipv4_block = factory_models.IpBlockFactory(cidr="10.0.0.0/32",
@@ -460,7 +461,7 @@ class TestIpBlock(tests.BaseTest):
 
     def test_find_ip_block(self):
         block1 = factory_models.PrivateIpBlockFactory(cidr="10.0.0.1/8")
-        factory_models.PrivateIpBlockFactory(cidr="10.1.1.1/8")
+        factory_models.PrivateIpBlockFactory(cidr="30.1.1.1/8")
 
         found_block = models.IpBlock.find(block1.id)
 
@@ -932,7 +933,7 @@ class TestIpBlock(tests.BaseTest):
 
     def test_delete_all_deallocated_ips_after_default_of_two_days(self):
         ip_block1 = factory_models.PrivateIpBlockFactory(cidr="10.0.1.1/24")
-        ip_block2 = factory_models.PrivateIpBlockFactory(cidr="10.0.1.1/24")
+        ip_block2 = factory_models.PrivateIpBlockFactory(cidr="20.0.1.1/24")
         current_time = datetime.datetime(2050, 1, 1)
         two_days_before = current_time - datetime.timedelta(days=2)
         ip1 = _allocate_ip(ip_block1)
@@ -1028,7 +1029,7 @@ class TestIpAddress(tests.BaseTest):
 
     def test_address_for_a_ip_block_is_unique(self):
         block1 = factory_models.PrivateIpBlockFactory(cidr="10.1.1.1/24")
-        block2 = factory_models.PrivateIpBlockFactory(cidr="10.1.1.1/24")
+        block2 = factory_models.PrivateIpBlockFactory(cidr="20.1.1.1/24")
         block1_ip = factory_models.IpAddressFactory(address="10.1.1.3",
                                                     ip_block_id=block1.id)
         interface = factory_models.InterfaceFactory()
@@ -2190,10 +2191,23 @@ class TestInterface(tests.BaseTest):
 
 class TestAllowedIp(tests.BaseTest):
 
+    def _ip_on_network(self, network_id):
+        block = factory_models.IpBlockFactory(
+            network_id=network_id)
+        return block.allocate_ip(factory_models.InterfaceFactory())
+
+    def _plug_interface_into_network(self, network_id, interface):
+        factory_models.IpBlockFactory(
+            network_id=network_id).allocate_ip(interface)
+
     def test_allow_ip_on_an_interface(self):
         interface = factory_models.InterfaceFactory()
-        ip1 = factory_models.IpAddressFactory()
-        ip2 = factory_models.IpAddressFactory()
+
+        ip_on_interface = factory_models.IpBlockFactory(
+            network_id="x").allocate_ip(interface)
+
+        ip1 = self._ip_on_network("x")
+        ip2 = self._ip_on_network("x")
         noise_ip1 = factory_models.IpAddressFactory()
         noise_ip2 = factory_models.IpAddressFactory()
 
@@ -2201,27 +2215,35 @@ class TestAllowedIp(tests.BaseTest):
         interface.allow_ip(ip2)
 
         actual_allowed_ips = interface.ips_allowed()
-        self.assertModelsEqual(actual_allowed_ips, [ip1, ip2])
+        self.assertModelsEqual(actual_allowed_ips, [ip1, ip2, ip_on_interface])
 
     def test_disallow_an_ip_on_an_interface(self):
         interface1 = factory_models.InterfaceFactory()
+        ip_on_interface1 = factory_models.IpBlockFactory(
+            network_id="A").allocate_ip(interface1)
         interface2 = factory_models.InterfaceFactory()
-        ip1 = factory_models.IpAddressFactory()
-        ip2 = factory_models.IpAddressFactory()
-        ip3 = factory_models.IpAddressFactory()
-        noise_ip1 = factory_models.IpAddressFactory()
-        noise_ip2 = factory_models.IpAddressFactory()
+        ip_on_interface2 = factory_models.IpBlockFactory(
+            network_id="A").allocate_ip(interface2)
+
+        ip1 = self._ip_on_network("A")
+        ip2 = self._ip_on_network("A")
+        ip3 = self._ip_on_network("A")
+        noise_ip1 = self._ip_on_network("A")
+        noise_ip2 = self._ip_on_network("A")
         interface1.allow_ip(ip1)
         interface1.allow_ip(ip2)
         interface1.allow_ip(ip3)
         interface2.allow_ip(ip3)
 
         interface1.disallow_ip(ip2)
-        self.assertModelsEqual(interface1.ips_allowed(), [ip1, ip3])
+        self.assertModelsEqual(interface1.ips_allowed(),
+                               [ip1, ip3, ip_on_interface1])
 
         interface1.disallow_ip(ip3)
-        self.assertModelsEqual(interface1.ips_allowed(), [ip1])
-        self.assertModelsEqual(interface2.ips_allowed(), [ip3])
+        self.assertModelsEqual(interface1.ips_allowed(),
+                               [ip1, ip_on_interface1])
+        self.assertModelsEqual(interface2.ips_allowed(),
+                               [ip3, ip_on_interface2])
 
     def test_allocating_ips_allows_the_ip_on_the_interface(self):
         interface = factory_models.InterfaceFactory()
@@ -2233,21 +2255,24 @@ class TestAllowedIp(tests.BaseTest):
 
     def test_deallocating_ip_disallows_that_ip_on_interface(self):
         interface = factory_models.InterfaceFactory()
-        block = factory_models.IpBlockFactory()
+        block = factory_models.IpBlockFactory(network_id="xyz")
         ip = block.allocate_ip(interface=interface)
         other_interface = factory_models.InterfaceFactory()
+        block.allocate_ip(interface=other_interface)
+
         other_interface.allow_ip(ip)
 
         block.deallocate_ip(ip.address)
 
         self.assertEqual(interface.ips_allowed(), [])
-        self.assertEqual(other_interface.ips_allowed(), [ip])
+        self.assertEqual(other_interface.find_allowed_ip(ip.address), ip)
 
     def test_deallocating_allowed_ip_only_disassociates_from_interface(self):
         interface = factory_models.InterfaceFactory()
-        block = factory_models.IpBlockFactory()
+        block = factory_models.IpBlockFactory(network_id="net123")
         ip = block.allocate_ip(interface=interface)
         other_interface = factory_models.InterfaceFactory()
+        self._plug_interface_into_network("net123", other_interface)
         other_interface.allow_ip(ip)
         current_time = datetime.datetime.now()
         two_days_before = current_time - datetime.timedelta(days=2)
@@ -2266,7 +2291,6 @@ class TestAllowedIp(tests.BaseTest):
         interface = factory_models.InterfaceFactory()
         block = factory_models.IpBlockFactory()
         ip = block.allocate_ip(interface=interface)
-
         interface.allow_ip(ip)
 
         self.assertEqual(interface.ips_allowed(), [ip])
@@ -2283,8 +2307,9 @@ class TestAllowedIp(tests.BaseTest):
 
     def test_find_allowed_ip(self):
         interface = factory_models.InterfaceFactory()
-        ip1 = factory_models.IpAddressFactory()
-        ip2 = factory_models.IpAddressFactory()
+        self._plug_interface_into_network("xyz", interface)
+        ip1 = self._ip_on_network("xyz")
+        ip2 = self._ip_on_network("xyz")
         interface.allow_ip(ip1)
         interface.allow_ip(ip2)
 
@@ -2294,8 +2319,9 @@ class TestAllowedIp(tests.BaseTest):
     def test_find_allowed_ip_raises_model_not_found(self):
         interface = factory_models.InterfaceFactory(
             virtual_interface_id="vif_1")
-        ip1 = factory_models.IpAddressFactory()
-        ip2 = factory_models.IpAddressFactory()
+        self._plug_interface_into_network("AAA", interface)
+        ip1 = self._ip_on_network("AAA")
+        ip2 = self._ip_on_network("AAA")
         unshared_ip = factory_models.IpAddressFactory()
         interface.allow_ip(ip1)
         interface.allow_ip(ip2)
@@ -2305,6 +2331,35 @@ class TestAllowedIp(tests.BaseTest):
                                     "interface vif_1") % unshared_ip.address,
                                     interface.find_allowed_ip,
                                     unshared_ip.address)
+
+    def test_cannot_allow_ip_when_interface_is_pluged_into_other_network(self):
+        interface_plugged_into_net1 = factory_models.InterfaceFactory(
+            virtual_interface_id="viffy")
+        net1_block = factory_models.IpBlockFactory(network_id="1")
+        net1_ip = net1_block.allocate_ip(interface_plugged_into_net1)
+        net2_block = factory_models.IpBlockFactory(network_id="2")
+        net2_ip = net2_block.allocate_ip(factory_models.InterfaceFactory())
+
+        err_msg = ("Ip %s cannot be allowed on interface viffy "
+                   "as interface is not configured "
+                   "for ip's network") % net2_ip.address
+        self.assertRaisesExcMessage(models.IpNotAllowedOnInterfaceError,
+                                    err_msg,
+                                    interface_plugged_into_net1.allow_ip,
+                                    net2_ip)
+
+    def test_cannot_allow_ip_if_interface_isnt_plugged_into_any_network(self):
+        unplugged_interface = factory_models.InterfaceFactory(
+            virtual_interface_id="vif_id")
+        ip = factory_models.IpAddressFactory()
+
+        err_msg = ("Ip %s cannot be allowed on interface vif_id "
+                   "as interface is not configured "
+                   "for ip's network") % ip.address
+        self.assertRaisesExcMessage(models.IpNotAllowedOnInterfaceError,
+                                    err_msg,
+                                    unplugged_interface.allow_ip,
+                                    ip)
 
 
 def _allocate_ip(block, interface=None, **kwargs):

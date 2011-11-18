@@ -34,6 +34,10 @@ class BaseController(wsgi.Controller):
             exception.NoMoreAddressesError,
             models.AddressDoesNotBelongError,
             models.AddressLockedError,
+            models.IpAllocationNotAllowedError,
+            models.IpNotAllowedOnInterfaceError,
+            models.NoMoreMacAddressesError,
+            models.AddressDisallowedByPolicyError,
             ],
         webob.exc.HTTPBadRequest: [
             models.InvalidModelError,

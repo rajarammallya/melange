@@ -306,11 +306,12 @@ class TestIpBlockController(BaseTestController):
         self.assertEqual(response.status, "404 Not Found")
 
     def test_index_scoped_by_tenant(self):
-        ip_block1 = factory_models.PrivateIpBlockFactory(cidr="10.0.0.1/8",
+        ip_block1 = factory_models.PrivateIpBlockFactory(cidr="10.0.0.1/24",
                                                          tenant_id='999')
-        ip_block2 = factory_models.PrivateIpBlockFactory(cidr="10.0.0.2/8",
+        ip_block2 = factory_models.PrivateIpBlockFactory(cidr="20.0.0.2/24",
                                                          tenant_id='999')
-        factory_models.PrivateIpBlockFactory(cidr="10.1.1.1/2",
+        factory_models.PrivateIpBlockFactory(cidr="30.1.1.1/2",
+                                             network_id="blah",
                                              tenant_id='987')
 
         response = self.app.get("/ipam/tenants/999/ip_blocks")
@@ -352,6 +353,7 @@ class TestSubnetController(BaseTestController):
 
     def test_create(self):
         parent = factory_models.IpBlockFactory(cidr="10.0.0.0/28",
+                                               network_id="2",
                                                tenant_id="123")
 
         response = self.app.post_json(self._subnets_path(parent),
@@ -985,8 +987,8 @@ class TestInsideGlobalsController(BaseTestController):
         local_block = factory_models.PrivateIpBlockFactory(cidr="10.1.1.1/8")
         global_block = factory_models.PublicIpBlockFactory(cidr="192.1.1.1/8")
 
-        [local_ip], global_ips = _allocate_ips((local_block, 1),
-                                               (global_block, 5))
+        [[local_ip]] = _allocate_ips((local_block, 1))
+        [global_ips] = _allocate_ips((global_block, 5))
         local_ip.add_inside_globals(global_ips)
 
         response = self.app.get("{0}?limit=2&marker={1}".
@@ -1170,8 +1172,8 @@ class TestInsideLocalsController(BaseTestController):
         local_block = factory_models.PrivateIpBlockFactory(cidr="10.1.1.1/24")
         global_block = factory_models.PublicIpBlockFactory(cidr="77.1.1.1/24")
 
-        [global_ip], local_ips = _allocate_ips((global_block, 1),
-                                               (local_block, 5))
+        [[global_ip]] = _allocate_ips((global_block, 1))
+        [local_ips] = _allocate_ips((local_block, 5))
         global_ip.add_inside_locals(local_ips)
 
         response = self.app.get(self._nat_path(global_block,
@@ -1183,8 +1185,8 @@ class TestInsideLocalsController(BaseTestController):
         local_block = factory_models.PrivateIpBlockFactory(cidr="10.1.1.1/24")
         global_block = factory_models.PublicIpBlockFactory(cidr="77.1.1.1/24")
 
-        [global_ip], local_ips = _allocate_ips((global_block, 1),
-                                               (local_block, 5))
+        [[global_ip]] = _allocate_ips((global_block, 1))
+        [local_ips] = _allocate_ips((local_block, 5))
         global_ip.add_inside_locals(local_ips)
 
         response = self.app.get("{0}?limit=2&marker={1}".
@@ -2235,22 +2237,22 @@ class TestInterfaceAllowedIpsController(BaseTestController):
     def test_index(self):
         interface = factory_models.InterfaceFactory(
             tenant_id="tnt_id", virtual_interface_id="vif_id")
-        noise_interface = factory_models.InterfaceFactory()
-        ip1 = factory_models.IpAddressFactory()
-        ip2 = factory_models.IpAddressFactory()
-        ip3 = factory_models.IpAddressFactory()
-        ip4 = factory_models.IpAddressFactory()
+        ip_factory = factory_models.IpAddressFactory
+        block_factory = factory_models.IpBlockFactory
+        ip_on_interface = block_factory(network_id="1").allocate_ip(interface)
+        ip1 = ip_factory(ip_block_id=block_factory(network_id="1").id)
+        ip2 = ip_factory(ip_block_id=block_factory(network_id="1").id)
+        ip3 = ip_factory(ip_block_id=block_factory(network_id="1").id)
+        ip4 = ip_factory(ip_block_id=block_factory(network_id="1").id)
         interface.allow_ip(ip1)
         interface.allow_ip(ip2)
         interface.allow_ip(ip3)
-        noise_interface.allow_ip(ip3)
-        noise_interface.allow_ip(ip4)
 
         response = self.app.get(
             "/ipam/tenants/tnt_id/interfaces/vif_id/allowed_ips")
 
         self.assertItemsEqual(response.json['ip_addresses'],
-                              _data([ip1, ip2, ip3]))
+                              _data([ip1, ip2, ip3, ip_on_interface]))
 
     def test_index_returns_404_when_interface_doesnt_exist(self):
         noise_interface = factory_models.InterfaceFactory(
@@ -2277,6 +2279,9 @@ class TestInterfaceAllowedIpsController(BaseTestController):
     def test_create(self):
         interface = factory_models.InterfaceFactory(
             tenant_id="tnt_id", virtual_interface_id="vif_id")
+        block = factory_models.IpBlockFactory(network_id="net123")
+        ip_on_interface = block.allocate_ip(interface)
+
         block = factory_models.IpBlockFactory(network_id="net123")
         ip = block.allocate_ip(factory_models.InterfaceFactory(
             tenant_id="tnt_id"))
@@ -2330,12 +2335,13 @@ class TestInterfaceAllowedIpsController(BaseTestController):
         interface = factory_models.InterfaceFactory(
             tenant_id="tnt_id", virtual_interface_id="vif_id")
         block = factory_models.IpBlockFactory(network_id="net123")
-        ip = block.allocate_ip(factory_models.InterfaceFactory())
-        interface.allow_ip(ip)
+        ip_on_interface = block.allocate_ip(interface)
+        allowed_ip = block.allocate_ip(factory_models.InterfaceFactory())
+        interface.allow_ip(allowed_ip)
 
         self.app.delete("/ipam/tenants/tnt_id/interfaces/vif_id/allowed_ips/%s"
-                        % ip.address)
-        self.assertEqual(interface.ips_allowed(), [])
+                        % allowed_ip.address)
+        self.assertEqual(interface.ips_allowed(), [ip_on_interface])
 
     def test_delete_fails_for_non_existent_interface(self):
         noise_interface = factory_models.InterfaceFactory(
@@ -2366,14 +2372,15 @@ class TestInterfaceAllowedIpsController(BaseTestController):
         interface = factory_models.InterfaceFactory(
             tenant_id="tnt_id", virtual_interface_id="vif_id")
         block = factory_models.IpBlockFactory(network_id="net123")
-        ip = block.allocate_ip(factory_models.InterfaceFactory())
-        interface.allow_ip(ip)
+        ip_on_interface = block.allocate_ip(interface)
+        allowed_ip = block.allocate_ip(factory_models.InterfaceFactory())
+        interface.allow_ip(allowed_ip)
 
         response = self.app.get("/ipam/tenants/tnt_id/interfaces/vif_id/"
-                                "allowed_ips/%s" % ip.address)
+                                "allowed_ips/%s" % allowed_ip.address)
 
         self.assertEqual(response.status_int, 200)
-        self.assertEqual(response.json['ip_address'], _data(ip))
+        self.assertEqual(response.json['ip_address'], _data(allowed_ip))
 
     def test_show_raises_404_when_allowed_address_doesnt_exist(self):
         factory_models.InterfaceFactory(

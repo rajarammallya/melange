@@ -29,10 +29,12 @@ class IpBlockFactory(factory.Factory):
     dns1 = "8.8.8.8"
     dns2 = "8.8.4.4"
     tenant_id = "tenant_id"
+    network_id = "network1234"
 
 
 class PublicIpBlockFactory(IpBlockFactory):
     type = "public"
+    network_id = "public_network_id"
 
 
 class PrivateIpBlockFactory(IpBlockFactory):

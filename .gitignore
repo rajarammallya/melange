@@ -8,3 +8,4 @@ melange.egg-info
 .melange-venv
 *.sqlite
 *.log
+tags

@@ -1509,10 +1509,6 @@ class TestMacAddressRange(tests.BaseTest):
             self.assertRaises(models.NoMoreMacAddressesError,
                               rng.allocate_mac)
 
-    def _mock_mac_creation(self):
-        return models.MacAddress.create(address=mox.IgnoreArg(),
-                                        mac_address_range_id=mox.IgnoreArg())
-
     def test_range_is_full(self):
         rng = factory_models.MacAddressRangeFactory(cidr="BC:76:4E:20:0:0/48")
         self.assertFalse(rng.is_full())
@@ -1535,6 +1531,20 @@ class TestMacAddressRange(tests.BaseTest):
         self.assertTrue(rng.contains("BC:76:4E:20:00:FF"))
         self.assertFalse(rng.contains("BC:76:4E:20:01:00"))
         self.assertFalse(rng.contains("AA:BB:CC:20:00:00"))
+
+    def test_data(self):
+        rng = factory_models.MacAddressRangeFactory(cidr="BC:76:4E:20:0:0/40")
+        expected_data = {
+                'cidr': "BC:76:4E:20:0:0/40",
+                'id': rng.id,
+                'created_at': rng.created_at,
+                'updated_at': rng.updated_at,
+                }
+        self.assertEqual(expected_data, rng.data())
+
+    def _mock_mac_creation(self):
+        return models.MacAddress.create(address=mox.IgnoreArg(),
+                                        mac_address_range_id=mox.IgnoreArg())
 
 
 class TestMacAddress(tests.BaseTest):

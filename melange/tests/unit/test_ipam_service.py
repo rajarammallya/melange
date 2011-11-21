@@ -2223,6 +2223,7 @@ class TestMacAddressRangesController(BaseTestController):
 
     def test_create(self):
         params = {'mac_address_range': {'cidr': "ab-bc-cd-12-23-34/40"}}
+
         response = self.app.post_json("/ipam/mac_address_ranges", params)
 
         mac_range = models.MacAddressRange.get_by(cidr="ab-bc-cd-12-23-34/40")
@@ -2230,6 +2231,15 @@ class TestMacAddressRangesController(BaseTestController):
         self.assertIsNotNone(mac_range)
         self.assertEqual(response.json['mac_address_range'],
                          _data(mac_range))
+
+    def test_show(self):
+        mac_rng = factory_models.MacAddressRangeFactory(
+                cidr="ab-bc-cd-12-23-34/40")
+
+        response = self.app.get("/ipam/mac_address_ranges/%s" % mac_rng.id)
+
+        self.assertEqual(response.json['mac_address_range']['cidr'],
+                         "ab-bc-cd-12-23-34/40")
 
 
 class TestInterfaceAllowedIpsController(BaseTestController):

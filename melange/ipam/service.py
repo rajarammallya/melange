@@ -433,6 +433,9 @@ class MacAddressRangesController(BaseController):
 
         return wsgi.Result(dict(mac_address_range=mac_range.data()), 201)
 
+    def show(self, request, id):
+        return dict(mac_address_range=models.MacAddressRange.find(id).data())
+
 
 class InterfaceAllowedIpsController(BaseController):
 

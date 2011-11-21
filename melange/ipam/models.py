@@ -647,6 +647,8 @@ class IpRoute(ModelBase):
 
 class MacAddressRange(ModelBase):
 
+    _data_fields = ['cidr']
+
     @classmethod
     def allocate_next_free_mac(cls, **kwargs):
         ranges = cls.find_all()
@@ -655,7 +657,6 @@ class MacAddressRange(ModelBase):
                 return range.allocate_mac(**kwargs)
             except NoMoreMacAddressesError:
                 LOG.debug("no more addresses in range %s" % range.id)
-
         raise NoMoreMacAddressesError()
 
     @classmethod

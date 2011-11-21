@@ -303,3 +303,31 @@ class MacAddressRangeClient(BaseClient):
 
     def create(self, cidr):
         return self._resource.create(cidr=cidr)
+
+
+class AllowedIpClient(BaseClient):
+
+    def __init__(self, client, auth_client, tenant_id=None):
+        self.client = client
+        self.auth_client = auth_client
+        self.tenant_id = tenant_id
+
+    def _resource(self, interface_id):
+        return Resource("interfaces/{0}/allowed_ips".format(interface_id),
+                        "allowed_ip",
+                        self.client,
+                        self.auth_client,
+                        self.tenant_id)
+
+    def create(self, interface_id, network_id, ip_address):
+        return self._resource(interface_id).create(network_id=network_id,
+                                                   ip_address=ip_address)
+
+    def show(self, interface_id, ip_address):
+        return self._resource(interface_id).find(ip_address)
+
+    def list(self, interface_id):
+        return self._resource(interface_id).all()
+
+    def delete(self, interface_id, ip_address):
+        return self._resource(interface_id).delete(ip_address)

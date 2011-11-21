@@ -26,9 +26,16 @@ from melange.tests import functional
 
 
 def run(command):
-    return functional.execute("{0} --port={1} {2} --auth-token=test".format(
+    return functional.execute("{0} --port={1} {2} -v --auth-token=test".format(
         melange.melange_bin_path('melange-client'),
                 functional.get_api_port(), command))
+
+
+def run_melange_manage(command):
+    melange_manage = melange.melange_bin_path('melange-manage')
+    config_file = functional.test_config_file()
+    return functional.execute("%(melange_manage)s %(command)s "
+                              "--config-file=%(config_file)s" % locals())
 
 
 class TestIpBlockCLI(tests.BaseTest):
@@ -494,6 +501,92 @@ class TestInterfaceCLI(tests.BaseTest):
         self.assertTrue(models.IpAddress.get(ip2.id).marked_for_deallocation)
 
 
+class TestMacAddressRangeCLI(tests.BaseTest):
+
+    def test_create(self):
+        exitcode, out, err = run("mac_address_range create "
+                                 "ab-bc-cd-12-23-34/24")
+
+        self.assertEqual(exitcode, 0)
+        self.assertIsNotNone(models.MacAddressRange.get_by(
+            cidr="ab-bc-cd-12-23-34/24"))
+
+
+class TestAllowedIpCLI(tests.BaseTest):
+
+    def test_create(self):
+        interface = factory_models.InterfaceFactory(network_id="123",
+                                                    virtual_interface_id="x",
+                                                    tenant_id="RAX")
+        block = factory_models.IpBlockFactory(network_id="123",
+                                              tenant_id="RAX")
+        ip_plugged_into_interface = block.allocate_ip(interface)
+        ip_to_allow = block.allocate_ip(
+            factory_models.InterfaceFactory(network_id="123"))
+
+        exitcode, out, err = run("allowed_ip create "
+                                 "%(iface)s %(net)s %(ip)s -t RAX"
+                                 % {'iface': interface.virtual_interface_id,
+                                    'net': "123",
+                                    'ip': ip_to_allow.address})
+
+        self.assertEqual(exitcode, 0)
+        self.assertModelsEqual(interface.ips_allowed(),
+                              [ip_plugged_into_interface, ip_to_allow])
+
+    def test_index(self):
+        interface = factory_models.InterfaceFactory(
+        tenant_id="RAX", virtual_interface_id="vif_id")
+        ip_factory = factory_models.IpAddressFactory
+        block_factory = factory_models.IpBlockFactory
+        ip_on_interface = block_factory(network_id="1",
+                                        tenant_id="RAX").allocate_ip(interface)
+        allowed_ip = ip_factory(ip_block_id=block_factory(network_id="1").id)
+        interface.allow_ip(allowed_ip)
+
+        exitcode, out, err = run("allowed_ip list "
+                                 "%(iface)s -t RAX"
+                                 % {'iface': interface.virtual_interface_id})
+
+        self.assertEqual(exitcode, 0)
+        self.assertIn("ip_addresses", out)
+        self.assertIn('"address": "%s"' % ip_on_interface.address, out)
+        self.assertIn('"address": "%s"' % allowed_ip.address, out)
+
+    def test_show(self):
+        interface = factory_models.InterfaceFactory(
+        tenant_id="RAX", virtual_interface_id="vif_id")
+        block = factory_models.IpBlockFactory(network_id="net123",
+                                              tenant_id="RAX")
+        ip_on_interface = block.allocate_ip(interface)
+
+        exitcode, out, err = run("allowed_ip show "
+                                 "%(iface)s %(ip)s -t RAX"
+                                 % {'iface': interface.virtual_interface_id,
+                                    'ip': ip_on_interface.address})
+
+        self.assertEqual(exitcode, 0)
+        self.assertIn("ip_address", out)
+        self.assertIn('"address": "%s"' % ip_on_interface.address, out)
+
+    def test_delete(self):
+        interface = factory_models.InterfaceFactory(
+        tenant_id="RAX", virtual_interface_id="vif_id")
+        block = factory_models.IpBlockFactory(network_id="net123",
+                                              tenant_id="RAX")
+        ip_on_interface = block.allocate_ip(interface)
+        allowed_ip = block.allocate_ip(factory_models.InterfaceFactory())
+        interface.allow_ip(allowed_ip)
+
+        exitcode, out, err = run("allowed_ip delete "
+                                 "%(iface)s %(ip)s -t RAX"
+                                 % {'iface': interface.virtual_interface_id,
+                                    'ip': allowed_ip.address})
+
+        self.assertEqual(exitcode, 0)
+        self.assertEqual(interface.ips_allowed(), [ip_on_interface])
+
+
 class TestDBSyncCLI(tests.BaseTest):
 
     def test_db_sync_executes(self):
@@ -529,21 +622,3 @@ class TestDeleteDeallocatedIps(tests.BaseTest):
         deallocated_ip = models.IpAddress.find(ip.id)
         new_deallocated_date = deallocated_ip.deallocated_at - days_to_subtract
         deallocated_ip.update(deallocated_at=(new_deallocated_date))
-
-
-class TestMacAddressRangeCLI(tests.BaseTest):
-
-    def test_create(self):
-        exitcode, out, err = run("mac_address_range create "
-                                 "ab-bc-cd-12-23-34/24")
-
-        self.assertEqual(exitcode, 0)
-        self.assertIsNotNone(models.MacAddressRange.get_by(
-            cidr="ab-bc-cd-12-23-34/24"))
-
-
-def run_melange_manage(command):
-    melange_manage = melange.melange_bin_path('melange-manage')
-    config_file = functional.test_config_file()
-    return functional.execute("%(melange_manage)s %(command)s "
-                              "--config-file=%(config_file)s" % locals())

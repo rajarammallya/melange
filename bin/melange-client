@@ -124,6 +124,7 @@ categories = {
     'ip_route': client.IpRouteClient,
     'interface': client.InterfaceClient,
     'mac_address_range': client.MacAddressRangeClient,
+    'allowed_ip': client.AllowedIpClient,
 }
 
 

@@ -436,6 +436,13 @@ class MacAddressRangesController(BaseController):
     def show(self, request, id):
         return dict(mac_address_range=models.MacAddressRange.find(id).data())
 
+    def index(self, request):
+        return dict(mac_address_ranges=[m.data() for m
+            in models.MacAddressRange.find_all()])
+
+    def delete(self, request, id):
+        models.MacAddressRange.find(id).delete()
+
 
 class InterfaceAllowedIpsController(BaseController):
 

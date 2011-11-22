@@ -2235,11 +2235,42 @@ class TestMacAddressRangesController(BaseTestController):
     def test_show(self):
         mac_rng = factory_models.MacAddressRangeFactory(
                 cidr="ab-bc-cd-12-23-34/40")
-
         response = self.app.get("/ipam/mac_address_ranges/%s" % mac_rng.id)
 
         self.assertEqual(response.json['mac_address_range']['cidr'],
                          "ab-bc-cd-12-23-34/40")
+
+    def test_show_raises_404_for_nonexistent_range(self):
+        response = self.app.get("/ipam/mac_address_ranges/non_existent_rng_id",
+                                status="*")
+
+        self.assertErrorResponse(response,
+                                 webob.exc.HTTPNotFound,
+                                 "MacAddressRange Not Found")
+
+    def test_index(self):
+        range1 = factory_models.MacAddressRangeFactory()
+        range2 = factory_models.MacAddressRangeFactory()
+
+        response = self.app.get("/ipam/mac_address_ranges")
+
+        self.assertItemsEqual(_data([range1, range2]),
+                              response.json['mac_address_ranges'])
+
+    def test_delete(self):
+        rng = factory_models.MacAddressRangeFactory()
+
+        response = self.app.delete("/ipam/mac_address_ranges/%s" % rng.id)
+
+        self.assertIsNone(models.MacAddressRange.get(rng.id))
+
+    def test_delete_raises_404_for_nonexistent_range(self):
+        response = self.app.delete("/ipam/mac_address_ranges/invalid_rng_id",
+                                   status="*")
+
+        self.assertErrorResponse(response,
+                                 webob.exc.HTTPNotFound,
+                                 "MacAddressRange Not Found")
 
 
 class TestInterfaceAllowedIpsController(BaseTestController):
@@ -2338,7 +2369,6 @@ class TestInterfaceAllowedIpsController(BaseTestController):
         err_msg = ("IpAddress with {'used_by_tenant_id': u'tnt_id', "
                    "'address': u'%s'} for network net123 not found"
                    % other_tenants_ip.address)
-
         self.assertErrorResponse(response, webob.exc.HTTPNotFound, err_msg)
 
     def test_delete(self):

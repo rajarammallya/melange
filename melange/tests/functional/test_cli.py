@@ -511,6 +511,34 @@ class TestMacAddressRangeCLI(tests.BaseTest):
         self.assertIsNotNone(models.MacAddressRange.get_by(
             cidr="ab-bc-cd-12-23-34/24"))
 
+    def test_show(self):
+        rng = factory_models.MacAddressRangeFactory()
+
+        exitcode, out, err = run("mac_address_range show "
+                                 "%s" % rng.id)
+
+        self.assertEqual(exitcode, 0)
+        self.assertIn('"id": "%s"' % rng.id, out)
+        self.assertIn('"cidr": "%s"' % rng.cidr, out)
+
+    def test_index(self):
+        rng1 = factory_models.MacAddressRangeFactory()
+        rng2 = factory_models.MacAddressRangeFactory()
+
+        exitcode, out, err = run("mac_address_range list")
+
+        self.assertEqual(exitcode, 0)
+        self.assertIn('"id": "%s"' % rng1.id, out)
+        self.assertIn('"id": "%s"' % rng2.id, out)
+
+    def test_delete(self):
+        rng = factory_models.MacAddressRangeFactory()
+
+        exitcode, out, err = run("mac_address_range delete %s" % rng.id)
+
+        self.assertEquals(exitcode, 0)
+        self.assertIsNone(models.MacAddressRange.get(rng.id))
+
 
 class TestAllowedIpCLI(tests.BaseTest):
 

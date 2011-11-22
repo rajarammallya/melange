@@ -304,6 +304,15 @@ class MacAddressRangeClient(BaseClient):
     def create(self, cidr):
         return self._resource.create(cidr=cidr)
 
+    def show(self, id):
+        return self._resource.find(id)
+
+    def list(self):
+        return self._resource.all()
+
+    def delete(self, id):
+        return self._resource.delete(id)
+
 
 class AllowedIpClient(BaseClient):
 

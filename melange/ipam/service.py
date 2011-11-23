@@ -73,9 +73,21 @@ class BaseController(wsgi.Controller):
                                                         next_marker))
 
 
-class IpBlockController(BaseController):
+class DeleteAction:
+    def delete(self, request, **kwargs):
+        self._model.find_by(**kwargs).delete()
+
+
+class ShowAction:
+    def show(self, request, **kwargs):
+        data = self._model.find_by(**kwargs).data()
+        return {utils.underscore(self._model.__name__): data}
+
+
+class IpBlockController(BaseController, DeleteAction, ShowAction):
 
     exclude_attr = ['tenant_id', 'parent_id']
+    _model = models.IpBlock
 
     def _find_block(self, **kwargs):
         return models.IpBlock.find_by(**kwargs)
@@ -95,13 +107,6 @@ class IpBlockController(BaseController):
         params = self._extract_required_params(body, 'ip_block')
         ip_block.update(**utils.exclude(params, 'cidr', 'type'))
         return wsgi.Result(dict(ip_block=ip_block.data()), 200)
-
-    def show(self, request, id, tenant_id):
-        ip_block = self._find_block(id=id, tenant_id=tenant_id)
-        return dict(ip_block=ip_block.data())
-
-    def delete(self, request, id, tenant_id):
-        self._find_block(id=id, tenant_id=tenant_id).delete()
 
 
 class SubnetController(BaseController):
@@ -332,17 +337,14 @@ class UnusableIpOctetsController(BaseController):
         ip_octet.delete()
 
 
-class PoliciesController(BaseController):
+class PoliciesController(BaseController, ShowAction, DeleteAction):
 
     exclude_attr = ['tenant_id']
+    _model = models.Policy
 
     def index(self, request, tenant_id):
         policies = models.Policy.find_all(tenant_id=tenant_id)
         return self._paginated_response('policies', policies, request)
-
-    def show(self, request, id, tenant_id):
-        policy = models.Policy.find_by(id=id, tenant_id=tenant_id)
-        return dict(policy=policy.data())
 
     def create(self, request, tenant_id, body=None):
         params = self._extract_required_params(body, 'policy')
@@ -353,10 +355,6 @@ class PoliciesController(BaseController):
         policy = models.Policy.find_by(id=id, tenant_id=tenant_id)
         policy.update(**self._extract_required_params(body, 'policy'))
         return dict(policy=policy.data())
-
-    def delete(self, request, id, tenant_id):
-        policy = models.Policy.find_by(id=id, tenant_id=tenant_id)
-        policy.delete()
 
 
 class NetworksController(BaseController):
@@ -397,7 +395,9 @@ class InterfaceIpAllocationsController(BaseController):
         return dict(ip_addresses=ip_configuration_view.data())
 
 
-class InterfacesController(BaseController):
+class InterfacesController(BaseController, ShowAction, DeleteAction):
+
+    _model = models.Interface
 
     def create(self, request, body=None):
         params = self._extract_required_params(body, 'interface')
@@ -414,34 +414,25 @@ class InterfacesController(BaseController):
         view_data = views.InterfaceConfigurationView(interface).data()
         return wsgi.Result(dict(interface=view_data), 201)
 
-    def delete(self, request, id):
-        interface = models.Interface.find_by(virtual_interface_id=id)
-        interface.delete()
-
-    def show(self, request, id, tenant_id=None):
-        interface = models.Interface.find_by(virtual_interface_id=id,
-                                             tenant_id=tenant_id)
+    def show(self, request, virtual_interface_id, tenant_id=None):
+        interface = models.Interface.find_by(
+                virtual_interface_id=virtual_interface_id, tenant_id=tenant_id)
         view_data = views.InterfaceConfigurationView(interface).data()
         return dict(interface=view_data)
 
 
-class MacAddressRangesController(BaseController):
+class MacAddressRangesController(BaseController, ShowAction, DeleteAction):
+
+    _model = models.MacAddressRange
 
     def create(self, request, body=None):
         params = self._extract_required_params(body, 'mac_address_range')
         mac_range = models.MacAddressRange.create(**params)
-
         return wsgi.Result(dict(mac_address_range=mac_range.data()), 201)
-
-    def show(self, request, id):
-        return dict(mac_address_range=models.MacAddressRange.find(id).data())
 
     def index(self, request):
         return dict(mac_address_ranges=[m.data() for m
             in models.MacAddressRange.find_all()])
-
-    def delete(self, request, id):
-        models.MacAddressRange.find(id).delete()
 
 
 class InterfaceAllowedIpsController(BaseController):
@@ -517,12 +508,18 @@ class API(wsgi.Router):
         interface_res = InterfacesController().create_resource()
         interface_allowed_ips = InterfaceAllowedIpsController()
         path = "/ipam/interfaces"
-        mapper.resource("interfaces", path, controller=interface_res)
         self._connect(mapper,
-                      "/ipam/tenants/{tenant_id}/interfaces/{id}",
+                      "/ipam/tenants/{tenant_id}/"
+                      "interfaces/{virtual_interface_id}",
                       controller=interface_res,
                       action="show",
                       conditions=dict(method=['GET']))
+        self._connect(mapper,
+                      "/ipam/interfaces/{virtual_interface_id}",
+                      controller=interface_res,
+                      action="delete",
+                      conditions=dict(method=['DELETE']))
+        mapper.resource("interfaces", path, controller=interface_res)
 
         mapper.connect("/ipam/tenants/{tenant_id}/"
                        "interfaces/{interface_id}/allowed_ips/{address:.+?}",

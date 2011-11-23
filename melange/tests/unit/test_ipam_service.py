@@ -17,6 +17,7 @@
 import string
 import unittest
 
+import mox
 import netaddr
 import routes
 import webob.exc
@@ -35,10 +36,10 @@ from melange.tests.factories import models as factory_models
 from melange.tests.unit import mock_generator
 
 
-class BaseTestController(tests.BaseTest):
+class ControllerTestBase(tests.BaseTest):
 
     def setUp(self):
-        super(BaseTestController, self).setUp()
+        super(ControllerTestBase, self).setUp()
         conf, melange_app = config.Config.load_paste_app('melangeapp',
                 {"config_file": unit.test_config_path()}, None)
         self.app = unit.TestApp(melange_app)
@@ -46,22 +47,22 @@ class BaseTestController(tests.BaseTest):
 
 class DummyApp(wsgi.Router):
 
-    def __init__(self):
+    def __init__(self, controller ):
         mapper = routes.Mapper()
         mapper.resource("resource", "/resources",
-                                controller=StubController().create_resource())
+                                controller=controller.create_resource())
         super(DummyApp, self).__init__(mapper)
 
 
-class StubController(service.BaseController):
-    def index(self, request):
-        raise self.exception
+class TestBaseControllerExceptionMapping(unittest.TestCase):
 
+    class StubController(service.BaseController):
+        def index(self, request):
+            raise self.exception
 
-class TestBaseController(unittest.TestCase):
     def _assert_mapping(self, exception, http_code):
-        StubController.exception = exception
-        app = unit.TestApp(DummyApp())
+        self.StubController.exception = exception
+        app = unit.TestApp(DummyApp(self.StubController()))
 
         response = app.get("/resources", status="*")
         self.assertEqual(response.status_int, http_code)
@@ -81,7 +82,60 @@ class TestBaseController(unittest.TestCase):
         self._assert_mapping(webob.exc.HTTPNotFound, 404)
 
 
-class TestIpBlockController(BaseTestController):
+class AbstractTestAction():
+
+    def controller(self, action):
+        class Controller(service.BaseController, action):
+            _model = None
+
+        return Controller()
+
+    def setup_action(self, action):
+        test_controller = self.controller(action)
+        self.mock_model_cls = self.mock.CreateMock(models.ModelBase)
+        self.mock_model_cls.__name__ = "Model"
+        self.mock_model = self.mock.CreateMock(models.ModelBase())
+        test_controller._model = self.mock_model_cls
+        self.app = unit.TestApp(DummyApp(test_controller))
+
+
+class TestDeleteAction(tests.BaseTest, AbstractTestAction):
+
+    def setUp(self):
+        super(TestDeleteAction, self).setUp()
+        super(TestDeleteAction, self).setup_action(service.DeleteAction)
+
+    def test_delete(self):
+        self.mock_model_cls.find_by(id="some_id").AndReturn(self.mock_model)
+        self.mock_model.delete()
+
+        self.mock.ReplayAll()
+
+        response = self.app.delete("/resources/some_id")
+
+        self.assertEqual(response.status_int, 200)
+
+
+class TestShowAction(tests.BaseTest, AbstractTestAction):
+
+    def setUp(self):
+        super(TestShowAction, self).setUp()
+        super(TestShowAction, self).setup_action(service.ShowAction)
+
+    def test_show(self):
+        self.mock_model_cls.find_by(id="some_id").AndReturn(self.mock_model)
+        res = {'a': 'b'}
+        self.mock_model.data().AndReturn(res)
+
+        self.mock.ReplayAll()
+
+        response = self.app.get("/resources/some_id")
+
+        self.assertEqual(response.status_int, 200)
+        self.assertEqual(res, response.json['model'])
+
+
+class TestIpBlockController(ControllerTestBase):
 
     def setUp(self):
         self.ip_block_path = "/ipam/tenants/tenant_id/ip_blocks"
@@ -333,7 +387,7 @@ class TestIpBlockController(BaseTestController):
                                  "IpBlock Not Found")
 
 
-class TestSubnetController(BaseTestController):
+class TestSubnetController(ControllerTestBase):
 
     def _subnets_path(self, ip_block):
         return "/ipam/tenants/{0}/ip_blocks/{1}/subnets".format(
@@ -388,7 +442,7 @@ class TestSubnetController(BaseTestController):
         self.assertNotEqual(subnet.parent_id, "Input parent")
 
 
-class TestIpAddressController(BaseTestController):
+class TestIpAddressController(ControllerTestBase):
 
     def _address_path(self, block):
         return ("/ipam/tenants/{0}/ip_blocks/{1}/"
@@ -675,7 +729,7 @@ class TestIpAddressController(BaseTestController):
                                  "IpBlock Not Found")
 
 
-class TestIpRoutesController(BaseTestController):
+class TestIpRoutesController(ControllerTestBase):
 
     def test_index_all_routes_for_an_ip_block(self):
         block = factory_models.IpBlockFactory(tenant_id="tenant_id")
@@ -871,7 +925,7 @@ class TestIpRoutesController(BaseTestController):
                                  "IpRoute Not Found")
 
 
-class TestAllocatedIpAddressController(BaseTestController):
+class TestAllocatedIpAddressController(ControllerTestBase):
 
     def test_index_returns_allocated_ips_as_paginated_set(self):
         ip_block1 = factory_models.IpBlockFactory(cidr="10.0.0.0/24")
@@ -961,7 +1015,7 @@ class TestAllocatedIpAddressController(BaseTestController):
         self.assertItemsEqual(response.json['ip_addresses'], _data([ip1, ip3]))
 
 
-class TestInsideGlobalsController(BaseTestController):
+class TestInsideGlobalsController(ControllerTestBase):
 
     def _nat_path(self, block, address):
         return ("/ipam/tenants/{0}/ip_blocks/{1}/ip_addresses/{2}"
@@ -1160,7 +1214,7 @@ class TestInsideGlobalsController(BaseTestController):
                                  "IpAddress Not Found")
 
 
-class TestInsideLocalsController(BaseTestController):
+class TestInsideLocalsController(ControllerTestBase):
 
     def _nat_path(self, block, address):
         return ("/ipam/tenants/{0}/ip_blocks/{1}/ip_addresses/{2}"
@@ -1348,7 +1402,7 @@ class TestInsideLocalsController(BaseTestController):
                                  "IpAddress Not Found")
 
 
-class TestUnusableIpRangesController(BaseTestController):
+class TestUnusableIpRangesController(ControllerTestBase):
 
     def setUp(self):
         self.policy_path = "/ipam/tenants/tnt_id/policies"
@@ -1573,7 +1627,7 @@ class TestUnusableIpRangesController(BaseTestController):
                                  "Policy Not Found")
 
 
-class TestUnusableIpOctetsController(BaseTestController):
+class TestUnusableIpOctetsController(ControllerTestBase):
 
     def setUp(self):
         self.policy_path = "/ipam/tenants/tnt_id/policies"
@@ -1772,7 +1826,7 @@ class TestUnusableIpOctetsController(BaseTestController):
                                  "Policy Not Found")
 
 
-class TestPoliciesController(BaseTestController):
+class TestPoliciesController(ControllerTestBase):
 
     def test_index(self):
         policy1 = factory_models.PolicyFactory(tenant_id="1")
@@ -1868,7 +1922,7 @@ class TestPoliciesController(BaseTestController):
                                  "Policy Not Found")
 
 
-class TestNetworksController(BaseTestController):
+class TestNetworksController(ControllerTestBase):
 
     def test_index_returns_all_ip_blocks_in_network(self):
         factory = factory_models.PrivateIpBlockFactory
@@ -1893,7 +1947,7 @@ class TestNetworksController(BaseTestController):
                                  "Network 1 not found")
 
 
-class TestInterfaceIpAllocationsController(BaseTestController):
+class TestInterfaceIpAllocationsController(ControllerTestBase):
 
     def setUp(self):
         super(TestInterfaceIpAllocationsController, self).setUp()
@@ -2052,7 +2106,7 @@ class TestInterfaceIpAllocationsController(BaseTestController):
                               response.json["ip_addresses"])
 
 
-class TestInterfacesController(BaseTestController):
+class TestInterfacesController(ControllerTestBase):
 
     def test_create_interface(self):
         response = self.app.post_json("/ipam/interfaces",
@@ -2219,7 +2273,7 @@ class TestInterfacesController(BaseTestController):
                          views.IpConfigurationView(*iface.ip_addresses).data())
 
 
-class TestMacAddressRangesController(BaseTestController):
+class TestMacAddressRangesController(ControllerTestBase):
 
     def test_create(self):
         params = {'mac_address_range': {'cidr': "ab-bc-cd-12-23-34/40"}}
@@ -2273,7 +2327,7 @@ class TestMacAddressRangesController(BaseTestController):
                                  "MacAddressRange Not Found")
 
 
-class TestInterfaceAllowedIpsController(BaseTestController):
+class TestInterfaceAllowedIpsController(ControllerTestBase):
 
     def test_index(self):
         interface = factory_models.InterfaceFactory(

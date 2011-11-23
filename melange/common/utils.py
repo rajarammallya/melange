@@ -21,6 +21,7 @@ import datetime
 import inspect
 import logging
 import os
+import re
 import subprocess
 import uuid
 
@@ -66,6 +67,11 @@ def execute(cmd, process_input=None, addl_env=None, check_exit_code=True):
 
 def utcnow():
     return datetime.datetime.utcnow()
+
+
+def underscore(string):
+    return re.sub(r'\B((?<=[a-z])[A-Z]|[A-Z](?=[a-z]))',
+                  r'_\1', string).lower()
 
 
 def exclude(key_values, *exclude_keys):

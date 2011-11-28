@@ -21,13 +21,13 @@ import datetime
 import logging
 import netaddr
 
+from melange import db
 from melange import ipv6
 from melange import ipv4
 from melange.common import config
 from melange.common import exception
+from melange.common import notifier
 from melange.common import utils
-from melange.db import db_api
-from melange.db import db_query
 
 
 LOG = logging.getLogger('melange.ipam.models')
@@ -38,13 +38,35 @@ class ModelBase(object):
     _fields_for_type_conversion = {}
     _auto_generated_attrs = ["id", "created_at", "updated_at"]
     _data_fields = []
+    on_create_notification_fields = []
+    on_update_notification_fields = []
+    on_delete_notification_fields = []
 
     @classmethod
     def create(cls, **values):
         values['id'] = utils.generate_uuid()
         values['created_at'] = utils.utcnow()
-        instance = cls(**values)
-        return instance.save()
+        instance = cls(**values).save()
+        instance._notify_fields("create")
+        return instance
+
+    def _notify_fields(self, event):
+        fields = getattr(self, "on_%s_notification_fields" % event)
+        if not fields:
+            return
+        payload = self._notification_payload(fields)
+        event_with_model_name = event + " " + self.__class__.__name__
+        notifier.notifier().info(event_with_model_name, payload)
+
+    def _notification_payload(self, fields):
+        return dict((attr, getattr(self, attr)) for attr in fields)
+
+    def update(self, **values):
+        attrs = utils.exclude(values, *self._auto_generated_attrs)
+        self.merge_attributes(attrs)
+        result = self.save()
+        self._notify_fields("update")
+        return result
 
     def save(self):
         if not self.is_valid():
@@ -52,10 +74,11 @@ class ModelBase(object):
         self._convert_columns_to_proper_type()
         self._before_save()
         self['updated_at'] = utils.utcnow()
-        return db_api.save(self)
+        return db.db_api.save(self)
 
     def delete(self):
-        db_api.delete(self)
+        db.db_api.delete(self)
+        self._notify_fields("delete")
 
     def __init__(self, **kwargs):
         self.merge_attributes(kwargs)
@@ -126,7 +149,7 @@ class ModelBase(object):
 
     @classmethod
     def get_by(cls, **kwargs):
-        return db_api.find_by(cls, **cls._process_conditions(kwargs))
+        return db.db_api.find_by(cls, **cls._process_conditions(kwargs))
 
     @classmethod
     def _process_conditions(cls, raw_conditions):
@@ -135,7 +158,7 @@ class ModelBase(object):
 
     @classmethod
     def find_all(cls, **kwargs):
-        return db_query.find_all(cls, **cls._process_conditions(kwargs))
+        return db.db_query.find_all(cls, **cls._process_conditions(kwargs))
 
     @classmethod
     def count(cls, **conditions):
@@ -145,11 +168,6 @@ class ModelBase(object):
         """dict.update() behaviour."""
         for k, v in values.iteritems():
             self[k] = v
-
-    def update(self, **values):
-        attrs = utils.exclude(values, *self._auto_generated_attrs)
-        self.merge_attributes(attrs)
-        return self.save()
 
     def __setitem__(self, key, value):
         setattr(self, key, value)
@@ -220,6 +238,8 @@ class IpBlock(ModelBase):
     _data_fields = ['cidr', 'network_id', 'policy_id', 'tenant_id', 'gateway',
                     'parent_id', 'type', 'dns1', 'dns2', 'broadcast',
                     'netmask']
+    on_create_notification_fields = ['tenant_id', 'id', 'type', 'created_at']
+    on_delete_notification_fields = ['tenant_id', 'id', 'type', 'created_at']
 
     @classmethod
     def find_allocated_ip(cls, ip_block_id, tenant_id, **conditions):
@@ -231,7 +251,7 @@ class IpBlock(ModelBase):
 
     @classmethod
     def delete_all_deallocated_ips(cls):
-        for block in db_api.find_all_blocks_with_deallocated_ips():
+        for block in db.db_api.find_all_blocks_with_deallocated_ips():
             block.delete_deallocated_ips()
 
     @property
@@ -381,7 +401,7 @@ class IpBlock(ModelBase):
 
     def delete_deallocated_ips(self):
         self.update(is_full=False)
-        for ip in db_api.find_deallocated_ips(
+        for ip in db.db_api.find_deallocated_ips(
             deallocated_by=self._deallocated_by_date(), ip_block_id=self.id):
             ip.delete()
 
@@ -450,7 +470,8 @@ class IpBlock(ModelBase):
     def networked_top_level_blocks(self):
         if not self.network_id:
             return []
-        blocks = db_api.find_all_top_level_blocks_in_network(self.network_id)
+        blocks = db.db_api.find_all_top_level_blocks_in_network(
+                self.network_id)
         return filter(lambda block: block != self and block != self.parent,
                       blocks)
 
@@ -518,6 +539,12 @@ class IpBlock(ModelBase):
 class IpAddress(ModelBase):
 
     _data_fields = ['ip_block_id', 'address', 'version']
+    on_create_notification_fields = ['used_by_tenant_id', 'id', 'ip_block_id',
+                                     'used_by_device_id', 'created_at',
+                                     'address']
+    on_delete_notification_fields = ['used_by_tenant_id', 'id', 'ip_block_id',
+                                     'used_by_device_id', 'created_at',
+                                     'address']
 
     def _validate(self):
         self._validate_presence_of("used_by_tenant_id")
@@ -537,13 +564,13 @@ class IpAddress(ModelBase):
 
     @classmethod
     def find_all_by_network(cls, network_id, **conditions):
-        return db_query.find_all_ips_in_network(cls,
+        return db.db_query.find_all_ips_in_network(cls,
                                              network_id=network_id,
                                              **conditions)
 
     @classmethod
     def find_all_allocated_ips(cls, **conditions):
-        return db_query.find_all_allocated_ips(cls, **conditions)
+        return db.db_query.find_all_allocated_ips(cls, **conditions)
 
     def delete(self):
         if self._explicitly_allowed_on_interfaces():
@@ -556,8 +583,8 @@ class IpAddress(ModelBase):
         super(IpAddress, self).delete()
 
     def _explicitly_allowed_on_interfaces(self):
-        return db_query.find_allowed_ips(IpAddress,
-                                      ip_address_id=self.id).count() > 0
+        return db.db_query.find_allowed_ips(IpAddress,
+                                            ip_address_id=self.id).count() > 0
 
     def _before_save(self):
         self.address = self._formatted(self.address)
@@ -567,7 +594,7 @@ class IpAddress(ModelBase):
         return IpBlock.get(self.ip_block_id)
 
     def add_inside_locals(self, ip_addresses):
-        db_api.save_nat_relationships([
+        db.db_api.save_nat_relationships([
             {
             'inside_global_address_id': self.id,
             'inside_local_address_id': local_address.id,
@@ -582,12 +609,12 @@ class IpAddress(ModelBase):
         self.update(marked_for_deallocation=False, deallocated_at=None)
 
     def inside_globals(self, **kwargs):
-        return db_query.find_inside_globals(IpAddress,
+        return db.db_query.find_inside_globals(IpAddress,
                                          local_address_id=self.id,
                                          **kwargs)
 
     def add_inside_globals(self, ip_addresses):
-        db_api.save_nat_relationships([
+        db.db_api.save_nat_relationships([
             {
             'inside_global_address_id': global_address.id,
             'inside_local_address_id': self.id,
@@ -595,15 +622,15 @@ class IpAddress(ModelBase):
             for global_address in ip_addresses])
 
     def inside_locals(self, **kwargs):
-        return db_query.find_inside_locals(IpAddress,
-                                        global_address_id=self.id,
+        return db.db_query.find_inside_locals(IpAddress,
+                                              global_address_id=self.id,
                                         **kwargs)
 
     def remove_inside_globals(self, inside_global_address=None):
-        return db_api.remove_inside_globals(self.id, inside_global_address)
+        return db.db_api.remove_inside_globals(self.id, inside_global_address)
 
     def remove_inside_locals(self, inside_local_address=None):
-        return db_api.remove_inside_locals(self.id, inside_local_address)
+        return db.db_api.remove_inside_locals(self.id, inside_local_address)
 
     def locked(self):
         return self.marked_for_deallocation
@@ -619,6 +646,11 @@ class IpAddress(ModelBase):
     @utils.cached_property
     def mac_address(self):
         return MacAddress.get_by(interface_id=self.interface_id)
+
+    @property
+    def used_by_device_id(self):
+        if self.interface:
+            return self.interface.device_id
 
     def data(self, **options):
         data = super(IpAddress, self).data(**options)
@@ -788,17 +820,17 @@ class Interface(ModelBase):
                                                self.virtual_interface_id)
             raise IpNotAllowedOnInterfaceError(err_msg)
 
-        db_api.save_allowed_ip(self.id, ip.id)
+        db.db_api.save_allowed_ip(self.id, ip.id)
 
     def _ip_cannot_be_allowed(self, ip):
         return (self.plugged_in_network_id() is None
                 or self.plugged_in_network_id() != ip.ip_block.network_id)
 
     def disallow_ip(self, ip):
-        db_api.remove_allowed_ip(interface_id=self.id, ip_address_id=ip.id)
+        db.db_api.remove_allowed_ip(interface_id=self.id, ip_address_id=ip.id)
 
     def ips_allowed(self):
-        explicitly_allowed = db_query.find_allowed_ips(
+        explicitly_allowed = db.db_query.find_allowed_ips(
             IpAddress, allowed_on_interface_id=self.id)
         allocated_ips = IpAddress.find_all_allocated_ips(interface_id=self.id)
         return list(set(allocated_ips) | set(explicitly_allowed))

@@ -22,133 +22,185 @@ import socket
 import mox
 
 from melange import tests
-from melange.tests import unit
-from melange.common import exception
 from melange.common import messaging
 from melange.common import notifier
 from melange.common import utils
+from melange import db
+from melange.ipam import models
+from melange.tests import unit
 
 
-class TestNotifier(tests.BaseTest):
+class NotifierTestBase():
 
-    def test_raises_error_if_configured_with_invalid_notifer(self):
-        with unit.StubConfig(notifier="invalid_notifier"):
-            self.assertRaisesExcMessage(exception.InvalidNotifier,
-                                        ("no such notifier invalid_notifier "
-                                         "exists"),
-                                        notifier.Notifier)
-
-    def test_warn_formats_msg_before_passing_on_to_relavent_notifier(self):
+    def _setup_expected_message(self, priority, event,
+                                 message):
         self._setup_uuid_with("test_uuid")
-        with unit.StubTime(time=datetime.datetime(2050, 1, 1)):
-            self._setup_expectation_on_noop_notifier_with("warn",
-                                                          "test_event",
-                                                          "test_message",
-                                                          "test_uuid")
-
-            notifier.Notifier().warn("test_event", "test_message")
-
-    def test_info_formats_msg_before_passing_on_to_relavent_notifier(self):
-        self._setup_uuid_with("test_uuid")
-        with unit.StubTime(time=datetime.datetime(2050, 1, 1)):
-            self._setup_expectation_on_noop_notifier_with("info",
-                                                          "test_event",
-                                                          "test_message",
-                                                          "test_uuid")
-
-            notifier.Notifier().info("test_event", "test_message")
-
-    def test_error_formats_msg_before_passing_on_to_relavent_notifier(self):
-        self._setup_uuid_with("test_uuid")
-        with unit.StubTime(time=datetime.datetime(2050, 1, 1)):
-            self._setup_expectation_on_noop_notifier_with("error",
-                                                          "test_event",
-                                                          "test_message",
-                                                          "test_uuid")
-
-            notifier.Notifier().error("test_event", "test_message")
-
-    def _setup_expectation_on_noop_notifier_with(self, priority, event,
-                                                 message, uuid):
-        self.mock.StubOutWithMock(notifier.NoopNotifier, priority)
-        priority_notifier_func = getattr(notifier.NoopNotifier, priority)
-        priority_notifier_func({
+        return {
             'event_type': event,
             'timestamp': str(utils.utcnow()),
-            'priority': priority.upper(),
-            'message_id': uuid,
+            'priority': priority,
+            'message_id': "test_uuid",
             'payload': message,
             'publisher_id': socket.gethostname(),
-            })
-        self.mock.ReplayAll()
+            }
 
     def _setup_uuid_with(self, fake_uuid):
         self.mock.StubOutWithMock(utils, "generate_uuid")
         utils.generate_uuid().AndReturn(fake_uuid)
 
 
-class TestLoggingNotifier(tests.BaseTest):
+class TestLoggingNotifier(tests.BaseTest, NotifierTestBase):
 
     def setUp(self):
         super(TestLoggingNotifier, self).setUp()
         with unit.StubConfig(notifier="logging"):
-            self.notifier = notifier.Notifier()
+            self.notifier = notifier.notifier()
         self.logger = logging.getLogger('melange.notifier.logging_notifier')
 
     def test_warn(self):
-        self.mock.StubOutWithMock(self.logger, "warn")
-        self.logger.warn(mox.IgnoreArg())
-        self.mock.ReplayAll()
+        with unit.StubTime(time=datetime.datetime(2050, 1, 1)):
 
-        self.notifier.warn("test_event", "test_message")
+            self.mock.StubOutWithMock(self.logger, "warn")
+            self.logger.warn(self._setup_expected_message("warn",
+                                                          "test_event",
+                                                          "test_message"))
+            self.mock.ReplayAll()
+
+            self.notifier.warn("test_event", "test_message")
 
     def test_info(self):
-        self.mock.StubOutWithMock(self.logger, "info")
-        self.logger.info(mox.IgnoreArg())
-        self.mock.ReplayAll()
+        with unit.StubTime(time=datetime.datetime(2050, 1, 1)):
+            self.mock.StubOutWithMock(self.logger, "info")
+            self.logger.info(self._setup_expected_message("info",
+                                                          "test_event",
+                                                          "test_message"))
+            self.mock.ReplayAll()
 
-        self.notifier.info("test_event", "test_message")
+            self.notifier.info("test_event", "test_message")
 
-    def test_erorr(self):
-        self.mock.StubOutWithMock(self.logger, "error")
-        self.logger.error(mox.IgnoreArg())
-        self.mock.ReplayAll()
+    def test_error(self):
+        with unit.StubTime(time=datetime.datetime(2050, 1, 1)):
+            self.mock.StubOutWithMock(self.logger, "error")
+            self.logger.error(self._setup_expected_message("error",
+                                                           "test_event",
+                                                           "test_message"))
+            self.mock.ReplayAll()
 
-        self.notifier.error("test_event", "test_message")
+            self.notifier.error("test_event", "test_message")
 
 
-class TestQueueNotifier(tests.BaseTest):
+class TestQueueNotifier(tests.BaseTest, NotifierTestBase):
 
     def setUp(self):
         super(TestQueueNotifier, self).setUp()
 
+        with unit.StubConfig(notifier="queue"):
+            self.notifier = notifier.notifier()
+
+    def _setup_queue_mock(self, level, event, msg):
         self.mock_queue = self.mock.CreateMockAnything()
         self.mock_queue.__enter__().AndReturn(self.mock_queue)
-        self.mock_queue.put(mox.IgnoreArg())
+        self.mock_queue.put(self._setup_expected_message(level, event, msg))
         self.mock_queue.__exit__(mox.IgnoreArg(),
                                  mox.IgnoreArg(),
                                  mox.IgnoreArg())
 
-        with unit.StubConfig(notifier="queue"):
-            self.notifier = notifier.Notifier()
-
     def test_warn(self):
-        self.mock.StubOutWithMock(messaging, "Queue")
-        messaging.Queue("melange.notifier.WARN").AndReturn(self.mock_queue)
-        self.mock.ReplayAll()
+        with unit.StubTime(time=datetime.datetime(2050, 1, 1)):
+            self._setup_queue_mock("warn", "test_event", "test_message")
+            self.mock.StubOutWithMock(messaging, "Queue")
+            messaging.Queue("melange.notifier.WARN").AndReturn(self.mock_queue)
+            self.mock.ReplayAll()
 
-        self.notifier.warn("test_event", "test_message")
+            self.notifier.warn("test_event", "test_message")
 
     def test_info(self):
-        self.mock.StubOutWithMock(messaging, "Queue")
-        messaging.Queue("melange.notifier.INFO").AndReturn(self.mock_queue)
-        self.mock.ReplayAll()
+        with unit.StubTime(time=datetime.datetime(2050, 1, 1)):
+            self._setup_queue_mock("info", "test_event", "test_message")
+            self.mock.StubOutWithMock(messaging, "Queue")
+            messaging.Queue("melange.notifier.INFO").AndReturn(self.mock_queue)
+            self.mock.ReplayAll()
 
-        self.notifier.info("test_event", "test_message")
+            self.notifier.info("test_event", "test_message")
 
     def test_error(self):
-        self.mock.StubOutWithMock(messaging, "Queue")
-        messaging.Queue("melange.notifier.ERROR").AndReturn(self.mock_queue)
+        with unit.StubTime(time=datetime.datetime(2050, 1, 1)):
+            self.mock.StubOutWithMock(messaging, "Queue")
+            self._setup_queue_mock("error", "test_event", "test_message")
+            messaging.Queue("melange.notifier.ERROR").AndReturn(
+                    self.mock_queue)
+            self.mock.ReplayAll()
+
+            self.notifier.error("test_event", "test_message")
+
+
+class TestModelNotification(tests.BaseTest):
+
+    class TestModel(models.ModelBase):
+        on_create_notification_fields = ['alt_id', 'name', 'desc']
+        on_update_notification_fields = ['alt_id', 'desc']
+        on_delete_notification_fields = ['alt_id', 'name']
+
+        def save(self):
+            return self
+
+    class TestNonNotifyingModel(models.ModelBase):
+
+        def save(self):
+            return self
+
+    def test_model_notifies_on_create(self):
+        mock_notifier = self._setup_default_notifier()
+        mock_notifier.info("create TestModel", dict(alt_id="model_id",
+                                                    name="blah",
+                                                    desc="blahblah"))
         self.mock.ReplayAll()
 
-        self.notifier.error("test_event", "test_message")
+        self.TestModel.create(alt_id="model_id",
+                              name="blah",
+                              desc="blahblah")
+
+    def test_model_notifies_on_update(self):
+        m = self.TestModel.create(alt_id="model_id",
+                                  name='blah',
+                                  desc='blahblah')
+
+        mock_notifier = self._setup_default_notifier()
+        mock_notifier.info("update TestModel", dict(alt_id="model_id",
+                                                    desc="new desc"))
+        self.mock.ReplayAll()
+
+        m.update(name="name", desc="new desc")
+
+    def test_model_notifies_on_delete(self):
+        m = self.TestModel.create(alt_id="model_id",
+                                  name='blah',
+                                  desc='blahblah')
+
+        self.mock.StubOutWithMock(db, "db_api")
+        mock_notifier = self._setup_default_notifier()
+        mock_notifier.info("delete TestModel", dict(alt_id="model_id",
+                                                    name="blah"))
+        db.db_api.delete(m)
+
+        self.mock.ReplayAll()
+
+        m.delete()
+
+    def test_model_doesnt_notify_when_notification_fields_not_set(self):
+        self.info_called = False
+
+        class MockNotifier():
+            def info(*args, **kargs):
+                self.info_called = True
+
+        self.mock.StubOutClassWithMocks(notifier, "NoopNotifier")
+        self.mock.ReplayAll()
+
+        self.TestNonNotifyingModel.create()
+
+        self.assertFalse(self.info_called)
+
+    def _setup_default_notifier(self):
+        self.mock.StubOutClassWithMocks(notifier, "NoopNotifier")
+        return notifier.NoopNotifier()

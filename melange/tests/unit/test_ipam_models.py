@@ -21,6 +21,7 @@ import netaddr
 
 from melange import tests
 from melange.common import exception
+from melange.common import notifier
 from melange.common import utils
 from melange.db import db_query
 from melange.ipam import models
@@ -1021,6 +1022,32 @@ class TestIpBlock(tests.BaseTest):
 
         self.assertModelsEqual(block1.ip_routes(), ip_routes)
 
+    def test_ip_block_creation_is_notified(self):
+        _setup_uuid(self.mock, "ip_block_uuid")
+        creation_time = datetime.datetime(2050, 1, 1)
+        mock_notifier = _setup_notifier(self.mock)
+        mock_notifier.info("create IpBlock", dict(tenant_id="tnt_id",
+                                                  id="ip_block_uuid",
+                                                  type="private",
+                                                  created_at=creation_time))
+        self.mock.ReplayAll()
+
+        with unit.StubTime(time=creation_time):
+            factory_models.IpBlockFactory(tenant_id="tnt_id",
+                                          type="private",)
+
+    def test_ip_block_deletion_is_notified(self):
+        block = factory_models.IpBlockFactory(tenant_id="tnt_id",
+                                              type="private")
+        mock_notifier = _setup_notifier(self.mock)
+        mock_notifier.info("delete IpBlock", dict(tenant_id="tnt_id",
+                                                  type=block.type,
+                                                  id=block.id,
+                                                  created_at=block.created_at))
+        self.mock.ReplayAll()
+
+        block.delete()
+
 
 class TestIpAddress(tests.BaseTest):
 
@@ -1311,6 +1338,46 @@ class TestIpAddress(tests.BaseTest):
         self.assertFalse(ip.is_valid())
         self.assertEqual(ip.errors['used_by_tenant_id'],
                          ["used_by_tenant_id should be present"])
+
+    def test_ip_addresss_creation_is_notified(self):
+        block = factory_models.IpBlockFactory(cidr="10.1.1.1/24")
+        _setup_uuid(self.mock, "ip_address_uuid")
+        creation_time = datetime.datetime(2050, 1, 1)
+        mock_notifier = _setup_notifier(self.mock)
+        mock_notifier.info("create IpAddress", dict(used_by_tenant_id="tnt_id",
+                                                    id="ip_address_uuid",
+                                                    address="10.1.1.1",
+                                                    used_by_device_id="ins",
+                                                    ip_block_id=block.id,
+                                                    created_at=creation_time))
+        self.mock.ReplayAll()
+
+        with unit.StubTime(time=creation_time):
+            interface = factory_models.InterfaceFactory(device_id="ins")
+            factory_models.IpAddressFactory(used_by_tenant_id="tnt_id",
+                                            address="10.1.1.1",
+                                            ip_block_id=block.id,
+                                            interface_id=interface.id)
+
+    def test_ip_addresss_creation_is_notified(self):
+        block = factory_models.IpBlockFactory(cidr="10.1.1.1/24")
+        interface = factory_models.InterfaceFactory(device_id="ins")
+        ip = factory_models.IpAddressFactory(used_by_tenant_id="tnt_id",
+                                            address="10.1.1.1",
+                                            ip_block_id=block.id,
+                                            interface_id=interface.id,
+                                            )
+
+        mock_notifier = _setup_notifier(self.mock)
+        mock_notifier.info("delete IpAddress", dict(used_by_tenant_id="tnt_id",
+                                                    id=ip.id,
+                                                    address=ip.address,
+                                                    used_by_device_id="ins",
+                                                    ip_block_id=block.id,
+                                                    created_at=ip.created_at))
+        self.mock.ReplayAll()
+
+        ip.delete()
 
 
 class TestIpRoute(tests.BaseTest):
@@ -2375,3 +2442,13 @@ class TestAllowedIp(tests.BaseTest):
 def _allocate_ip(block, interface=None, **kwargs):
     interface = interface or factory_models.InterfaceFactory()
     return block.allocate_ip(interface=interface, **kwargs)
+
+
+def _setup_notifier(mock):
+        mock.StubOutClassWithMocks(notifier, "NoopNotifier")
+        return notifier.NoopNotifier()
+
+
+def _setup_uuid(mock, uuid):
+        mock.StubOutWithMock(utils, "generate_uuid")
+        utils.generate_uuid().MultipleTimes().AndReturn(uuid)

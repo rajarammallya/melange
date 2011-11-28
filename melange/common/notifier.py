@@ -24,71 +24,22 @@ from melange.common import messaging
 from melange.common import utils
 
 
-class NoopNotifier(object):
-
-    def __init__(self):
-        pass
-
-    def warn(self, msg):
-        pass
-
-    def info(self, msg):
-        pass
-
-    def error(self, msg):
-        pass
-
-
-class LoggingNotifier(object):
-
-    def __init__(self):
-        self.logger = logging.getLogger('melange.notifier.logging_notifier')
-
-    def warn(self, msg):
-        self.logger.warn(msg)
-
-    def info(self, msg):
-        self.logger.info(msg)
-
-    def error(self, msg):
-        self.logger.error(msg)
-
-
-class QueueNotifier(object):
-
-    def _send_message(self, message, priority):
-        topic = "%s.%s" % ("melange.notifier", priority)
-
-        with messaging.Queue(topic) as queue:
-            queue.put(message)
-
-    def warn(self, msg):
-        self._send_message(msg, "WARN")
-
-    def info(self, msg):
-        self._send_message(msg, "INFO")
-
-    def error(self, msg):
-        self._send_message(msg, "ERROR")
-
-
 class Notifier(object):
 
-    STRATEGIES = {
-        "logging": LoggingNotifier,
-        "queue": QueueNotifier,
-        "noop": NoopNotifier,
-    }
+    def error(self, event_type, payload):
+        self._send_message("error", event_type, payload)
 
-    def __init__(self, notifier=None):
-        strategy = config.Config.get("notifier", "noop")
-        try:
-            self.strategy = self.STRATEGIES[strategy]()
-        except KeyError:
-            raise exception.InvalidNotifier(notifier=strategy)
+    def warn(self, event_type, payload):
+        self._send_message("warn", event_type, payload)
 
-    @staticmethod
-    def _generate_message(event_type, priority, payload):
+    def info(self, event_type, payload):
+        self._send_message("info", event_type, payload)
+
+    def _send_message(self, level, event_type, payload):
+        msg = self._generate_message(event_type, level, payload)
+        self.notify(level, msg)
+
+    def _generate_message(self, event_type, priority, payload):
         return {
             "message_id": str(utils.generate_uuid()),
             "publisher_id": socket.gethostname(),
@@ -98,14 +49,43 @@ class Notifier(object):
             "timestamp": str(utils.utcnow()),
         }
 
-    def warn(self, event_type, payload):
-        msg = self._generate_message(event_type, "WARN", payload)
-        self.strategy.warn(msg)
+    def notify(self, level, msg):
+        pass
 
-    def info(self, event_type, payload):
-        msg = self._generate_message(event_type, "INFO", payload)
-        self.strategy.info(msg)
 
-    def error(self, event_type, payload):
-        msg = self._generate_message(event_type, "ERROR", payload)
-        self.strategy.error(msg)
+class NoopNotifier(Notifier):
+
+    def notify(self, level, msg):
+        pass
+
+
+class LoggingNotifier(Notifier):
+
+    logger = logging.getLogger('melange.notifier.logging_notifier')
+
+    def notify(self, level, msg):
+        getattr(self.logger, level)(msg)
+
+
+class QueueNotifier(Notifier):
+
+    def notify(self, level, msg):
+        topic = "%s.%s" % ("melange.notifier", level.upper())
+
+        with messaging.Queue(topic) as queue:
+            queue.put(msg)
+
+
+def notifier():
+
+    STRATEGIES = {
+        "logging": LoggingNotifier,
+        "queue": QueueNotifier,
+        "noop": NoopNotifier,
+    }
+
+    strategy = config.Config.get("notifier", "noop")
+    try:
+        return STRATEGIES[strategy]()
+    except KeyError:
+        raise exception.InvalidNotifier(notifier=strategy)

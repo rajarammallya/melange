@@ -9,3 +9,4 @@ melange.egg-info
 *.sqlite
 *.log
 tags
+*~

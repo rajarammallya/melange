@@ -15,24 +15,17 @@
       under the License.
 
 Welcome to Skeleton's documentation!
-===================================
+====================================
 
 Description of Skeleton project
 
-Concepts
+API Docs
 ========
 
 .. toctree::
    :maxdepth: 1
 
-Using Skeleton
-==============
-
-.. toctree::
-   :maxdepth: 1
-
-   gettingstarted
-   installing
+   apidoc
 
 Developer Docs
 ==============

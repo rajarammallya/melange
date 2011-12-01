@@ -63,7 +63,7 @@ None
 
 Normal Response code: 200
 
-**JSON Response:**
+**JSON Response Example:**
 
 ::
 
@@ -102,11 +102,11 @@ Normal Response code: 200
 List extension details
 ----------------------
 
-    ====== ================== ========================================
-    Verb   URI                Description
-    ====== ================== ========================================
-    GET    /extensions{alias} Get details of all extensions of the API
-    ====== ================== ========================================
+    ====== =================== ========================================
+    Verb   URI                 Description
+    ====== =================== ========================================
+    GET    /extensions/{alias} Get details of all extensions of the API
+    ====== =================== ========================================
 
 **Params:**
 
@@ -140,6 +140,49 @@ type ('public' or 'private')
 
 Normal Response code: 200
 
+**JSON Response Example:**
+
+::
+
+    {
+        "ip_blocks": [
+            {
+                "broadcast": "10.1.1.255",
+                "cidr": "10.1.1.0/24",
+                "created_at": "2011-12-01T09:39:35",
+                "dns1": "8.8.8.8",
+                "dns2": "8.8.4.4",
+                "gateway": "10.1.1.1",
+                "id": "14819901-693b-4ea6-8be7-67e79b261b5c",
+                "netmask": "255.255.255.0",
+                "network_id": "quantum_net_id2",
+                "parent_id": null,
+                "policy_id": "2f730874-2088-4f91-87fb-63792c753971",
+                "tenant_id": "RAX",
+                "type": "private",
+                "updated_at": "2011-12-01T09:39:35"
+            },
+            {
+                "broadcast": "10.1.1.255",
+                "cidr": "10.1.1.0/24",
+                "created_at": "2011-12-01T09:42:13",
+                "dns1": "8.8.8.8",
+                "dns2": "8.8.4.4",
+                "gateway": "10.1.1.1",
+                "id": "4ad71669-7225-4e3c-b82c-38533ddaef23",
+                "netmask": "255.255.255.0",
+                "network_id": "quantum_net_id3",
+                "parent_id": null,
+                "policy_id": "2f730874-2088-4f91-87fb-63792c753971",
+                "tenant_id": "RAX",
+                "type": "private",
+                "updated_at": "2011-12-01T09:42:13"
+            },
+         ] 
+    
+    }
+
+
 List Tenant's subnets
 ---------------------
 
@@ -158,6 +201,32 @@ None
 Normal Response code: 200
 
 Error   - 404 Not Found [When IpBlock doesn't exist]
+
+**JSON Response Example:**
+
+::
+
+    {
+        "subnets": [
+            {
+                "broadcast": "10.1.1.3",
+                "cidr": "10.1.1.0/30",
+                "created_at": "2011-12-01T10:47:57",
+                "dns1": "8.8.8.8",
+                "dns2": "8.8.4.4",
+                "gateway": "10.1.1.1",
+                "id": "5a306fcd-41c9-463b-8c73-c2179cc77c05",
+                "netmask": "255.255.255.252",
+                "network_id": "quantum_net_id2",
+                "parent_id": "14819901-693b-4ea6-8be7-67e79b261b5c",
+                "policy_id": null,
+                "tenant_id": "RAX",
+                "type": "private",
+                "updated_at": "2011-12-01T10:47:57"
+            }
+        ]
+    }
+
 
 Get details of tenant's IP block
 --------------------------------
@@ -178,14 +247,38 @@ Normal Response code: 200
 
 Error   - 404 Not Found [When IpBlock doesn't exist]
 
+**JSON Response Example:**
+
+::
+
+
+    {
+        "ip_block": {
+            "broadcast": "10.1.1.255",
+            "cidr": "10.1.1.0/24",
+            "created_at": "2011-12-01T09:46:22",
+            "dns1": "8.8.8.8",
+            "dns2": "8.8.4.4",
+            "gateway": "10.1.1.1",
+            "id": "af19f87a-d6a9-4ce5-b30f-4cc9878ec292",
+            "netmask": "255.255.255.0",
+            "network_id": "quantum_net_id4",
+            "parent_id": null,
+            "policy_id": "2f730874-2088-4f91-87fb-63792c753971",
+            "tenant_id": "RAX",
+            "type": "private",
+            "updated_at": "2011-12-01T09:46:22"
+        }
+    }
+
 Create tenant's IP block
 ------------------------
 
-    ====== =================================== ===============================
-    Verb   URI                                 Description
-    ====== =================================== ===============================
-    GET    /ipam/tenants/{tenant_id}/ip_blocks Create a new IP block for a tenant
-    ====== =================================== ===============================
+    ====== ==================================== ==================================
+    Verb   URI                                  Description
+    ====== ==================================== ==================================
+    POST    /ipam/tenants/{tenant_id}/ip_blocks Create a new IP block for a tenant
+    ====== ==================================== ==================================
 
 **Params:**
 
@@ -209,15 +302,38 @@ Normal Response code: 201
 
 Error - 400 Bad Request [When mandatory fields are not present or field validations fail]
 
+**JSON Response Example:**
+
+::
+
+    {
+        "ip_block": {
+            "broadcast": "10.1.1.255",
+            "cidr": "10.1.1.0/24",
+            "created_at": "2011-12-01T09:42:13",
+            "dns1": "8.8.8.8",
+            "dns2": "8.8.4.4",
+            "gateway": "10.1.1.1",
+            "id": "4ad71669-7225-4e3c-b82c-38533ddaef23",
+            "netmask": "255.255.255.0",
+            "network_id": "quantum_net_id3",
+            "parent_id": null,
+            "policy_id": "2f730874-2088-4f91-87fb-63792c753971",
+            "tenant_id": "RAX",
+            "type": "private",
+            "updated_at": "2011-12-01T09:42:13"
+        }
+    }
+
 
 Create tenant's subnet
 ----------------------
 
-    ====== ========================================================= ==========================================
-    Verb   URI                                                       Description
-    ====== ========================================================= ==========================================
-    GET    /ipam/tenants/{tenant_id}/ip_blocks/{ip_block_id}/subnets Create a new subnet in a tenant's IP block
-    ====== ========================================================= ==========================================
+    ====== ========================================================== ==========================================
+    Verb   URI                                                        Description
+    ====== ========================================================== ==========================================
+    POST    /ipam/tenants/{tenant_id}/ip_blocks/{ip_block_id}/subnets Create a new subnet in a tenant's IP block
+    ====== ========================================================== ==========================================
 
 **Params:**
 
@@ -237,6 +353,29 @@ Error   - 404 Not Found [When IpBlock for given ip_block_id and tenant_id doesn'
 
 Error   - 400 Bad Request [When mandatory fields are not present or field validations fails]
 
+**JSON Response Example:**
+
+::
+
+    {
+        "subnet": {
+            "broadcast": "10.1.1.3",
+            "cidr": "10.1.1.0/30",
+            "created_at": "2011-12-01T10:47:57",
+            "dns1": "8.8.8.8",
+            "dns2": "8.8.4.4",
+            "gateway": "10.1.1.1",
+            "id": "5a306fcd-41c9-463b-8c73-c2179cc77c05",
+            "netmask": "255.255.255.252",
+            "network_id": "quantum_net_id2",
+            "parent_id": "14819901-693b-4ea6-8be7-67e79b261b5c",
+            "policy_id": null,
+            "tenant_id": "RAX",
+            "type": "private",
+            "updated_at": "2011-12-01T10:47:57"
+        }
+    }
+
 
 Update tenant's IP block
 ------------------------
@@ -244,7 +383,7 @@ Update tenant's IP block
     ====== ========================================= =================================================
     Verb   URI                                       Description
     ====== ========================================= =================================================
-    GET    /ipam/tenants/{tenant_id}/ip_blocks/:(id) Update details of a tenant's ip block by given id
+    PUT    /ipam/tenants/{tenant_id}/ip_blocks/:(id) Update details of a tenant's ip block by given id
     ====== ========================================= =================================================
 
 **Params:**
@@ -261,13 +400,37 @@ Error   - 404 Not Found [When IpBlock for given id and tenant_id doesn't exist]
 
 Error   - 400 Bad Request [When field validations fails]
 
+**JSON Response Example:**
+
+::
+
+    {
+        "ip_block": {
+            "broadcast": "10.1.1.255",
+            "cidr": "10.1.1.0/24",
+            "created_at": "2011-12-01T09:46:22",
+            "dns1": "8.8.8.8",
+            "dns2": "8.8.4.4",
+            "gateway": "10.1.1.1",
+            "id": "af19f87a-d6a9-4ce5-b30f-4cc9878ec292",
+            "netmask": "255.255.255.0",
+            "network_id": "quantum_net_id4",
+            "parent_id": null,
+            "policy_id": "2f730874-2088-4f91-87fb-63792c753971",
+            "tenant_id": "RAX",
+            "type": "private",
+            "updated_at": "2011-12-01T09:46:22"
+        }
+    }
+
+
 Delete tenant's IP block
 ------------------------
 
     ====== ========================================= ================================
     Verb   URI                                       Description
     ====== ========================================= ================================
-    GET    /ipam/tenants/{tenant_id}/ip_blocks/:(id) Lists all extensions of the API
+    DELETE /ipam/tenants/{tenant_id}/ip_blocks/:(id) Deletes the tenants ip block
     ====== ========================================= ================================
 
 **Params:**
@@ -303,6 +466,38 @@ Normal Response code: 200
 
 Error   - 404 Not Found (When IpBlock for given ip_block_id and tenant_id is not found)
 
+**JSON Response Example:**
+
+::
+
+    {
+        "ip_addresses": [
+            {
+                "address": "10.1.1.3",
+                "created_at": "2011-12-01T10:01:55",
+                "id": "8ced0b07-45e6-40e2-9073-c84182890875",
+                "interface_id": "interface_id",
+                "ip_block_id": "af19f87a-d6a9-4ce5-b30f-4cc9878ec292",
+                "updated_at": "2011-12-01T10:01:55",
+                "used_by_device": "instance_id",
+                "used_by_tenant": "lessee_tenant",
+                "version": 4
+            },
+            {
+                "address": "10.1.1.6",
+                "created_at": "2011-12-01T10:02:53",
+                "id": "94fa249b-0626-49fc-b420-cce13dabed4f",
+                "interface_id": "interface_id",
+                "ip_block_id": "af19f87a-d6a9-4ce5-b30f-4cc9878ec292",
+                "updated_at": "2011-12-01T10:02:53",
+                "used_by_device": "instance_id",
+                "used_by_tenant": "lessee_tenant",
+                "version": 4
+            }
+        ]
+    }
+
+
 
 List tenant's allocated addresses
 ---------------------------------
@@ -322,6 +517,38 @@ List tenant's allocated addresses
 Normal Response code: 200
 
 
+**JSON Response Example:**
+
+::
+
+
+    {
+        "ip_addresses": [
+            {
+                "address": "10.1.1.3",
+                "created_at": "2011-12-01T10:01:55",
+                "id": "8ced0b07-45e6-40e2-9073-c84182890875",
+                "interface_id": "interface_id",
+                "ip_block_id": "af19f87a-d6a9-4ce5-b30f-4cc9878ec292",
+                "updated_at": "2011-12-01T10:01:55",
+                "used_by_device": "instance_id",
+                "used_by_tenant": "lessee_tenant",
+                "version": 4
+            },
+            {
+                "address": "10.1.1.6",
+                "created_at": "2011-12-01T10:02:53",
+                "id": "94fa249b-0626-49fc-b420-cce13dabed4f",
+                "interface_id": "interface_id",
+                "ip_block_id": "af19f87a-d6a9-4ce5-b30f-4cc9878ec292",
+                "updated_at": "2011-12-01T10:02:53",
+                "used_by_device": "instance_id",
+                "used_by_tenant": "lessee_tenant",
+                "version": 4
+            }
+        ]
+    }
+
 List Cloud Providers allocated addresses
 ----------------------------------------
 
@@ -338,6 +565,38 @@ List Cloud Providers allocated addresses
 **Response Codes:**
 
 Normal Response code: 200
+
+**JSON Response Example:**
+
+::
+
+
+    {
+        "ip_addresses": [
+            {
+                "address": "10.1.1.3",
+                "created_at": "2011-12-01T10:01:55",
+                "id": "8ced0b07-45e6-40e2-9073-c84182890875",
+                "interface_id": "interface_id",
+                "ip_block_id": "af19f87a-d6a9-4ce5-b30f-4cc9878ec292",
+                "updated_at": "2011-12-01T10:01:55",
+                "used_by_device": "instance_id",
+                "used_by_tenant": "lessee_tenant",
+                "version": 4
+            },
+            {
+                "address": "10.1.1.6",
+                "created_at": "2011-12-01T10:02:53",
+                "id": "94fa249b-0626-49fc-b420-cce13dabed4f",
+                "interface_id": "interface_id",
+                "ip_block_id": "af19f87a-d6a9-4ce5-b30f-4cc9878ec292",
+                "updated_at": "2011-12-01T10:02:53",
+                "used_by_device": "instance_id",
+                "used_by_tenant": "lessee_tenant",
+                "version": 4
+            }
+        ]
+    }
 
 Get address details
 --------------------
@@ -359,15 +618,34 @@ Normal Response code: 200
 Error   - 404 Not Found (When either IpBlock for given ip_block_id and tenant_id is not found, or IpAddress for given address is not found)-~+~
 
 
+**JSON Response Example:**
+
+::
+
+
+    {
+        "ip_address": {
+            "address": "10.1.1.6",
+            "created_at": "2011-12-01T10:02:53",
+            "id": "94fa249b-0626-49fc-b420-cce13dabed4f",
+            "interface_id": "interface_id",
+            "ip_block_id": "af19f87a-d6a9-4ce5-b30f-4cc9878ec292",
+            "updated_at": "2011-12-01T10:02:53",
+            "used_by_device": "instance_id",
+            "used_by_tenant": "lessee_tenant",
+            "version": 4
+        }
+    }
+
 Allocate tenant's address
 -------------------------
 
 
-    ====== ============================================================== ============================================
-    Verb   URI                                                            Description
-    ====== ============================================================== ============================================
-    GET    /ipam/tenants/{tenant_id}/ip_blocks/{ip_block_id}/ip_addresses Allocate an IpAddress from a tenant's block.
-    ====== ============================================================== ============================================
+    ====== =============================================================== ===========================================
+    Verb   URI                                                             Description
+    ====== =============================================================== ===========================================
+    POST    /ipam/tenants/{tenant_id}/ip_blocks/{ip_block_id}/ip_addresses Allocate an IpAddress from a tenant's block.
+    ====== =============================================================== ===========================================
 
 **Params:**
 
@@ -398,13 +676,32 @@ Error   - 409 Conflict [If the given address is already allocated]
 Error   - 400 Bad Request [When mandatory fields are not present or fields fail validations]
 
 
+**JSON Response Example:**
+
+::
+
+    {
+        "ip_address": {
+            "address": "10.1.1.6",
+            "created_at": "2011-12-01T10:02:53",
+            "id": "94fa249b-0626-49fc-b420-cce13dabed4f",
+            "interface_id": "interface_id",
+            "ip_block_id": "af19f87a-d6a9-4ce5-b30f-4cc9878ec292",
+            "updated_at": "2011-12-01T10:02:53",
+            "used_by_device": "instance_id",
+            "used_by_tenant": "lessee_tenant",
+            "version": 4
+        }
+    }
+
+
 Deallocate tenant's address
 ---------------------------
 
     ====== ======================================================================== ====================================================================================================================================================================
     Verb   URI                                                                      Description
     ====== ======================================================================== ====================================================================================================================================================================
-    GET    /ipam/tenants/{tenant_id}/ip_blocks/{ip_block_id}/ip_addresses/{address} Deallocate an IpAddress from a tenant's block. This ip address will be deleted after a certain number of days. Number of days can be configured in melange.conf file
+    DELETE /ipam/tenants/{tenant_id}/ip_blocks/{ip_block_id}/ip_addresses/{address} Deallocate an IpAddress from a tenant's block. This ip address will be deleted after a certain number of days. Number of days can be configured in melange.conf file
     ====== ======================================================================== ====================================================================================================================================================================
 
 **Params:**
@@ -424,7 +721,7 @@ Restore tenant's address
     ====== ================================================================================ ======================================================================
     Verb   URI                                                                              Description
     ====== ================================================================================ ======================================================================
-    GET    /ipam/tenants/{tenant_id}/ip_blocks/{ip_block_id}/ip_addresses/{address}/restore Restores a deallocated (and not deleted) address in a tenant's block.
+    PUT    /ipam/tenants/{tenant_id}/ip_blocks/{ip_block_id}/ip_addresses/{address}/restore Restores a deallocated (and not deleted) address in a tenant's block.
     ====== ================================================================================ ======================================================================
 
 **Params:**
@@ -459,6 +756,32 @@ None
 
 Normal Response code: 200
 
+**JSON Response Example:**
+
+::
+
+    {
+        "ip_routes": [
+            {
+                "created_at": "2011-12-01T10:19:12",
+                "destination": "192.168.0.0",
+                "gateway": "10.1.1.1",
+                "id": "364c555d-4e35-43d4-9807-59535df082a5",
+                "netmask": "255.255.255.0",
+                "updated_at": "2011-12-01T10:19:12"
+            },
+            {
+                "created_at": "2011-12-01T10:20:47",
+                "destination": "192.168.0.0",
+                "gateway": "10.1.1.1",
+                "id": "7ebffbd6-3640-4061-b8f1-7878463e651f",
+                "netmask": "255.255.255.0",
+                "updated_at": "2011-12-01T10:20:47"
+            }
+        ]
+    }
+
+
 
 Get details of a static route
 -----------------------------
@@ -479,14 +802,30 @@ Normal Response code: 200
 
 Error   - 404 Not Found [When IpBlock for given ip_block_id and tenant_id does not exists or IpRoute for given id does not exists]
 
+**JSON Response Example:**
+
+::
+
+    {
+        "ip_route": {
+            "created_at": "2011-12-01T10:20:47",
+            "destination": "192.168.0.0",
+            "gateway": "10.1.1.1",
+            "id": "7ebffbd6-3640-4061-b8f1-7878463e651f",
+            "netmask": "255.255.255.0",
+            "updated_at": "2011-12-01T10:20:47"
+        }
+    }
+
+
 Create a Static Route for an IpBlock
 ------------------------------------
 
-    ====== =========================================================== ========================================
-    Verb   URI                                                         Description
-    ====== =========================================================== ========================================
-    GET    /ipam/tenants/{tenant_id}/ip_blocks/{ip_block_id}/ip_routes  Create an static route for an ip_block
-    ====== =========================================================== ========================================
+    ====== ============================================================ =======================================
+    Verb   URI                                                          Description
+    ====== ============================================================ =======================================
+    POST    /ipam/tenants/{tenant_id}/ip_blocks/{ip_block_id}/ip_routes Create an static route for an ip_block
+    ====== ============================================================ =======================================
 
 **Params:**
 
@@ -506,13 +845,29 @@ Error   - 404 Not Found [When IpBlock for given ip_block_id and tenant_id does n
 Error   - 400 Bad Request [When required parameters are not present or field validation fails]
 
 
+**JSON Response Example:**
+
+::
+
+
+    {
+        "ip_route": {
+            "created_at": "2011-12-01T10:20:47",
+            "destination": "192.168.0.0",
+            "gateway": "10.1.1.1",
+            "id": "7ebffbd6-3640-4061-b8f1-7878463e651f",
+            "netmask": "255.255.255.0",
+            "updated_at": "2011-12-01T10:20:47"
+        }
+    }
+
 Update a static route
 ---------------------
 
     ====== ================================================================= ==================================
     Verb   URI                                                               Description
     ====== ================================================================= ==================================
-    GET    /ipam/tenants/{tenant_id}/ip_blocks/{ip_block_id}/ip_routes/:(id)  Update details of a static route
+    PUT    /ipam/tenants/{tenant_id}/ip_blocks/{ip_block_id}/ip_routes/:(id)  Update details of a static route
     ====== ================================================================= ==================================
 
 **Params:**
@@ -531,14 +886,30 @@ Error   - 404 Not Found [When IpBlock for given ip_block_id and tenant_id does n
 
 Error   - 400 Bad Request [When field validation fails]
 
+**JSON Response Example:**
+
+::
+
+
+    {
+        "ip_route": {
+            "created_at": "2011-12-01T10:20:47",
+            "destination": "192.168.0.0",
+            "gateway": "10.1.1.1",
+            "id": "7ebffbd6-3640-4061-b8f1-7878463e651f",
+            "netmask": "255.255.255.0",
+            "updated_at": "2011-12-01T10:20:47"
+        }
+    }
+
 Delete a static route
 ---------------------
 
-    ====== ================================================================= =======================
-    Verb   URI                                                               Description
-    ====== ================================================================= =======================
-    GET    /ipam/tenants/{tenant_id}/ip_blocks/{ip_block_id}/ip_routes/:(id)  delete a static route
-    ====== ================================================================= =======================
+    ====== ================================================================== ======================
+    Verb   URI                                                                Description
+    ====== ================================================================== ======================
+    DELETE  /ipam/tenants/{tenant_id}/ip_blocks/{ip_block_id}/ip_routes/:(id)  delete a static route
+    ====== ================================================================== ======================
 
 **Params:**
 
@@ -550,6 +921,148 @@ Normal Response code: 200
 
 Error   - 404 Not Found [When IpBlock for given ip_block_id and tenant_id does not exists or Static Route for given id does not exists]
 
+Interfaces
+===========================
+
+Create an Interface and allocate ips on the network
+---------------------------------------------------
+
+    ====== ========================================================================================= ==========================================================
+    Verb   URI                                                                                       Description
+    ====== ========================================================================================= ==========================================================
+    POST    /ipam/tenants/{tenant_id}/networks/{network_id}/interfaces/                              Allocate an IPv4 and IPv6 address from a tenant's network
+    ====== ========================================================================================= ==========================================================
+
+**Params:**
+
+'id' : virtual interface id generated by caller(eg: nova) for the vnic of a device
+
+'tenant_id' : The 'lessee' tenant for whom the interface is being created.
+
+'device_id' : Can be a uuid, any string accepted. Is an id pointing to the instance(or any other device) on which the ip will be used.
+
+'mac_address' : Optional, can be provided if Melange is not in charge of generating mac addresses
+
+'network' : all network and ip related details Eg:  'network': { 'id': "net1", 'addresses': ['10.0.0.2']}
+
+**Response Codes:**
+
+Normal Response code: 201
+
+Error   - 422 Unprocessable Entity [If ip address cannot be allocated from Network]
+
+Error - 404 Not Found [When network for a given network_id and tenant_id is not found]
+
+Error   - 409 Conflict [If the given address is already allocated]
+
+Error   - 400 Bad Request [When required parameters are not present or field validation fails]
+
+**JSON Response Example:**
+
+::
+
+    {
+        "interface": {
+            "created_at": "2011-12-01T13:18:37",
+            "device_id": "instance",
+            "id": "virt_iface",
+            "ip_addresses": [
+                {
+                    "address": "10.0.0.2",
+                    "id": "7615ca4a-787d-46b0-8a8c-3a90e3e6cf2c",
+                    "interface_id": "virt_iface",
+                    "ip_block": {
+                        "broadcast": "10.0.0.255",
+                        "cidr": "10.0.0.0/24",
+                        "dns1": "8.8.8.8",
+                        "dns2": "8.8.4.4",
+                        "gateway": "10.0.0.1",
+                        "id": "9c4c3dfd-c707-45bd-8626-9c369b1b9460",
+                        "ip_routes": [],
+                        "netmask": "255.255.255.0"
+                    },
+                    "version": 4
+                }
+            ],
+            "mac_address": null,
+            "tenant_id": "tnt_id",
+            "updated_at": "2011-12-01T13:18:37"
+        }
+    }
+
+Get details of interface
+------------------------
+
+    ====== ======================================================================================== ========================================================
+    Verb   URI                                                                                      Description
+    ====== ======================================================================================== ========================================================
+    GET    /ipam/tenants/{tenant_id}/networks/{network_id}/interfaces/{vif_id}                      Get interface details along with all ips allocated on it
+    ====== ======================================================================================== ========================================================
+
+**Params:**
+
+None
+
+**Response Codes:**
+
+Normal Response code: 200
+
+
+Error - 404 Not Found [When interface is not found] 
+
+**JSON Response Example:**
+
+::
+
+    {
+        "interface": {
+            "created_at": "2011-12-01T13:18:37",
+            "device_id": "instance",
+            "id": "virt_iface",
+            "ip_addresses": [
+                {
+                    "address": "10.0.0.2",
+                    "id": "7615ca4a-787d-46b0-8a8c-3a90e3e6cf2c",
+                    "interface_id": "virt_iface",
+                    "ip_block": {
+                        "broadcast": "10.0.0.255",
+                        "cidr": "10.0.0.0/24",
+                        "dns1": "8.8.8.8",
+                        "dns2": "8.8.4.4",
+                        "gateway": "10.0.0.1",
+                        "id": "9c4c3dfd-c707-45bd-8626-9c369b1b9460",
+                        "ip_routes": [],
+                        "netmask": "255.255.255.0"
+                    },
+                    "version": 4
+                }
+            ],
+            "mac_address": null,
+            "tenant_id": "tnt_id",
+            "updated_at": "2011-12-01T13:18:37"
+        }
+    }
+
+Delete interface
+----------------
+
+    ====== ======================================================================================== ========================================================
+    Verb   URI                                                                                      Description
+    ====== ======================================================================================== ========================================================
+    DELETE /ipam/tenants/{tenant_id}/networks/{network_id}/interfaces/{vif_id}                      delete interface along with all ips allocated on it
+    ====== ======================================================================================== ========================================================
+
+**Params:**
+
+None
+
+**Response Codes:**
+
+Normal Response code: 200
+
+
+Error - 404 Not Found [When interface is not found] 
+
 
 IP allocations in a Network
 ===========================
@@ -557,11 +1070,11 @@ IP allocations in a Network
 Allocate address from tenant's network
 --------------------------------------
 
-    ====== ======================================================================================== ==========================================================
-    Verb   URI                                                                                      Description
-    ====== ======================================================================================== ==========================================================
-    GET    /ipam/tenants/{tenant_id}/networks/{network_id}/interfaces/{interface_id}/ip_allocations Allocate an IPv4 and IPv6 address from a tenant's network
-    ====== ======================================================================================== ==========================================================
+    ====== ========================================================================================= ==========================================================
+    Verb   URI                                                                                       Description
+    ====== ========================================================================================= ==========================================================
+    POST    /ipam/tenants/{tenant_id}/networks/{network_id}/interfaces/{interface_id}/ip_allocations Allocate an IPv4 and IPv6 address from a tenant's network
+    ====== ========================================================================================= ==========================================================
 
 **Params:**
 
@@ -586,6 +1099,32 @@ Error   - 409 Conflict [If the given address is already allocated]
 
 Error   - 400 Bad Request [When required parameters are not present or field validation fails]
 
+**JSON Response Example:**
+
+::
+
+    {
+        "ip_addresses": [
+            {
+                "address": "192.168.1.0",
+                "id": "e9394108-4276-4965-8621-52bfa00464b5",
+                "interface_id": "123",
+                "ip_block": {
+                    "broadcast": "192.168.1.255",
+                    "cidr": "192.168.1.0/24",
+                    "dns1": "8.8.8.8",
+                    "dns2": "8.8.4.4",
+                    "gateway": "192.168.1.1",
+                    "id": "d14b95da-261f-4b7e-90a1-0e2902c5f454",
+                    "ip_routes": [],
+                    "netmask": "255.255.255.0"
+                },
+                "version": 4
+            }
+        ]
+    }
+
+
 
 List allocated IpAddresses from a tenant's network
 --------------------------------------------------
@@ -608,13 +1147,55 @@ Normal Response code: 200
 Error - 404 Not Found [When network for a given network_id and tenant_id is not found]
 
 
+**JSON Response Example:**
+
+::
+
+    {
+        "ip_addresses": [
+            {
+                "address": "10.0.0.0",
+                "id": "8100fe1f-f184-4814-a66b-fe21fb5a0439",
+                "interface_id": "123",
+                "ip_block": {
+                    "broadcast": "10.255.255.255",
+                    "cidr": "10.0.0.0/8",
+                    "dns1": "8.8.8.8",
+                    "dns2": "8.8.4.4",
+                    "gateway": "10.0.0.1",
+                    "id": "9aa72404-f5de-4bef-848f-cc8cbe12b9e8",
+                    "ip_routes": [],
+                    "netmask": "255.0.0.0"
+                },
+                "version": 4
+            },
+            {
+                "address": "00fe:0000:0000:0000:0000:0000:ffdd:eeff",
+                "id": "fcf37931-7a4c-4a02-a939-1d09b66ecb9b",
+                "interface_id": "123",
+                "ip_block": {
+                    "broadcast": "fe::ffff:ffff",
+                    "cidr": "fe::/96",
+                    "dns1": "8.8.8.8",
+                    "dns2": "8.8.4.4",
+                    "gateway": "fe::1",
+                    "id": "7ab2f803-a5d7-4d77-bb42-1eb1e8732e93",
+                    "ip_routes": [],
+                    "netmask": "ffff:ffff:ffff:ffff:ffff:ffff::"
+                },
+                "version": 6
+            }
+        ]
+    }
+
+
 Deallocate all IpAddresses from a tenant's network
 --------------------------------------------------
 
     ====== ======================================================================================== =========================================================
     Verb   URI                                                                                      Description
     ====== ======================================================================================== =========================================================
-    GET    /ipam/tenants/{tenant_id}/networks/{network_id}/interfaces/{interface_id}/ip_allocations Delete all allocated IpAddresses from a tenant's network
+    DELETE /ipam/tenants/{tenant_id}/networks/{network_id}/interfaces/{interface_id}/ip_allocations Delete all allocated IpAddresses from a tenant's network
     ====== ======================================================================================== =========================================================
 
 **Params:**
@@ -678,11 +1259,11 @@ Assign globals
 --------------
 
 
-    ====== =================================================================== ========================================================================================================================
-    Verb   URI                                                                 Description
-    ====== =================================================================== ========================================================================================================================
-    GET    /ipam/ip_blocks/{ip_block_id}/ip_addresses/{address}/inside_globals Finds local IpAddress from given ip_block_id and address and creates IpAddresses passed in params as its inside global.
-    ====== =================================================================== ========================================================================================================================
+    ====== ==================================================================== =======================================================================================================================
+    Verb   URI                                                                  Description
+    ====== ==================================================================== =======================================================================================================================
+    POST    /ipam/ip_blocks/{ip_block_id}/ip_addresses/{address}/inside_globals Finds local IpAddress from given ip_block_id and address and creates IpAddresses passed in params as its inside global.
+    ====== ==================================================================== =======================================================================================================================
 
 **Params:**
 
@@ -699,11 +1280,11 @@ Assign locals
 -------------
 
 
-    ====== =================================================================== =====================================================================================================================
-    Verb   URI                                                                 Description
-    ====== =================================================================== =====================================================================================================================
-    GET    /ipam/ip_blocks/{ip_block_id}/ip_addresses/{address}/inside_globals Finds global IpAddress from given ip_block_id and address and adds IpAddresses passed in params as its inside local.
-    ====== =================================================================== =====================================================================================================================
+    ====== ==================================================================== ====================================================================================================================
+    Verb   URI                                                                  Description
+    ====== ==================================================================== ====================================================================================================================
+    POST    /ipam/ip_blocks/{ip_block_id}/ip_addresses/{address}/inside_globals Finds global IpAddress from given ip_block_id and address and adds IpAddresses passed in params as its inside local.
+    ====== ==================================================================== ====================================================================================================================
 
 **Params:**
 
@@ -720,11 +1301,11 @@ Remove global
 -------------
 
 
-    ====== ============================================================================================ =====================================================================================================================
-    Verb   URI                                                                                          Description
-    ====== ============================================================================================ =====================================================================================================================
-    GET    /ipam/ip_blocks/{ip_block_id}/ip_addresses/{address}/inside_globals/{inside_globals_address} Finds global IpAddress from given ip_block_id and address and adds IpAddresses passed in params as its inside local.
-    ====== ============================================================================================ =====================================================================================================================
+    ====== ============================================================================================= ====================================================================================================================
+    Verb   URI                                                                                           Description
+    ====== ============================================================================================= ====================================================================================================================
+    DELETE  /ipam/ip_blocks/{ip_block_id}/ip_addresses/{address}/inside_globals/{inside_globals_address} Finds global IpAddress from given ip_block_id and address and adds IpAddresses passed in params as its inside local.
+    ====== ============================================================================================= ====================================================================================================================
 
 **Params:**
 
@@ -741,11 +1322,11 @@ Remove local
 ------------
 
 
-    ====== ========================================================================================== ======================================================================================================================================================================
-    Verb   URI                                                                                        Description
-    ====== ========================================================================================== ======================================================================================================================================================================
-    GET    /ipam/ip_blocks/{ip_block_id}/ip_addresses/{address}/inside_locals/{inside_locals_address} Finds the inside ip_address from given ip_block_id and address, and remove its inside global ip_address whose address is same as given inside_globals_address in URL.
-    ====== ========================================================================================== ======================================================================================================================================================================
+    ====== =========================================================================================== =====================================================================================================================================================================
+    Verb   URI                                                                                         Description
+    ====== =========================================================================================== =====================================================================================================================================================================
+    DELETE  /ipam/ip_blocks/{ip_block_id}/ip_addresses/{address}/inside_locals/{inside_locals_address} Finds the inside ip_address from given ip_block_id and address, and remove its inside global ip_address whose address is same as given inside_globals_address in URL.
+    ====== =========================================================================================== =====================================================================================================================================================================
 
 **Params:**
 
@@ -765,7 +1346,7 @@ Remove all globals
     ====== ============================================================================ ====================================================================================================================================================================
     Verb   URI                                                                          Description
     ====== ============================================================================ ====================================================================================================================================================================
-    GET    /ipam/ip_blocks/{ip_block_id}/ip_addresses/{address}/inside_locals/{address} Finds the global ip_address from given ip_block_id and address, and remove its inside local ip_address whose address is same as given inside_locals_address in URL.
+    DELETE /ipam/ip_blocks/{ip_block_id}/ip_addresses/{address}/inside_locals/{address} Finds the global ip_address from given ip_block_id and address, and remove its inside local ip_address whose address is same as given inside_locals_address in URL.
     ====== ============================================================================ ====================================================================================================================================================================
 
 **Params:**
@@ -786,7 +1367,7 @@ Remove all locals
     ====== ================================================================== ==============================================================================================================
     Verb   URI                                                                Description
     ====== ================================================================== ==============================================================================================================
-    GET    /ipam/ip_blocks/{ip_block_id}/ip_addresses/{address}/inside_locals Finds the inside ip_address from given ip_block_id and address, and remove all its inside local ip_addresses.
+    DELETE /ipam/ip_blocks/{ip_block_id}/ip_addresses/{address}/inside_locals Finds the inside ip_address from given ip_block_id and address, and remove all its inside local ip_addresses.
     ====== ================================================================== ==============================================================================================================
 
 **Params:**
@@ -803,9 +1384,6 @@ Error   - 404 Not Found [When IpBlock for ip_block_id or IpAddress by given addr
 
 IP Policy
 =========
-
-Policy
-======
 
 List all Tenant's IP Policies
 -----------------------------
@@ -825,6 +1403,22 @@ None
 
 Normal Response code: 200
 
+**JSON Response Example:**
+
+::
+
+    {
+        "policies": [                                                                                                                    
+            {                                                                                                                            
+                "created_at": "2011-12-01T09:06:10",                                                                                     
+                "description": "policy_desc",                                                                                            
+                "id": "2f730874-2088-4f91-87fb-63792c753971",                                                                            
+                "name": "rax_policy",                                                                                                    
+                "tenant_id": "RAX",                                                                                                      
+                "updated_at": "2011-12-01T09:06:10"                                                                                      
+            }                                                                                                                            
+        ]                                                                                                                                
+    } 
 
 Get details of a Tenant's IP Policy
 -----------------------------------
@@ -846,6 +1440,23 @@ Normal Response code: 200
 
 Error   - 404 Not Found [When Policy for given id and tenant_id does not exists]
 
+**JSON Response:**
+
+::
+
+    {
+        "policy": {
+            "created_at": "2011-12-01T09:06:10",
+            "description": "policy_desc",
+            "id": "2f730874-2088-4f91-87fb-63792c753971",
+            "name": "rax_policy",
+            "tenant_id": "RAX",
+            "updated_at": "2011-12-01T09:06:10"
+        }
+    }
+
+
+
 Create an IP Policy for a tenant
 --------------------------------
 
@@ -853,7 +1464,7 @@ Create an IP Policy for a tenant
     ====== ================================== ====================================
     Verb   URI                                Description
     ====== ================================== ====================================
-    GET    /ipam/tenants/{tenant_id}/policies  Create an ip policy for the tenant
+    POST   /ipam/tenants/{tenant_id}/policies  Create an ip policy for the tenant
     ====== ================================== ====================================
 
 **Params:**
@@ -868,6 +1479,20 @@ Normal Response code: 201
 
 Error   - 400 Bad Request [When required parameters are not present or field validation fails]
 
+**JSON Response:**
+
+::
+
+    {
+        "policy": {
+            "created_at": "2011-12-01T09:06:10",
+            "description": "policy_desc",
+            "id": "2f730874-2088-4f91-87fb-63792c753971",
+            "name": "rax_policy",
+            "tenant_id": "RAX",
+            "updated_at": "2011-12-01T09:06:10"
+        }
+    }
 
 Update an IP Policy for a tenant
 --------------------------------
@@ -876,7 +1501,7 @@ Update an IP Policy for a tenant
     ====== ======================================== ===================================================
     Verb   URI                                      Description
     ====== ======================================== ===================================================
-    GET    /ipam/tenants/{tenant_id}/policies/:(id)  Update name or descritopn of a tenant's ip policy
+    PUT    /ipam/tenants/{tenant_id}/policies/:(id)  Update name or descritopn of a tenant's ip policy
     ====== ======================================== ===================================================
 
 **Params:**
@@ -893,6 +1518,22 @@ Error   - 404 Not Found [When Policy for given id and tenant_id does not exists]
 
 Error   - 400 Bad Request [When required parameters are not present or field validation fails]
 
+**JSON Response Example:**
+
+::
+
+    {
+        "policy": {
+            "created_at": "2011-12-01T09:06:10",
+            "description": "policy_desc",
+            "id": "2f730874-2088-4f91-87fb-63792c753971",
+            "name": "rax_policy",
+            "tenant_id": "RAX",
+            "updated_at": "2011-12-01T09:06:10"
+        }
+    }
+
+
 Delete an IP Policy for a tenant
 --------------------------------
 
@@ -900,7 +1541,7 @@ Delete an IP Policy for a tenant
     ====== ======================================== =============================
     Verb   URI                                      Description
     ====== ======================================== =============================
-    GET    /ipam/tenants/{tenant_id}/policies/:(id)  Delete a tenant's ip policy
+    DELETE /ipam/tenants/{tenant_id}/policies/:(id)  Delete a tenant's ip policy
     ====== ======================================== =============================
 
 **Params:**
@@ -937,6 +1578,24 @@ Normal Response code: 200
 
 Error   - 404 Not Found [When policy doesn't exist]
 
+**JSON Response Example:**
+
+::
+
+    {
+        "ip_ranges": [
+            {
+                "created_at": "2011-12-01T10:26:23",
+                "id": "2382fcc2-f90a-44fb-8607-c92e35280b85",
+                "length": 2,
+                "offset": 0,
+                "policy_id": "2f730874-2088-4f91-87fb-63792c753971",
+                "updated_at": "2011-12-01T10:26:23"
+            }
+        ]
+    }
+
+
 Get details of a tenant's policy's unusable ip range
 ----------------------------------------------------
 
@@ -957,6 +1616,22 @@ Normal Response code: 200
 
 Error   - 404 Not Found [When Policy or IP Range doesn't exist]
 
+**JSON Response Example:**
+
+::
+
+    {
+        "ip_range": {
+            "created_at": "2011-12-01T10:26:23",
+            "id": "2382fcc2-f90a-44fb-8607-c92e35280b85",
+            "length": 2,
+            "offset": 0,
+            "policy_id": "2f730874-2088-4f91-87fb-63792c753971",
+            "updated_at": "2011-12-01T10:26:23"
+        }
+    }
+
+
 Create a unusable ip range in tenant's policy
 ---------------------------------------------
 
@@ -964,7 +1639,7 @@ Create a unusable ip range in tenant's policy
     ====== ================================================================= ===============================================
     Verb   URI                                                               Description
     ====== ================================================================= ===============================================
-    GET    /ipam/tenants/{tenant_id}/policies/{policy_id}/unusable_ip_ranges Create a unusable ip range in tenant's policy.
+    POST   /ipam/tenants/{tenant_id}/policies/{policy_id}/unusable_ip_ranges Create a unusable ip range in tenant's policy.
     ====== ================================================================= ===============================================
 
 **Params:**
@@ -978,7 +1653,23 @@ Create a unusable ip range in tenant's policy
 Normal Response code: 201
 
 Error   - 404 Not Found [When Policy  doesn't exist]
-				
+			
+
+**JSON Response Example:**
+
+::
+
+
+    {
+        "ip_range": {
+            "created_at": "2011-12-01T10:26:23",
+            "id": "2382fcc2-f90a-44fb-8607-c92e35280b85",
+            "length": 2,
+            "offset": 0,
+            "policy_id": "2f730874-2088-4f91-87fb-63792c753971",
+            "updated_at": "2011-12-01T10:26:23"
+        }
+    }
 
 Update details of a tenant's policy's unusable ip range
 -------------------------------------------------------
@@ -987,7 +1678,7 @@ Update details of a tenant's policy's unusable ip range
     ====== ======================================================================= ========================================================
     Verb   URI                                                                     Description
     ====== ======================================================================= ========================================================
-    GET    /ipam/tenants/{tenant_id}/policies/{policy_id}/unusable_ip_ranges/:(id) Update details of a tenant's policy's unusable IP range
+    PUT    /ipam/tenants/{tenant_id}/policies/{policy_id}/unusable_ip_ranges/:(id) Update details of a tenant's policy's unusable IP range
     ====== ======================================================================= ========================================================
 
 **Params:**
@@ -1003,6 +1694,22 @@ Normal Response code: 200
 Error   - 404 Not Found [When Policy or IP range doesn't exist]
 				
 
+**JSON Response Example:**
+
+::
+
+
+    {
+        "ip_range": {
+            "created_at": "2011-12-01T10:26:23",
+            "id": "2382fcc2-f90a-44fb-8607-c92e35280b85",
+            "length": 2,
+            "offset": 0,
+            "policy_id": "2f730874-2088-4f91-87fb-63792c753971",
+            "updated_at": "2011-12-01T10:26:23"
+        }
+    }
+
 Delete a tenant's policy's unusable ip range
 --------------------------------------------
 
@@ -1010,7 +1717,7 @@ Delete a tenant's policy's unusable ip range
     ====== ======================================================================= =============================================
     Verb   URI                                                                     Description
     ====== ======================================================================= =============================================
-    GET    /ipam/tenants/{tenant_id}/policies/{policy_id}/unusable_ip_ranges/:(id) Delete a tenant's policy's unusable ip range
+    DELETE /ipam/tenants/{tenant_id}/policies/{policy_id}/unusable_ip_ranges/:(id) Delete a tenant's policy's unusable ip range
     ====== ======================================================================= =============================================
 
 **Params:**
@@ -1046,7 +1753,23 @@ None
 Normal Response code: 200
 
 Error   - 404 Not Found [When Policy doesn't exist]
-				
+
+**JSON Response Example:**
+
+::
+
+    {
+        "ip_octets": [
+            {
+                "created_at": "2011-12-01T10:37:30",
+                "id": "0e7a873e-0fe6-41e9-9f58-1182db01309c",
+                "octet": 123,
+                "policy_id": "2f730874-2088-4f91-87fb-63792c753971",
+                "updated_at": "2011-12-01T10:37:30"
+            }
+        ]
+    }
+
 
 Get details of a tenant's policy's unusable ip octet
 ----------------------------------------------------
@@ -1068,7 +1791,21 @@ Normal Response code: 200
 
 Error   - 404 Not Found [When Policy or IP octet doesn't exist]
 
-				
+**JSON Response Example:**
+
+::
+
+
+    {
+        "ip_octet": {
+            "created_at": "2011-12-01T10:37:30",
+            "id": "0e7a873e-0fe6-41e9-9f58-1182db01309c",
+            "octet": 123,
+            "policy_id": "2f730874-2088-4f91-87fb-63792c753971",
+            "updated_at": "2011-12-01T10:37:30"
+        }
+    }
+
 Create a unusable ip octet in tenant's policy
 ---------------------------------------------
 
@@ -1076,7 +1813,7 @@ Create a unusable ip octet in tenant's policy
     ====== ================================================================= ===============================================
     Verb   URI                                                               Description
     ====== ================================================================= ===============================================
-    GET    /ipam/tenants/{tenant_id}/policies/{policy_id}/unusable_ip_octets Create a unusable ip octet in tenant's policy.
+    POST   /ipam/tenants/{tenant_id}/policies/{policy_id}/unusable_ip_octets Create a unusable ip octet in tenant's policy.
     ====== ================================================================= ===============================================
 
 **Params:**
@@ -1088,7 +1825,22 @@ Create a unusable ip octet in tenant's policy
 Normal Response code: 201
 
 Error   - 404 Not Found [When Policy  doesn't exist]
-				
+
+**JSON Response Example:**
+
+::
+
+
+    {
+        "ip_octet": {
+            "created_at": "2011-12-01T10:37:30",
+            "id": "0e7a873e-0fe6-41e9-9f58-1182db01309c",
+            "octet": 123,
+            "policy_id": "2f730874-2088-4f91-87fb-63792c753971",
+            "updated_at": "2011-12-01T10:37:30"
+        }
+    }
+
 Update details of a tenant's policy's unusable ip octet
 -------------------------------------------------------
 
@@ -1096,7 +1848,7 @@ Update details of a tenant's policy's unusable ip octet
     ====== ======================================================================= =========================================================
     Verb   URI                                                                     Description
     ====== ======================================================================= =========================================================
-    GET    /ipam/tenants/{tenant_id}/policies/{policy_id}/unusable_ip_octets/:(id) Update details of a tenant's policy's unusable ip octet.
+    POST   /ipam/tenants/{tenant_id}/policies/{policy_id}/unusable_ip_octets/:(id) Update details of a tenant's policy's unusable ip octet.
     ====== ======================================================================= =========================================================
 
 **Params:**
@@ -1108,17 +1860,32 @@ Update details of a tenant's policy's unusable ip octet
 Normal Response code: 200
 
 Error   - 404 Not Found [When Policy or IP octet doesn't exist]
-				
+
+**JSON Response Example:**
+
+::
+
+    {
+        "ip_octet": {
+            "created_at": "2011-12-01T10:37:30",
+            "id": "0e7a873e-0fe6-41e9-9f58-1182db01309c",
+            "octet": 123,
+            "policy_id": "2f730874-2088-4f91-87fb-63792c753971",
+            "updated_at": "2011-12-01T10:37:30"
+        }
+    }
+
+
 
 Delete a tenant's policy's unusable ip octet
 --------------------------------------------
 
 
-    ====== ======================================================================= =============================================
-    Verb   URI                                                                     Description
-    ====== ======================================================================= =============================================
-    GET    /ipam/tenants/{tenant_id}/policies/{policy_id}/unusable_ip_octets/:(id) Delete a tenant's policy's unusable ip octet
-    ====== ======================================================================= =============================================
+    ====== ======================================================================== ============================================
+    Verb   URI                                                                      Description
+    ====== ======================================================================== ============================================
+    DELETE  /ipam/tenants/{tenant_id}/policies/{policy_id}/unusable_ip_octets/:(id) Delete a tenant's policy's unusable ip octet
+    ====== ======================================================================== ============================================
 
 **Params:**
 

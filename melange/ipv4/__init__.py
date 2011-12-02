@@ -16,7 +16,9 @@
 #    under the License.
 
 from melange.ipv4 import db_based_ip_generator
+from melange.ipv4 import queue_based_ip_generator 
 
 
 def address_generator_factory(ip_block):
-    return db_based_ip_generator.DbBasedIpGenerator(ip_block)
+    return queue_based_ip_generator.QueueBasedIpGenerator(ip_block)
+    # return db_based_ip_generator.DbBasedIpGenerator(ip_block)

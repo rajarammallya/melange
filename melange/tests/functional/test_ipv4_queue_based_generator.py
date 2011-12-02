@@ -28,6 +28,7 @@ from melange.tests.factories import models as factory_models
 class TestIpPublisher(tests.BaseTest):
 
     def setUp(self):
+        super(TestIpPublisher, self).setUp()
         self.connection = kombu_conn.BrokerConnection(
             **messaging.queue_connection_options("ipv4_queue"))
         self._queues = []
@@ -50,9 +51,21 @@ class TestIpPublisher(tests.BaseTest):
                                     netaddr.IPNetwork("10.0.0.0/28")])
 
     def tearDown(self):
+        super(TestIpPublisher, self).setUp()
         for queue in self._queues:
             try:
                 queue.queue.delete()
             except:
                 pass
         self.connection.close()
+
+    def test_gets_next_ip_from_queue(self):
+        block = factory_models.IpBlockFactory(cidr="10.0.0.0/28",
+                                              prefetch=True)
+        queue = self.connection.SimpleQueue("block.%s" % block.id, no_ack=True)
+        self._queues.append(queue)
+        queue.put(str("10.0.0.2"))
+
+        generated_ip = queue_based_ip_generator.QueueBasedIpGenerator(block).next_ip()
+        
+        self.assertEqual("10.0.0.2", generated_ip)

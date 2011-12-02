@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 
 # Copyright 2011 OpenStack LLC.
@@ -15,26 +17,14 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import netaddr
-from melange.common import messaging
+# See http://code.google.com/p/python-nose/issues/detail?id=373
+# The code below enables nosetests to work with i18n _() blocks
 
-class QueueBasedIpGenerator(object):
-
-    def __init__(self, block):
-        self.block = block
-
-    def next_ip(self):
-        with messaging.Queue("block.%s" % self.block.id) as q:
-            return q.pop()
-
-
-class IpPublisher(object):
-
-    def __init__(self, block):
-        self.block = block
-
-    def execute(self):
-        with messaging.Queue("block.%s" % self.block.id) as q:
-            ips = netaddr.IPNetwork(self.block.cidr)
-            for ip in ips:
-                q.put(str(ip))
+commands=$(cat <<EOS
+from melange.common import config 
+from melange.db import db_api
+conf, app = config.Config.load_paste_app('melange', {}, [])
+db_api.configure_db(conf)
+EOS)
+echo $commands
+python -i -c "$commands"

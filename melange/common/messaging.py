@@ -41,6 +41,10 @@ class Queue(object):
             queue = self.conn.SimpleQueue(self.name, no_ack=True)
             queue.put(msg)
 
+    def pop(self):
+        queue = self.conn.SimpleQueue(self.name, no_ack=True)
+        return queue.get().payload
+
     def close(self):
         self.conn.close()
 

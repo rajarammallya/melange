@@ -6,6 +6,7 @@ build/*
 build-stamp
 melange.egg-info
 .melange-venv
+.venv
 *.sqlite
 *.log
 tags

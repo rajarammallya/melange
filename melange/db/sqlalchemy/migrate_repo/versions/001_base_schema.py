@@ -155,12 +155,12 @@ allowed_ips = Table('allowed_ips', meta,
 def upgrade(migrate_engine):
     meta.bind = migrate_engine
     create_tables([policies, ip_ranges, ip_octets, ip_blocks, ip_routes,
-                   mac_address_ranges, mac_addresses, interfaces, ip_addresses,
+                   mac_address_ranges, interfaces, mac_addresses, ip_addresses,
                    ip_nats, allocatable_ips, allowed_ips])
 
 
 def downgrade(migrate_engine):
     meta.bind = migrate_engine
     drop_tables([allowed_ips, allocatable_ips, ip_nats, ip_addresses,
-                 interfaces, mac_addresses, mac_address_ranges, ip_routes,
+                 mac_addresses, interfaces, mac_address_ranges, ip_routes,
                  ip_blocks, ip_ranges, ip_octets, policies])

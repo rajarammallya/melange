@@ -18,6 +18,7 @@
 import netaddr
 from melange.common import messaging
 
+
 class QueueBasedIpGenerator(object):
 
     def __init__(self, block):

@@ -66,6 +66,7 @@ class TestIpPublisher(tests.BaseTest):
         self._queues.append(queue)
         queue.put(str("10.0.0.2"))
 
-        generated_ip = queue_based_ip_generator.QueueBasedIpGenerator(block).next_ip()
-        
+        generated_ip = queue_based_ip_generator.QueueBasedIpGenerator(
+                block).next_ip()
+
         self.assertEqual("10.0.0.2", generated_ip)

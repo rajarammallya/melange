@@ -16,6 +16,8 @@
 #    under the License.
 
 import kombu.connection
+from kombu.pools import connections
+from kombu import pools
 
 from melange.common import config
 from melange.common import utils
@@ -28,25 +30,26 @@ class Queue(object):
 
     def __enter__(self):
         self.connect()
+        self.queue = self.conn.SimpleQueue(self.name, no_ack=False)
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
         self.close()
 
     def connect(self):
-        self.conn = kombu.connection.BrokerConnection(
-            **queue_connection_options("ipv4_queue"))
+        self.conn = connections[kombu.connection.BrokerConnection(
+            **queue_connection_options("ipv4_queue"))].acquire()
 
     def put(self, msg):
-            queue = self.conn.SimpleQueue(self.name, no_ack=True)
-            queue.put(msg)
+        self.queue.put(msg)
 
     def pop(self):
-        queue = self.conn.SimpleQueue(self.name, no_ack=True)
-        return queue.get().payload
+        msg = self.queue.get(block=False)
+        msg.ack()
+        return msg.payload
 
     def close(self):
-        self.conn.close()
+        self.conn.release()
 
 
 def queue_connection_options(queue_type):

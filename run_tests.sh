@@ -82,11 +82,11 @@ function run_pep8 {
   echo "Running pep8 ..."
   # Opt-out files from pep8
   ignore_scripts="*.sh:*melange-debug:*clean-vlans"
-  ignore_files="*eventlet-patch:*pip-requires"
+  ignore_files="*eventlet-patch:*pip-requires:bin/runner"
   GLOBIGNORE="$ignore_scripts:$ignore_files"
-  srcfiles=`find bin -type f ! -name "melange.conf*"`
   srcfiles+=" `find tools/*`"
-  srcfiles+=" setup.py bin melange"
+  srcfiles+=" `find bin/*`"
+  srcfiles+=" setup.py melange"
   # Just run PEP8 in current environment
   #
   # NOTE(sirp): W602 (deprecated 3-arg raise) is being ignored for the

@@ -21,7 +21,7 @@
 # The code below enables nosetests to work with i18n _() blocks
 
 commands=$(cat <<EOS
-from melange.common import config 
+from melange.common import config
 from melange.db import db_api
 conf, app = config.Config.load_paste_app('melange', {}, [])
 db_api.configure_db(conf)

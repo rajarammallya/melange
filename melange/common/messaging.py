@@ -25,8 +25,9 @@ from melange.common import utils
 
 class Queue(object):
 
-    def __init__(self, name):
+    def __init__(self, name, queue_class):
         self.name = name
+        self.queue_class = queue_class
 
     def __enter__(self):
         self.connect()
@@ -38,22 +39,21 @@ class Queue(object):
 
     def connect(self):
         self.conn = connections[kombu.connection.BrokerConnection(
-            **queue_connection_options("ipv4_queue"))].acquire()
+            **queue_connection_options(self.queue_class))].acquire()
 
     def put(self, msg):
         self.queue.put(msg)
 
     def pop(self):
         msg = self.queue.get(block=False)
-        msg.ack()
         return msg.payload
 
     def close(self):
         self.conn.release()
 
 
-def queue_connection_options(queue_type):
-    queue_params = config.Config.get_params_group(queue_type)
+def queue_connection_options(queue_class):
+    queue_params = config.Config.get_params_group(queue_class)
     queue_params['ssl'] = utils.bool_from_string(queue_params.get('ssl',
                                                                   "false"))
     queue_params['port'] = int(queue_params.get('port', 5672))

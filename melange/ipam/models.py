@@ -321,7 +321,7 @@ class IpBlock(ModelBase):
         max_allowed_retry = int(config.Config.get("ip_allocation_retries", 10))
 
         for retries in range(max_allowed_retry):
-            address = self._generate_ip_address(
+            candidate_ip= self._generate_ip_address(
                 used_by_tenant=interface.tenant_id,
                 mac_address=interface.mac_address_eui_format,
                 **kwargs)
@@ -330,6 +330,7 @@ class IpBlock(ModelBase):
                                         ip_block_id=self.id,
                                         used_by_tenant_id=interface.tenant_id,
                                         interface_id=interface.id)
+                candidate_ip.after_allocation()
             except exception.DBConstraintError as error:
                 LOG.debug("IP allocation retry count :{0}".format(retries + 1))
                 LOG.exception(error)
@@ -342,8 +343,8 @@ class IpBlock(ModelBase):
             address_generator = ipv6.address_generator_factory(self.cidr,
                                                                **kwargs)
 
-            return utils.find(lambda address:
-                              self.does_address_exists(address) is False,
+            return utils.find(lambda candidate_ip:
+                              self.does_address_exists(candidate_id.address) is False,
                               IpAddressIterator(address_generator))
         else:
             generator = ipv4.address_generator_factory(self)

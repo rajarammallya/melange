@@ -25,13 +25,25 @@ from melange.ipv4 import queue_based_ip_generator
 from melange.tests.factories import models as factory_models
 
 
-class TestIpPublisher(tests.BaseTest):
+class QueueTestsBase(tests.BaseTest):
 
     def setUp(self):
-        super(TestIpPublisher, self).setUp()
+        super(QueueTestsBase, self).setUp()
         self.connection = kombu_conn.BrokerConnection(
             **messaging.queue_connection_options("ipv4_queue"))
         self._queues = []
+
+    def tearDown(self):
+        super(QueueTestsBase, self).setUp()
+        for queue in self._queues:
+            try:
+                queue.queue.delete()
+            except:
+                pass
+        self.connection.close()
+
+
+class TestIpPublisher(QueueTestsBase):
 
     def test_pushes_ips_into_Q(self):
         block = factory_models.IpBlockFactory(cidr="10.0.0.0/28",
@@ -42,7 +54,7 @@ class TestIpPublisher(tests.BaseTest):
         ips = []
         try:
             while(True):
-                ips.append(queue.get(timeout=0.01).body)
+                ips.append(queue.get(block=False).body)
         except Queue.Empty:
             pass
 
@@ -50,14 +62,8 @@ class TestIpPublisher(tests.BaseTest):
         self.assertItemsEqual(ips, [str(ip) for ip in
                                     netaddr.IPNetwork("10.0.0.0/28")])
 
-    def tearDown(self):
-        super(TestIpPublisher, self).setUp()
-        for queue in self._queues:
-            try:
-                queue.queue.delete()
-            except:
-                pass
-        self.connection.close()
+
+class TestQueueBasedIpGenerator(QueueTestsBase):
 
     def test_gets_next_ip_from_queue(self):
         block = factory_models.IpBlockFactory(cidr="10.0.0.0/28",
@@ -71,3 +77,15 @@ class TestIpPublisher(tests.BaseTest):
                 block).next_ip()
 
         self.assertEqual("10.0.0.2", generated_ip)
+
+    def test_ip_removed_pushed_ip_on_queue(self):
+        block = factory_models.IpBlockFactory(cidr="10.0.0.0/28",
+                                              prefetch=True)
+        queue = self.connection.SimpleQueue("block.%s" % block.id,
+                                            no_ack=False)
+        self._queues.append(queue)
+        queue_based_ip_generator.QueueBasedIpGenerator(
+                block).ip_removed("10.0.0.4")
+
+        actual_ip_on_queue = queue.get(block=False).body
+        self.assertEqual(actual_ip_on_queue, "10.0.0.4")

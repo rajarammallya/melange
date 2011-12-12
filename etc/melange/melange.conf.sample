@@ -58,7 +58,7 @@ ipv4_queue_password = guest
 ipv4_queue_ssl = False
 ipv4_queue_port = 5672
 ipv4_queue_virtual_host = /
-ipv4_queue_transport = amqplib
+ipv4_queue_transport = memory
 
 [composite:melange]
 use = call:melange.common.wsgi:versioned_urlmap

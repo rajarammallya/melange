@@ -25,8 +25,12 @@ class QueueBasedIpGenerator(object):
         self.block = block
 
     def next_ip(self):
-        with messaging.Queue("block.%s" % self.block.id, "ipv4_queue") as q:
+        with queue(self.block) as q:
             return q.pop()
+
+    def ip_removed(self, address):
+        with queue(self.block) as q:
+            return q.put(address)
 
 
 class IpPublisher(object):
@@ -35,7 +39,11 @@ class IpPublisher(object):
         self.block = block
 
     def execute(self):
-        with messaging.Queue("block.%s" % self.block.id, "ipv4_queue") as q:
+        with queue(self.block) as q:
             ips = netaddr.IPNetwork(self.block.cidr)
             for ip in ips:
                 q.put(str(ip))
+
+
+def queue(block):
+    return messaging.Queue("block.%s" % block.id, "ipv4_queue")

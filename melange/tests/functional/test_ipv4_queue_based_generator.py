@@ -62,7 +62,8 @@ class TestIpPublisher(tests.BaseTest):
     def test_gets_next_ip_from_queue(self):
         block = factory_models.IpBlockFactory(cidr="10.0.0.0/28",
                                               prefetch=True)
-        queue = self.connection.SimpleQueue("block.%s" % block.id, no_ack=False)
+        queue = self.connection.SimpleQueue("block.%s" % block.id,
+                                            no_ack=False)
         self._queues.append(queue)
         queue.put(str("10.0.0.2"))
 

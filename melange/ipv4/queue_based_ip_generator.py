@@ -26,19 +26,7 @@ class QueueBasedIpGenerator(object):
 
     def next_ip(self):
         with messaging.Queue("block.%s" % self.block.id, "ipv4_queue") as q:
-            msg = q.pop()
-            return CandidateIp(msg)
-
-class CandidateIp(object):
-
-    def __init__(self, msg):
-        self.msg = msg
-
-    def after_allocation(self):
-        self.msg.ack()
-
-    def address(self):
-        self.msg.payload
+            return q.pop()
 
 
 class IpPublisher(object):

@@ -17,7 +17,6 @@
 
 import kombu.connection
 from kombu.pools import connections
-from kombu import pools
 
 from melange.common import config
 from melange.common import utils

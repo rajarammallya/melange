@@ -321,7 +321,7 @@ class IpBlock(ModelBase):
         max_allowed_retry = int(config.Config.get("ip_allocation_retries", 10))
 
         for retries in range(max_allowed_retry):
-            candidate_ip= self._generate_ip_address(
+            address = self._generate_ip_address(
                 used_by_tenant=interface.tenant_id,
                 mac_address=interface.mac_address_eui_format,
                 **kwargs)
@@ -330,7 +330,6 @@ class IpBlock(ModelBase):
                                         ip_block_id=self.id,
                                         used_by_tenant_id=interface.tenant_id,
                                         interface_id=interface.id)
-                candidate_ip.after_allocation()
             except exception.DBConstraintError as error:
                 LOG.debug("IP allocation retry count :{0}".format(retries + 1))
                 LOG.exception(error)
@@ -343,8 +342,8 @@ class IpBlock(ModelBase):
             address_generator = ipv6.address_generator_factory(self.cidr,
                                                                **kwargs)
 
-            return utils.find(lambda candidate_ip:
-                              self.does_address_exists(candidate_id.address) is False,
+            return utils.find(lambda address:
+                              self.does_address_exists(address) is False,
                               IpAddressIterator(address_generator))
         else:
             generator = ipv4.address_generator_factory(self)
@@ -403,8 +402,10 @@ class IpBlock(ModelBase):
 
     def delete_deallocated_ips(self):
         self.update(is_full=False)
+
         for ip in db.db_api.find_deallocated_ips(
             deallocated_by=self._deallocated_by_date(), ip_block_id=self.id):
+            ipv4.address_generator_factory(self).ip_removed(ip.address)
             ip.delete()
 
     def _deallocated_by_date(self):
@@ -580,8 +581,6 @@ class IpAddress(ModelBase):
                                deallocated_at=None,
                                interface_id=None)
 
-        AllocatableIp.create(ip_block_id=self.ip_block_id,
-                             address=self.address)
         super(IpAddress, self).delete()
 
     def _explicitly_allowed_on_interfaces(self):

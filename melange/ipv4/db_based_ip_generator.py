@@ -45,3 +45,7 @@ class DbBasedIpGenerator(object):
         self.ip_block.update(allocatable_ip_counter=allocatable_ip_counter + 1)
 
         return address
+
+    def ip_removed(self, address):
+        models.AllocatableIp.create(ip_block_id=self.ip_block.id,
+                                    address=address)

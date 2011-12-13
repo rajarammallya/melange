@@ -194,6 +194,12 @@ class TestIpBlock(tests.BaseTest):
         self.assertEqual(v6_block.broadcast, "fe::ffff:ffff:ffff:ffff")
         self.assertEqual(v6_block.netmask, "ffff:ffff:ffff:ffff::")
 
+    def test_length_of_block(self):
+        block = factory_models.IpBlockFactory
+        self.assertEqual(len(block(cidr="10.0.0.0/24")), 256)
+        self.assertEqual(len(block(cidr="20.0.0.0/31")), 2)
+        self.assertEqual(len(block(cidr="30.0.0.0/32")), 1)
+
     def test_valid_cidr(self):
         factory = factory_models.PrivateIpBlockFactory
         block = factory.build(cidr="10.1.1.1////", network_id="111")

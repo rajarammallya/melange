@@ -27,6 +27,8 @@ class QueueBasedIpGenerator(object):
 
     def next_ip(self):
         with queue(self.block) as q:
+            if queue_not_ready(q, self.block):
+                return None
             return q.pop()
 
     def ip_removed(self, address):
@@ -41,6 +43,8 @@ class IpPublisher(object):
 
     def execute(self):
         with queue(self.block) as q:
+            if not queue_not_ready(q, self.block):
+                return
             ips = netaddr.IPNetwork(self.block.cidr)
             for ip in ips:
                 q.put(str(ip))
@@ -50,6 +54,9 @@ class IpPublisher(object):
         for block in models.IpBlock.find_all(high_traffic=True):
             cls(block).execute()
 
+
+def queue_not_ready(queue, block):
+    return len(queue.queue) < len(block) and block.no_ips_allocated()
 
 def queue(block):
     return messaging.Queue("block.%s" % block.id, "ipv4_queue")

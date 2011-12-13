@@ -31,16 +31,6 @@ class QueueTestsBase(tests.BaseTest):
         super(QueueTestsBase, self).setUp()
         self.connection = kombu_conn.BrokerConnection(
             **messaging.queue_connection_options("ipv4_queue"))
-        self._queues = []
-
-    def tearDown(self):
-        super(QueueTestsBase, self).setUp()
-        for queue in self._queues:
-            try:
-                queue.queue.delete()
-            except:
-                pass
-        self.connection.close()
 
 
 class TestIpPublisher(QueueTestsBase):
@@ -49,7 +39,6 @@ class TestIpPublisher(QueueTestsBase):
         block = factory_models.IpBlockFactory(cidr="10.0.0.0/28")
         queue_based_ip_generator.IpPublisher(block).execute()
         queue = self.connection.SimpleQueue("block.%s" % block.id, no_ack=True)
-        self._queues.append(queue)
         ips = []
         try:
             while(True):
@@ -68,19 +57,28 @@ class TestQueueBasedIpGenerator(QueueTestsBase):
         block = factory_models.IpBlockFactory(cidr="10.0.0.0/28")
         queue = self.connection.SimpleQueue("block.%s" % block.id,
                                             no_ack=False)
-        self._queues.append(queue)
-        queue.put(str("10.0.0.2"))
+        queue_based_ip_generator.IpPublisher(block).execute()
 
         generated_ip = queue_based_ip_generator.QueueBasedIpGenerator(
                 block).next_ip()
 
         self.assertEqual("10.0.0.2", generated_ip)
 
+    def test_next_ip_returns_none_if_queue_population_is_not_completed(self):
+        block = factory_models.IpBlockFactory(cidr="10.0.0.0/28")
+        queue = self.connection.SimpleQueue("block.%s" % block.id,
+                                            no_ack=False)
+        queue.put(str("10.0.0.2"))
+
+        generated_ip = queue_based_ip_generator.QueueBasedIpGenerator(
+                block).next_ip()
+
+        self.assertIsNone(generated_ip)
+
     def test_ip_removed_pushes_ip_on_queue(self):
         block = factory_models.IpBlockFactory(cidr="10.0.0.0/28")
         queue = self.connection.SimpleQueue("block.%s" % block.id,
                                             no_ack=False)
-        self._queues.append(queue)
         queue_based_ip_generator.QueueBasedIpGenerator(
                 block).ip_removed("10.0.0.4")
 

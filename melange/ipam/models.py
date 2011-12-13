@@ -269,6 +269,9 @@ class IpBlock(ModelBase):
     def subnets(self):
         return IpBlock.find_all(parent_id=self.id).all()
 
+    def __len__(self):
+        return len(netaddr.IPNetwork(self.cidr))
+
     def siblings(self):
         if not self.parent:
             return []
@@ -318,14 +321,13 @@ class IpBlock(ModelBase):
         return self._allocate_available_ip(interface, **kwargs)
 
     def _allocate_available_ip(self, interface, **kwargs):
-        generator, allocation_condition = self._generator(
-                            used_by_tenant=interface.tenant_id,
-                            mac_address=interface.mac_address_eui_format,
-                            **kwargs)
         max_allowed_retry = int(config.Config.get("ip_allocation_retries", 10))
 
         for retries in range(max_allowed_retry):
-            address = self._generate_ip(generator, allocation_condition)
+            address = self._generate_ip(
+                            used_by_tenant=interface.tenant_id,
+                            mac_address=interface.mac_address_eui_format,
+                            **kwargs)
             try:
                 return IpAddress.create(address=address,
                                         ip_block_id=self.id,
@@ -338,24 +340,24 @@ class IpBlock(ModelBase):
         raise ConcurrentAllocationError(
             _("Cannot allocate address for block %s at this time") % self.id)
 
-    def _generate_ip(self, generator, address_allocation_condition):
-        address = utils.find(address_allocation_condition,
-                             IpAddressIterator(generator))
+    def _generate_ip(self, **kwargs):
+        if self.is_ipv6():
+            generator = ipv6.address_generator_factory(self.cidr,
+                                                       **kwargs)
+            address = next((address for address in IpAddressIterator(generator)
+                           if self.does_address_exists(address) is False),
+                           None)
+        else:
+            generator = ipv4.address_generator_factory(self)
+            address = next((address for address in IpAddressIterator(generator)
+                            if self._address_is_allocatable(self.policy(),
+                                                            address)),
+                            None)
+
         if not address:
             self.update(is_full=True)
             raise exception.NoMoreAddressesError(_("IpBlock is full"))
         return address
-
-    def _generator(self, **kwargs):
-        if self.is_ipv6():
-            address_generator = ipv6.address_generator_factory(self.cidr,
-                                                               **kwargs)
-            return (address_generator,
-                    lambda address: self.does_address_exists(address) is False)
-        else:
-            generator = ipv4.address_generator_factory(self)
-            return (generator, lambda address: self._address_is_allocatable(
-                                               self.policy(), address))
 
     def _allocate_specific_ip(self, interface, address):
 

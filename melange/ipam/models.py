@@ -318,13 +318,14 @@ class IpBlock(ModelBase):
         return self._allocate_available_ip(interface, **kwargs)
 
     def _allocate_available_ip(self, interface, **kwargs):
+        generator, allocation_condition = self._generator(
+                            used_by_tenant=interface.tenant_id,
+                            mac_address=interface.mac_address_eui_format,
+                            **kwargs)
         max_allowed_retry = int(config.Config.get("ip_allocation_retries", 10))
 
         for retries in range(max_allowed_retry):
-            address = self._generate_ip_address(
-                used_by_tenant=interface.tenant_id,
-                mac_address=interface.mac_address_eui_format,
-                **kwargs)
+            address = self._generate_ip(generator, allocation_condition)
             try:
                 return IpAddress.create(address=address,
                                         ip_block_id=self.id,
@@ -337,26 +338,24 @@ class IpBlock(ModelBase):
         raise ConcurrentAllocationError(
             _("Cannot allocate address for block %s at this time") % self.id)
 
-    def _generate_ip_address(self, **kwargs):
+    def _generate_ip(self, generator, address_allocation_condition):
+        address = utils.find(address_allocation_condition,
+                             IpAddressIterator(generator))
+        if not address:
+            self.update(is_full=True)
+            raise exception.NoMoreAddressesError(_("IpBlock is full"))
+        return address
+
+    def _generator(self, **kwargs):
         if self.is_ipv6():
             address_generator = ipv6.address_generator_factory(self.cidr,
                                                                **kwargs)
-
-            return utils.find(lambda address:
-                              self.does_address_exists(address) is False,
-                              IpAddressIterator(address_generator))
+            return (address_generator,
+                    lambda address: self.does_address_exists(address) is False)
         else:
             generator = ipv4.address_generator_factory(self)
-            policy = self.policy()
-            address = utils.find(lambda address:
-                                 self._address_is_allocatable(policy, address),
-                                 IpAddressIterator(generator))
-
-            if address:
-                return address
-
-            self.update(is_full=True)
-            raise exception.NoMoreAddressesError(_("IpBlock is full"))
+            return (generator, lambda address: self._address_is_allocatable(
+                                               self.policy(), address))
 
     def _allocate_specific_ip(self, interface, address):
 

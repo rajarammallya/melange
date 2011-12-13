@@ -16,16 +16,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-"""Script to delete deallocated ips.
-
-Any deallocated ip remains in a 'soft' deallocated state.
-This script cleans up all these 'soft' deallocated ips that are
-older than a configured timeframe.
-
-This script can be run as a cron job on the melange server.
-
-"""
-
 import optparse
 import os
 import sys
@@ -40,13 +30,12 @@ if os.path.exists(os.path.join(possible_topdir, 'melange', '__init__.py')):
 
 from melange.db import db_api
 from melange.common import config
-from melange.ipam import models
-
+from melange.ipv4 import queue_based_ip_generator
 
 if __name__ == '__main__':
     try:
         conf = config.load_app_environment(optparse.OptionParser())
         db_api.configure_db(conf)
-        models.IpBlock.delete_all_deallocated_ips()
+        queue_based_ip_generator.IpPublisher.publish_all()
     except RuntimeError as error:
         sys.exit("ERROR: %s" % error)

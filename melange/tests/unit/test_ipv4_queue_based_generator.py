@@ -46,8 +46,7 @@ class QueueTestsBase(tests.BaseTest):
 class TestIpPublisher(QueueTestsBase):
 
     def test_pushes_ips_into_Q(self):
-        block = factory_models.IpBlockFactory(cidr="10.0.0.0/28",
-                                              prefetch=True)
+        block = factory_models.IpBlockFactory(cidr="10.0.0.0/28")
         queue_based_ip_generator.IpPublisher(block).execute()
         queue = self.connection.SimpleQueue("block.%s" % block.id, no_ack=True)
         self._queues.append(queue)
@@ -66,8 +65,7 @@ class TestIpPublisher(QueueTestsBase):
 class TestQueueBasedIpGenerator(QueueTestsBase):
 
     def test_gets_next_ip_from_queue(self):
-        block = factory_models.IpBlockFactory(cidr="10.0.0.0/28",
-                                              prefetch=True)
+        block = factory_models.IpBlockFactory(cidr="10.0.0.0/28")
         queue = self.connection.SimpleQueue("block.%s" % block.id,
                                             no_ack=False)
         self._queues.append(queue)
@@ -78,9 +76,8 @@ class TestQueueBasedIpGenerator(QueueTestsBase):
 
         self.assertEqual("10.0.0.2", generated_ip)
 
-    def test_ip_removed_pushed_ip_on_queue(self):
-        block = factory_models.IpBlockFactory(cidr="10.0.0.0/28",
-                                              prefetch=True)
+    def test_ip_removed_pushes_ip_on_queue(self):
+        block = factory_models.IpBlockFactory(cidr="10.0.0.0/28")
         queue = self.connection.SimpleQueue("block.%s" % block.id,
                                             no_ack=False)
         self._queues.append(queue)
@@ -89,3 +86,22 @@ class TestQueueBasedIpGenerator(QueueTestsBase):
 
         actual_ip_on_queue = queue.get(block=False).body
         self.assertEqual(actual_ip_on_queue, "10.0.0.4")
+
+    def test_publish_all_pushes_high_traffic_blocks_on_queue(self):
+        high_traffic_block1 = factory_models.IpBlockFactory(cidr="10.0.0.0/28",
+                                                            high_traffic=True)
+        high_traffic_block2 = factory_models.IpBlockFactory(cidr="20.0.0.0/26",
+                                                            high_traffic=True)
+        normal_block3 = factory_models.IpBlockFactory(cidr="30.0.0.0")
+
+        queue_based_ip_generator.IpPublisher.publish_all()
+
+        queue1 = self.connection.SimpleQueue("block.%s"
+                                             % high_traffic_block1.id)
+        queue2 = self.connection.SimpleQueue("block.%s"
+                                             % high_traffic_block2.id)
+        queue3 = self.connection.SimpleQueue("block.%s" % normal_block3.id)
+
+        self.assertEqual(len(queue1), 16)
+        self.assertEqual(len(queue2), 64)
+        self.assertEqual(len(queue3), 0)

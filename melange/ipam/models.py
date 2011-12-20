@@ -603,7 +603,8 @@ class IpAddress(ModelBase):
 
     def deallocate(self):
         self.update(marked_for_deallocation=True,
-                    deallocated_at=utils.utcnow())
+                    deallocated_at=utils.utcnow(),
+                    interface_id=None)
 
     def restore(self):
         self.update(marked_for_deallocation=False, deallocated_at=None)
@@ -683,7 +684,7 @@ class MacAddressRange(ModelBase):
 
     @classmethod
     def allocate_next_free_mac(cls, **kwargs):
-        ranges = cls.find_all()
+        ranges = sorted(cls.find_all(), key=lambda model: model.created_at)
         for range in ranges:
             try:
                 return range.allocate_mac(**kwargs)

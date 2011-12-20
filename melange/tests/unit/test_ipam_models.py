@@ -179,7 +179,7 @@ class TestIpBlock(tests.BaseTest):
         factory_models.PrivateIpBlockFactory(cidr="10.0.0.0/8",
                         network_id="18888", tenant_id='xxxx')
 
-        saved_block = models.IpBlock.find_by(network_id=18888)
+        saved_block = models.IpBlock.find_by(network_id="18888")
         self.assertEqual(saved_block.cidr, "10.0.0.0/8")
         self.assertEqual(saved_block.network_id, '18888')
         self.assertEqual(saved_block.type, "private")
@@ -196,13 +196,13 @@ class TestIpBlock(tests.BaseTest):
 
     def test_valid_cidr(self):
         factory = factory_models.PrivateIpBlockFactory
-        block = factory.build(cidr="10.1.1.1////", network_id=111)
+        block = factory.build(cidr="10.1.1.1////", network_id="111")
 
         self.assertFalse(block.is_valid())
         self.assertEqual(block.errors, {'cidr': ["cidr is invalid"]})
         self.assertRaises(models.InvalidModelError, block.save)
         self.assertRaises(models.InvalidModelError, models.IpBlock.create,
-                          cidr="10.1.0.0/33", network_id=111)
+                          cidr="10.1.0.0/33", network_id="111")
 
         block.cidr = "10.1.1.1/8"
         self.assertTrue(block.is_valid())
@@ -217,9 +217,9 @@ class TestIpBlock(tests.BaseTest):
 
     def test_validates_overlapping_cidr_for_public_ip_blocks(self):
         factory = factory_models.PublicIpBlockFactory
-        factory(cidr="10.0.0.0/8", network_id=145)
+        factory(cidr="10.0.0.0/8", network_id="145")
 
-        overlapping_block = factory.build(cidr="10.0.0.0/30", network_id=11)
+        overlapping_block = factory.build(cidr="10.0.0.0/30", network_id="11")
 
         self.assertFalse(overlapping_block.is_valid())
         self.assertEqual(overlapping_block.errors,
@@ -236,9 +236,9 @@ class TestIpBlock(tests.BaseTest):
 
     def test_different_types_of_blocks_cannot_be_created_within_network(self):
         factory = factory_models.IpBlockFactory
-        factory(network_id=1, type='private')
+        factory(network_id="1", type='private')
 
-        block_of_different_type = factory.build(network_id=1, type='public')
+        block_of_different_type = factory.build(network_id="1", type='public')
 
         self.assertFalse(block_of_different_type.is_valid())
         self.assertEqual(block_of_different_type.errors,
@@ -469,7 +469,9 @@ class TestIpBlock(tests.BaseTest):
         self.assertEqual(found_block.cidr, block1.cidr)
 
     def test_find_ip_block_for_nonexistent_block(self):
-        self.assertRaises(models.ModelNotFoundError, models.IpBlock.find, 123)
+        self.assertRaises(models.ModelNotFoundError,
+                          models.IpBlock.find,
+                          "123")
 
     def test_find_ip(self):
         block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.1/8")
@@ -1061,8 +1063,7 @@ class TestIpAddress(tests.BaseTest):
                                                     ip_block_id=block1.id)
         interface = factory_models.InterfaceFactory()
 
-        expected_error = ("Failed to save IpAddress because: "
-                          "columns address, ip_block_id are not unique")
+        expected_error = ("Failed to save IpAddress")
         self.assertRaisesExcMessage(exception.DBConstraintError,
                                     expected_error,
                                     models.IpAddress.create,
@@ -1106,7 +1107,7 @@ class TestIpAddress(tests.BaseTest):
     def test_find_ip_address_for_nonexistent_address(self):
         self.assertRaises(models.ModelNotFoundError,
                           models.IpAddress.find,
-                          123)
+                          "123")
 
     def test_find_all_allocated_ips(self):
         block1 = factory_models.IpBlockFactory(tenant_id="1")
@@ -1476,7 +1477,9 @@ class TestMacAddressRange(tests.BaseTest):
         self.assertRaises(models.NoMoreMacAddressesError, rng.allocate_mac)
 
     def test_allocate_next_free_mac_from_first_free_range(self):
-        factory_models.MacAddressRangeFactory(cidr="BC:76:4E:20:00:00/47")
+        two_days_before = datetime.datetime.now() - datetime.timedelta(days=2)
+        with unit.StubTime(time=two_days_before):
+            factory_models.MacAddressRangeFactory(cidr="BC:76:4E:20:00:00/47")
         factory_models.MacAddressRangeFactory(cidr="BC:76:4E:30:00:00/40")
 
         mac1 = models.MacAddressRange.allocate_next_free_mac()
@@ -1757,7 +1760,7 @@ class TestPolicy(tests.BaseTest):
 
         self.assertRaises(models.ModelNotFoundError,
                           policy.find_ip_range,
-                          ip_range_id=122222)
+                          ip_range_id="122222")
 
     def test_create_unusable_ip_range(self):
         policy = factory_models.PolicyFactory(name="BLAH")
@@ -1910,25 +1913,25 @@ class TestIpOctet(tests.BaseTest):
 class TestNetwork(tests.BaseTest):
 
     def test_find_when_ip_blocks_for_given_network_exist(self):
-        ip_block1 = factory_models.PublicIpBlockFactory(network_id=1,
-                                                        tenant_id=123)
-        noise_ip_block1 = factory_models.PublicIpBlockFactory(network_id=1,
-                                                              tenant_id=321)
+        ip_block1 = factory_models.PublicIpBlockFactory(network_id="1",
+                                                        tenant_id="123")
+        noise_ip_block1 = factory_models.PublicIpBlockFactory(network_id="1",
+                                                              tenant_id="321")
 
-        network = models.Network.find_by(id=1, tenant_id=123)
+        network = models.Network.find_by(id="1", tenant_id="123")
 
-        self.assertEqual(network.id, 1)
+        self.assertEqual(network.id, "1")
         self.assertEqual(network.ip_blocks, [ip_block1])
 
     def test_find_when_no_ip_blocks_for_given_network_exist(self):
-        noise_ip_block = factory_models.PublicIpBlockFactory(network_id=9999)
+        noise_ip_block = factory_models.PublicIpBlockFactory(network_id="9999")
 
         self.assertRaises(models.ModelNotFoundError,
                           models.Network.find_by,
-                          id=1)
+                          id="1")
 
     def test_find_or_create_when_no_ip_blocks_for_given_network_exist(self):
-        noise_ip_block = factory_models.PublicIpBlockFactory(network_id=9999)
+        noise_ip_block = factory_models.PublicIpBlockFactory(network_id="9999")
 
         with unit.StubConfig(default_cidr="10.10.10.0/24"):
             network = models.Network.find_or_create_by(id='1', tenant_id='123')
@@ -1941,13 +1944,13 @@ class TestNetwork(tests.BaseTest):
         self.assertEqual(network.ip_blocks[0].type, 'private')
 
     def test_allocate_ip_to_allocate_both_ipv4_and_ipv6_addresses(self):
-        ipv4_block = factory_models.PublicIpBlockFactory(network_id=1,
+        ipv4_block = factory_models.PublicIpBlockFactory(network_id="1",
                                                          cidr="10.0.0.0/24",
                                                          tenant_id="111")
-        ipv6_block = factory_models.PublicIpBlockFactory(network_id=1,
+        ipv6_block = factory_models.PublicIpBlockFactory(network_id="1",
                                                          cidr="ff::00/120",
                                                          tenant_id="111")
-        network = models.Network.find_by(id=1, tenant_id="111")
+        network = models.Network.find_by(id="1", tenant_id="111")
         interface = factory_models.InterfaceFactory()
         models.MacAddress.create(interface_id=interface.id,
                                  address="aa:bb:cc:dd:ee:ff")
@@ -1961,9 +1964,9 @@ class TestNetwork(tests.BaseTest):
 
     def test_allocate_ip_from_first_free_ip_block(self):
         interface = factory_models.InterfaceFactory()
-        full_ip_block = factory_models.PublicIpBlockFactory(network_id=1,
+        full_ip_block = factory_models.PublicIpBlockFactory(network_id="1",
                                                             is_full=True)
-        free_ip_block = factory_models.PublicIpBlockFactory(network_id=1,
+        free_ip_block = factory_models.PublicIpBlockFactory(network_id="1",
                                                             is_full=False)
         network = models.Network(ip_blocks=[full_ip_block, free_ip_block])
         [allocated_ipv4] = network.allocate_ips(interface=interface)
@@ -1973,21 +1976,21 @@ class TestNetwork(tests.BaseTest):
 
     def test_allocate_ip_raises_error_when_all_ip_blocks_are_full(self):
         interface = factory_models.InterfaceFactory()
-        full_ip_block = factory_models.PublicIpBlockFactory(network_id=1,
+        full_ip_block = factory_models.PublicIpBlockFactory(network_id="1",
                                                             is_full=True,
                                                             tenant_id="111")
 
-        network = models.Network.find_by(id=1, tenant_id="111")
+        network = models.Network.find_by(id="1", tenant_id="111")
         self.assertRaises(exception.NoMoreAddressesError,
                           network.allocate_ips,
                           interface=interface)
 
     def test_allocate_ip_assigns_given_interface_and_addresses(self):
-        factory_models.PublicIpBlockFactory(network_id=1, cidr="10.0.0.0/24")
-        block = factory_models.PublicIpBlockFactory(network_id=1,
+        factory_models.PublicIpBlockFactory(network_id="1", cidr="10.0.0.0/24")
+        block = factory_models.PublicIpBlockFactory(network_id="1",
                                                     cidr="169.0.0.0/24")
         addresses = ["10.0.0.7", "169.0.0.2", "10.0.0.3"]
-        network = models.Network.find_by(id=1, tenant_id=block.tenant_id)
+        network = models.Network.find_by(id="1", tenant_id=block.tenant_id)
         interface = factory_models.InterfaceFactory()
 
         allocated_ips = network.allocate_ips(interface=interface,
@@ -1999,9 +2002,9 @@ class TestNetwork(tests.BaseTest):
 
     def test_allocate_ip_assigns_given_address_from_its_block(self):
         interface = factory_models.InterfaceFactory()
-        ip_block1 = factory_models.PublicIpBlockFactory(network_id=1,
+        ip_block1 = factory_models.PublicIpBlockFactory(network_id="1",
                                                         cidr="10.0.0.0/24")
-        ip_block2 = factory_models.PublicIpBlockFactory(network_id=1,
+        ip_block2 = factory_models.PublicIpBlockFactory(network_id="1",
                                                         cidr="20.0.0.0/24")
         network = models.Network(ip_blocks=[ip_block1, ip_block2])
 
@@ -2013,9 +2016,9 @@ class TestNetwork(tests.BaseTest):
 
     def test_allocate_ip_ignores_already_allocated_addresses(self):
         interface = factory_models.InterfaceFactory()
-        ip_block1 = factory_models.PublicIpBlockFactory(network_id=1,
+        ip_block1 = factory_models.PublicIpBlockFactory(network_id="1",
                                                         cidr="10.0.0.0/24")
-        ip_block2 = factory_models.PublicIpBlockFactory(network_id=1,
+        ip_block2 = factory_models.PublicIpBlockFactory(network_id="1",
                                                         cidr="20.0.0.0/24")
         factory_models.IpAddressFactory(ip_block_id=ip_block1.id,
                                         address="10.0.0.0")
@@ -2027,12 +2030,12 @@ class TestNetwork(tests.BaseTest):
         self.assertEqual(allocted_ips[0].address, "20.0.0.0")
 
     def test_deallocate_ips(self):
-        ip_block1 = factory_models.IpBlockFactory(network_id=1,
+        ip_block1 = factory_models.IpBlockFactory(network_id="1",
                                                   cidr="10.0.0.0/24")
-        ip_block2 = factory_models.IpBlockFactory(network_id=1,
+        ip_block2 = factory_models.IpBlockFactory(network_id="1",
                                                   cidr="fe80::/64")
 
-        network = models.Network(id=1, ip_blocks=[ip_block1, ip_block2])
+        network = models.Network(id="1", ip_blocks=[ip_block1, ip_block2])
         interface = factory_models.InterfaceFactory()
         ip1 = factory_models.IpAddressFactory(ip_block_id=ip_block1.id,
                                               interface_id=interface.id)
@@ -2056,29 +2059,29 @@ class TestNetwork(tests.BaseTest):
         ip3 = _allocate_ip(ip_block2, interface=interface2)
         ip4 = _allocate_ip(ip_block2, interface=interface1)
 
-        network = models.Network.find_by(id=1)
+        network = models.Network.find_by(id="1")
         allocated_ips = network.allocated_ips(interface_id=interface1.id)
 
         self.assertModelsEqual(allocated_ips, [ip1, ip2, ip4])
 
     def test_find_allocated_ip(self):
-        ip_block1 = factory_models.IpBlockFactory(network_id=1,
+        ip_block1 = factory_models.IpBlockFactory(network_id="1",
                                                   cidr="10.0.0.0/24")
-        ip_block2 = factory_models.IpBlockFactory(network_id=1,
+        ip_block2 = factory_models.IpBlockFactory(network_id="1",
                                                   cidr="20.0.0.0/24")
-        noise_block = factory_models.IpBlockFactory(network_id=1,
+        noise_block = factory_models.IpBlockFactory(network_id="1",
                                                   cidr="30.0.0.0/24")
         ip1 = _allocate_ip(ip_block1)
         ip2 = _allocate_ip(ip_block2)
-        network = models.Network.find_by(id=1)
+        network = models.Network.find_by(id="1")
 
         self.assertEqual(network.find_allocated_ip(address=ip1.address), ip1)
         self.assertEqual(network.find_allocated_ip(address=ip2.address), ip2)
 
     def test_find_allocated_ip_raises_model_not_found_for_invalid_ip(self):
-        ip_block = factory_models.IpBlockFactory(network_id=1,
+        ip_block = factory_models.IpBlockFactory(network_id="1",
                                                  cidr="10.0.0.0/24")
-        network = models.Network.find_by(id=1)
+        network = models.Network.find_by(id="1")
         self.assertRaisesExcMessage(models.ModelNotFoundError,
                                     ("IpAddress with {'address': '10.1.1.1'} "
                                      "for network %s not found" % network.id),
@@ -2216,6 +2219,8 @@ class TestInterface(tests.BaseTest):
         self.assertIsNone(models.Interface.get(interface.id))
         self.assertTrue(models.IpAddress.get(ip1.id).locked())
         self.assertTrue(models.IpAddress.get(ip2.id).locked())
+        self.assertIsNone(models.IpAddress.get(ip1.id).interface_id)
+        self.assertIsNone(models.IpAddress.get(ip2.id).interface_id)
 
     def test_data(self):
         interface = factory_models.InterfaceFactory()

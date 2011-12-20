@@ -25,6 +25,7 @@ from melange.db.sqlalchemy.migrate_repo.schema import create_tables
 from melange.db.sqlalchemy.migrate_repo.schema import DateTime
 from melange.db.sqlalchemy.migrate_repo.schema import drop_tables
 from melange.db.sqlalchemy.migrate_repo.schema import Integer
+from melange.db.sqlalchemy.migrate_repo.schema import BigInteger
 from melange.db.sqlalchemy.migrate_repo.schema import String
 from melange.db.sqlalchemy.migrate_repo.schema import Table
 
@@ -42,10 +43,11 @@ ip_blocks = Table('ip_blocks', meta,
         Column('gateway', String(255)),
         Column('dns1', String(255)),
         Column('dns2', String(255)),
-        Column('allocatable_ip_counter', Integer()),
+        Column('allocatable_ip_counter', BigInteger()),
         Column('is_full', Boolean()),
         Column('policy_id', String(36), ForeignKey('policies.id')),
-        Column('parent_id', String(36), ForeignKey('ip_blocks.id')))
+        Column('parent_id', String(36), ForeignKey('ip_blocks.id',
+                                                    ondelete="CASCADE")))
 
 
 ip_addresses = Table('ip_addresses', meta,
@@ -119,13 +121,13 @@ allocatable_ips = Table('allocatable_ips', meta,
 mac_address_ranges = Table('mac_address_ranges', meta,
         Column('id', String(36), primary_key=True, nullable=False),
         Column('cidr', String(255), nullable=False),
-        Column('next_address', Integer()),
+        Column('next_address', BigInteger()),
         Column('created_at', DateTime()),
         Column('updated_at', DateTime()))
 
 mac_addresses = Table('mac_addresses', meta,
         Column('id', String(36), primary_key=True, nullable=False),
-        Column('address', Integer(), nullable=False),
+        Column('address', BigInteger(), nullable=False),
         Column('mac_address_range_id', String(36),
                ForeignKey('mac_address_ranges.id')),
         Column('interface_id', String(36), ForeignKey('interfaces.id')),

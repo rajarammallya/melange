@@ -25,6 +25,7 @@ from melange.db import db_api
 class BaseTest(unittest.TestCase):
 
     def setUp(self):
+        self.maxDiff = None
         self.mock = mox.Mox()
         db_api.clean_db()
         super(BaseTest, self).setUp()

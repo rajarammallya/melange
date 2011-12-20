@@ -567,7 +567,6 @@ class TestIpAddressController(ControllerTestBase):
                                           "interface_id": "iface",
                                           "used_by_device": "instance_id"}
                                        })
-
         ip = models.IpAddress.find(response.json['ip_address']['id'])
         self.assertEqual(ip.mac_address.eui_format,
                          str(netaddr.EUI("BC:AD:CE:0:0:0")))
@@ -1954,7 +1953,7 @@ class TestInterfaceIpAllocationsController(ControllerTestBase):
 
     def test_create(self):
         ip_block = factory_models.PrivateIpBlockFactory(tenant_id="tnt_id",
-                                                        network_id=1)
+                                                        network_id="1")
 
         response = self.app.post("/ipam/tenants/tnt_id/networks/1/"
                                  "interfaces/123/ip_allocations")
@@ -1977,7 +1976,7 @@ class TestInterfaceIpAllocationsController(ControllerTestBase):
 
     def test_create_with_given_address(self):
         ip_block = factory_models.PrivateIpBlockFactory(tenant_id="tnt_id",
-                                                        network_id=1,
+                                                        network_id="1",
                                                         cidr="10.0.0.0/24")
 
         response = self.app.post_json("/ipam/tenants/tnt_id/networks/1/"
@@ -1992,7 +1991,7 @@ class TestInterfaceIpAllocationsController(ControllerTestBase):
 
     def test_create_with_optional_params(self):
         ip_block = factory_models.PrivateIpBlockFactory(tenant_id="tnt_id",
-                                                        network_id=1,
+                                                        network_id="1",
                                                         cidr="10.0.0.0/24")
 
         body = {
@@ -2014,7 +2013,7 @@ class TestInterfaceIpAllocationsController(ControllerTestBase):
     def test_create_allocates_a_mac_as_well_when_mac_ranges_exist(self):
         factory_models.MacAddressRangeFactory(cidr="AD:BC:CE:0:0:0/24")
         ip_block = factory_models.PrivateIpBlockFactory(tenant_id="tnt_id",
-                                                        network_id=1,
+                                                        network_id="1",
                                                         cidr="10.0.0.0/24")
 
         self.app.post_json("/ipam/tenants/tnt_id/networks/1/"
@@ -2028,7 +2027,7 @@ class TestInterfaceIpAllocationsController(ControllerTestBase):
         mac_address = "11-22-33-44-55-66"
         ipv6_generator = mock_generator.MockIpV6Generator("fe::/96")
         ipv6_block = factory_models.PrivateIpBlockFactory(tenant_id="tnt_id",
-                                                          network_id=1,
+                                                          network_id="1",
                                                           cidr="fe::/96")
         self.mock.StubOutWithMock(ipv6, "address_generator_factory")
         ipv6.address_generator_factory("fe::/96",
@@ -2063,7 +2062,7 @@ class TestInterfaceIpAllocationsController(ControllerTestBase):
 
     def test_bulk_delete(self):
         ip_block = factory_models.PrivateIpBlockFactory(tenant_id="tnt_id",
-                                                        network_id=1)
+                                                        network_id="1")
 
         interface = factory_models.InterfaceFactory(virtual_interface_id="123")
         ip = ip_block.allocate_ip(interface=interface)

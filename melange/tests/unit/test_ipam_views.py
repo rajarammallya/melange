@@ -23,26 +23,35 @@ from melange.tests.factories import models as factory_models
 
 class TestIpConfigurationView(tests.BaseTest):
 
-    def test_data_returns_block_ip_and_route_info(self):
+    def test_data_returns_block_ip_info(self):
         block1 = factory_models.IpBlockFactory()
+        block2 = factory_models.IpBlockFactory()
         interface = factory_models.InterfaceFactory(virtual_interface_id="123")
         ip1 = factory_models.IpAddressFactory(ip_block_id=block1.id,
                                               interface_id=interface.id)
-        route1 = factory_models.IpRouteFactory(source_block_id=block1.id)
-        route2 = factory_models.IpRouteFactory(source_block_id=block1.id)
-        block2 = factory_models.IpBlockFactory()
         ip2 = factory_models.IpAddressFactory(ip_block_id=block2.id,
                                               interface_id=interface.id)
+        expected_ip1_config = _ip_data(ip1, block1)
+        expected_ip2_config = _ip_data(ip2, block2)
 
         ip_configuration_view = views.IpConfigurationView(ip1, ip2)
 
-        expected_ip1_config = _ip_data(ip1, block1)
-        expected_ip1_config['ip_block']['ip_routes'] = [_route_data(route1),
-                                                       _route_data(route2)]
-        expected_ip2_config = _ip_data(ip2, block2)
+        self.assertEqual(expected_ip1_config, ip_configuration_view.data()[0])
+        self.assertEqual(expected_ip2_config, ip_configuration_view.data()[1])
 
-        self.assertEqual(ip_configuration_view.data()[0], expected_ip1_config)
-        self.assertEqual(ip_configuration_view.data()[1], expected_ip2_config)
+    def test_data_returns_route_info(self):
+        block = factory_models.IpBlockFactory()
+        interface = factory_models.InterfaceFactory(virtual_interface_id="123")
+        route1 = factory_models.IpRouteFactory(source_block_id=block.id)
+        route2 = factory_models.IpRouteFactory(source_block_id=block.id)
+        ip = factory_models.IpAddressFactory(ip_block_id=block.id,
+                                             interface_id=interface.id)
+        expected_ip_config_routes = [_route_data(route1), _route_data(route2)]
+
+        ip_configuration_view = views.IpConfigurationView(ip).data()[0]
+        ip1_config_routes = ip_configuration_view['ip_block'].pop('ip_routes')
+
+        self.assertItemsEqual(expected_ip_config_routes, ip1_config_routes)
 
 
 def _ip_data(ip, block):
@@ -94,5 +103,5 @@ class TestInterfaceConfigurationView(tests.BaseTest):
         data = views.InterfaceConfigurationView(interface).data()
 
         self.assertEqual(len(data['ip_addresses']), 2)
-        self.assertEqual(data['ip_addresses'],
-                         views.IpConfigurationView(ip1, ip2).data())
+        self.assertItemsEqual(data['ip_addresses'],
+                              views.IpConfigurationView(ip1, ip2).data())

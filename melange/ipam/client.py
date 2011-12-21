@@ -127,11 +127,11 @@ class PolicyClient(BaseClient):
                                  auth_client,
                                  tenant_id)
 
-    def create(self, name, description=None):
-        return self.resource.create(name=name, description=description)
+    def create(self, name, desc=None):
+        return self.resource.create(name=name, description=desc)
 
-    def update(self, id, name, description=None):
-        return self.resource.update(id, name=name, description=description)
+    def update(self, id, name, desc=None):
+        return self.resource.update(id, name=name, description=desc)
 
     def list(self):
         return self.resource.all()

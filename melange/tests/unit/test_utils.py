@@ -184,9 +184,9 @@ class TestMethodInspector(tests.BaseTest):
 
     def test_method_str(self):
         class Foo():
-            def bar(self, baz, qux=2):
+            def bar(self, baz, qux=None):
                 pass
 
         method = utils.MethodInspector(Foo().bar)
 
-        self.assertEqual(str(method), "bar <baz> <qux=2>")
+        self.assertEqual(str(method), "bar baz=<baz> [qux=<qux>]")

@@ -173,7 +173,7 @@ class MethodInspector(object):
         return inspect.getargspec(self._func)
 
     def __str__(self):
-        optionals = ["%s=%s" % (k, v) for k, v in self.optional_args]
-        args_str = ' '.join(map(lambda arg: "<%s>" % arg,
-                                self.required_args + optionals))
+        optionals = ["[{0}=<{0}>]".format(k) for k, v in self.optional_args]
+        required = ["{0}=<{0}>".format(arg) for arg in self.required_args]
+        args_str = ' '.join(required + optionals)
         return "%s %s" % (self._func.__name__, args_str)

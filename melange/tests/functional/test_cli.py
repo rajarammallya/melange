@@ -25,10 +25,12 @@ from melange.tests.factories import models as factory_models
 from melange.tests import functional
 
 
-def run(command):
-    return functional.execute("{0} --port={1} {2} -v --auth-token=test".format(
-        melange.melange_bin_path('melange-client'),
-                functional.get_api_port(), command))
+def run(command, **kwargs):
+    full_command = "{0} --port={1} {2} -v ""--auth-token=test".format(
+                    melange.melange_bin_path('melange-client'),
+                    functional.get_api_port(),
+                    command)
+    return functional.execute(full_command, **kwargs)
 
 
 def run_melange_manage(command):
@@ -43,8 +45,10 @@ class TestIpBlockCLI(tests.BaseTest):
     def test_create(self):
         policy = factory_models.PolicyFactory(tenant_id=123)
 
-        exitcode, out, err = run("ip_block create private 10.1.1.0/29 net1"
-                                 " %s -t 123" % policy.id)
+        exitcode, out, err = run("ip_block create type=private "
+                                 "cidr=10.1.1.0/29 network_id=net1 "
+                                 "policy_id=%s -t 123"
+                                 % policy.id)
 
         self.assertEqual(exitcode, 0)
         ip_block = models.IpBlock.get_by(cidr="10.1.1.0/29",
@@ -70,7 +74,7 @@ class TestIpBlockCLI(tests.BaseTest):
     def test_show(self):
         ip_block = factory_models.PrivateIpBlockFactory(tenant_id=123)
 
-        exitcode, out, err = run("ip_block show %s -t 123" % ip_block.id)
+        exitcode, out, err = run("ip_block show id=%s -t 123" % ip_block.id)
 
         self.assertEqual(exitcode, 0)
         self.assertIn(ip_block.cidr, out)
@@ -79,7 +83,8 @@ class TestIpBlockCLI(tests.BaseTest):
         ip_block = factory_models.PrivateIpBlockFactory(tenant_id="123")
         policy = factory_models.PolicyFactory()
 
-        exitcode, out, err = run("ip_block update %s new_net %s -t 123"
+        exitcode, out, err = run("ip_block update id=%s network_id=new_net "
+                                 "policy_id=%s -t 123"
                                  % (ip_block.id, policy.id))
 
         self.assertEqual(exitcode, 0)
@@ -90,8 +95,8 @@ class TestIpBlockCLI(tests.BaseTest):
     def test_delete(self):
         ip_block = factory_models.PrivateIpBlockFactory(tenant_id=123)
 
-        exitcode, out, err = run("ip_block delete"
-                                 " %s -t 123" % ip_block.id)
+        exitcode, out, err = run("ip_block delete "
+                                 "id=%s -t 123" % ip_block.id)
 
         self.assertEqual(exitcode, 0)
         self.assertTrue(models.IpBlock.get(ip_block.id) is None)
@@ -102,8 +107,8 @@ class TestSubnetCLI(tests.BaseTest):
     def test_create(self):
         block = factory_models.IpBlockFactory(cidr="10.0.0.0/28",
                                               tenant_id="123")
-        exitcode, out, err = run("subnet create {0} 10.0.0.0/29 -t 123".format(
-                                 block.id))
+        exitcode, out, err = run("subnet create parent_id={0} "
+                                 "cidr=10.0.0.0/29 -t 123".format(block.id))
 
         self.assertEqual(exitcode, 0)
         subnet = models.IpBlock.get_by(parent_id=block.id)
@@ -116,7 +121,8 @@ class TestSubnetCLI(tests.BaseTest):
         block.subnet("10.0.0.0/30")
         block.subnet("10.0.0.4/30")
         block.subnet("10.0.0.8/30")
-        exitcode, out, err = run("subnet list {0} -t 123".format(block.id))
+        exitcode, out, err = run(
+                "subnet list parent_id={0} -t 123".format(block.id))
 
         self.assertEqual(exitcode, 0)
         self.assertIn("subnets", out)
@@ -132,7 +138,7 @@ class TestPolicyCLI(tests.BaseTest):
                                               name='name',
                                               description='desc')
         exitcode, out, err = run("policy update -t 1234"
-                                 " {0} new_name".format(policy.id))
+                                 " id={0} name=new_name".format(policy.id))
 
         self.assertEqual(exitcode, 0)
         updated_policy = models.Policy.get(policy.id)
@@ -148,20 +154,20 @@ class TestPolicyCLI(tests.BaseTest):
     def test_show(self):
         policy = factory_models.PolicyFactory(tenant_id="1234", name="blah")
 
-        exitcode, out, err = run("policy show %s -t 1234" % policy.id)
+        exitcode, out, err = run("policy show id=%s -t 1234" % policy.id)
 
         self.assertEqual(exitcode, 0)
         self.assertIn(policy.name, out)
 
     def test_delete(self):
         policy = factory_models.PolicyFactory(tenant_id="1234", name="blah")
-        exitcode, out, err = run("policy delete %s -t 1234" % policy.id)
+        exitcode, out, err = run("policy delete id=%s -t 1234" % policy.id)
 
         self.assertEqual(exitcode, 0)
         self.assertTrue(models.Policy.get(policy.id) is None)
 
     def test_create(self):
-        command = "policy create policy_name policy_desc -t 1234"
+        command = "policy create name=policy_name desc=policy_desc -t 1234"
         exitcode, out, err = run(command)
 
         self.assertEqual(exitcode, 0)
@@ -175,8 +181,9 @@ class TestUnusableIpRangesCLI(tests.BaseTest):
 
     def test_create(self):
         policy = factory_models.PolicyFactory(tenant_id="1234")
-        exitcode, out, err = run("unusable_ip_range create"
-                                 " {0} 1 2 -t 1234".format(policy.id))
+        exitcode, out, err = run("unusable_ip_range create "
+                                 "policy_id={0} offset=1 length=2 "
+                                 "-t 1234".format(policy.id))
 
         self.assertEqual(exitcode, 0)
         ip_range = models.IpRange.get_by(policy_id=policy.id,
@@ -189,9 +196,9 @@ class TestUnusableIpRangesCLI(tests.BaseTest):
         ip_range = factory_models.IpRangeFactory(policy_id=policy.id,
                                                  offset=0,
                                                  length=1)
-        exitcode, out, err = run("unusable_ip_range update"
-                                 " {0} {1} 10 122 -t 1234".format(policy.id,
-                                                                  ip_range.id))
+        exitcode, out, err = run("unusable_ip_range update "
+                                 "policy_id={0} id={1} offset=10 length=122 "
+                                 "-t 1234".format(policy.id, ip_range.id))
 
         updated_ip_range = models.IpRange.find(ip_range.id)
 
@@ -205,8 +212,8 @@ class TestUnusableIpRangesCLI(tests.BaseTest):
                                                  offset=0,
                                                  length=1)
         exitcode, out, err = run("unusable_ip_range update"
-                                 " {0} {1} 10 -t 1234".format(policy.id,
-                                                              ip_range.id))
+                                 " policy_id={0} id={1} offset=10"
+                                 " -t 1234".format(policy.id, ip_range.id))
 
         updated_ip_range = models.IpRange.find(ip_range.id)
 
@@ -217,7 +224,7 @@ class TestUnusableIpRangesCLI(tests.BaseTest):
     def test_list(self):
         policy = factory_models.PolicyFactory(tenant_id="1234")
         exitcode, out, err = run("unusable_ip_range list"
-                                 " {0} -t 1234".format(policy.id))
+                                 " policy_id={0} -t 1234".format(policy.id))
 
         self.assertEqual(exitcode, 0)
         self.assertIn("ip_ranges", out)
@@ -226,8 +233,8 @@ class TestUnusableIpRangesCLI(tests.BaseTest):
         policy = factory_models.PolicyFactory(tenant_id="1234")
         ip_range = factory_models.IpRangeFactory(policy_id=policy.id)
         exitcode, out, err = run("unusable_ip_range show"
-                                 " {0} {1} -t 1234".format(policy.id,
-                                                           ip_range.id))
+                                 " policy_id={0} id={1} "
+                                 "-t 1234".format(policy.id, ip_range.id))
 
         self.assertEqual(exitcode, 0)
         self.assertIn(ip_range.policy_id, out)
@@ -235,9 +242,9 @@ class TestUnusableIpRangesCLI(tests.BaseTest):
     def test_delete(self):
         policy = factory_models.PolicyFactory(tenant_id="1234")
         ip_range = factory_models.IpRangeFactory(policy_id=policy.id)
-        exitcode, out, err = run("unusable_ip_range delete"
-                                 " {0} {1} -t 1234".format(policy.id,
-                                                           ip_range.id))
+        exitcode, out, err = run("unusable_ip_range delete "
+                                 "policy_id={0} id={1} "
+                                 " -t 1234".format(policy.id, ip_range.id))
 
         self.assertEqual(exitcode, 0)
         self.assertTrue(models.IpRange.get(ip_range.id) is None)
@@ -247,8 +254,9 @@ class TestUnusableIpOctetsCLI(tests.BaseTest):
 
     def test_create(self):
         policy = factory_models.PolicyFactory(tenant_id="1234")
-        exitcode, out, err = run("unusable_ip_octet create"
-                                 " {0} 255 -t 1234".format(policy.id))
+        exitcode, out, err = run("unusable_ip_octet create "
+                                 " policy_id={0} octet=255 "
+                                 " -t 1234".format(policy.id))
 
         self.assertEqual(exitcode, 0)
         ip_octet = models.IpOctet.get_by(policy_id=policy.id, octet=255)
@@ -258,9 +266,9 @@ class TestUnusableIpOctetsCLI(tests.BaseTest):
         policy = factory_models.PolicyFactory(tenant_id="1234")
         ip_octet = factory_models.IpOctetFactory(policy_id=policy.id,
                                                  octet=222)
-        exitcode, out, err = run("unusable_ip_octet update {0} {1} 255"
-                                 " -t 1234".format(policy.id,
-                                                   ip_octet.id))
+        exitcode, out, err = run("unusable_ip_octet update policy_id={0} "
+                                 "id={1} octet=255"
+                                 " -t 1234".format(policy.id, ip_octet.id))
 
         updated_ip_octet = models.IpOctet.find(ip_octet.id)
 
@@ -271,19 +279,19 @@ class TestUnusableIpOctetsCLI(tests.BaseTest):
         policy = factory_models.PolicyFactory(tenant_id="1234")
         ip_octet = factory_models.IpOctetFactory(policy_id=policy.id,
                                                  octet=222)
-        exitcode, out, err = run("unusable_ip_octet update"
-                                 " {0} {1} -t 1234".format(policy.id,
-                                                           ip_octet.id))
+        exitcode, out, err = run("unusable_ip_octet update "
+                                 "policy_id={0} id={1} "
+                                 "-t 1234".format(policy.id, ip_octet.id))
 
         updated_ip_octet = models.IpOctet.find(ip_octet.id)
-
         self.assertEqual(exitcode, 0)
         self.assertEqual(updated_ip_octet.octet, 222)
 
     def test_list(self):
         policy = factory_models.PolicyFactory(tenant_id="1234")
-        exitcode, out, err = run("unusable_ip_octet"
-                                 " list {0} -t 1234".format(policy.id))
+        exitcode, out, err = run("unusable_ip_octet "
+                                 "list policy_id={0} "
+                                 "-t 1234".format(policy.id))
 
         self.assertEqual(exitcode, 0)
         self.assertIn("ip_octets", out)
@@ -291,9 +299,9 @@ class TestUnusableIpOctetsCLI(tests.BaseTest):
     def test_show(self):
         policy = factory_models.PolicyFactory(tenant_id="1234")
         ip_octet = factory_models.IpOctetFactory(policy_id=policy.id)
-        exitcode, out, err = run("unusable_ip_octet show"
-                                 " {0} {1} -t 1234".format(policy.id,
-                                                           ip_octet.id))
+        exitcode, out, err = run("unusable_ip_octet show "
+                                 "policy_id={0} id={1} "
+                                 "-t 1234".format(policy.id, ip_octet.id))
 
         self.assertEqual(exitcode, 0)
         self.assertIn(ip_octet.policy_id, out)
@@ -301,8 +309,9 @@ class TestUnusableIpOctetsCLI(tests.BaseTest):
     def test_delete(self):
         policy = factory_models.PolicyFactory(tenant_id="1234")
         ip_octet = factory_models.IpOctetFactory(policy_id=policy.id)
-        exitcode, out, err = run("unusable_ip_octet delete"
-                                 " {0} {1} -t 1234".format(policy.id,
+        exitcode, out, err = run("unusable_ip_octet delete "
+                                 "policy_id={0} id={1} "
+                                 "-t 1234".format(policy.id,
                                                            ip_octet.id))
 
         self.assertEqual(exitcode, 0)
@@ -320,7 +329,7 @@ class TestAllocatedIpAddressCLI(tests.BaseTest):
         factory_models.IpAddressFactory(address="20.1.1.1",
                                         interface_id=interface2.id)
 
-        exitcode, out, err = run("allocated_ips list device1")
+        exitcode, out, err = run("allocated_ips list used_by_device=device1")
 
         self.assertEqual(exitcode, 0)
         self.assertIn("ip_addresses", out)
@@ -348,8 +357,10 @@ class TestIpAddressCLI(tests.BaseTest):
     def test_create(self):
         block = factory_models.PrivateIpBlockFactory(cidr="10.1.1.0/24",
                                                      tenant_id="123")
-        exitcode, out, err = run("ip_address create {0} 10.1.1.2 interface_id "
-                                 "used_by_tenant_id used_by_device_id "
+        exitcode, out, err = run("ip_address create ip_block_id={0} "
+                                 "address=10.1.1.2 interface_id=interface_id "
+                                 "used_by_tenant=used_by_tenant_id "
+                                 "used_by_device=used_by_device_id "
                                  "-t 123 -v".format(block.id))
 
         self.assertEqual(exitcode, 0)
@@ -371,7 +382,8 @@ class TestIpAddressCLI(tests.BaseTest):
         ip2 = factory_models.IpAddressFactory(ip_block_id=block.id,
                                               address="10.1.1.3")
 
-        exitcode, out, err = run("ip_address list {0} -t 123".format(block.id))
+        exitcode, out, err = run("ip_address list ip_block_id={0} "
+                                 "-t 123".format(block.id))
 
         self.assertEqual(exitcode, 0)
         self.assertIn("ip_addresses", out)
@@ -382,7 +394,7 @@ class TestIpAddressCLI(tests.BaseTest):
         block = factory_models.PrivateIpBlockFactory(tenant_id="123")
         ip = factory_models.IpAddressFactory(ip_block_id=block.id)
 
-        exitcode, out, err = run("ip_address show {0} {1} "
+        exitcode, out, err = run("ip_address show ip_block_id={0} address={1} "
                                  "-t 123".format(block.id, ip.address))
 
         self.assertEqual(exitcode, 0)
@@ -393,7 +405,8 @@ class TestIpAddressCLI(tests.BaseTest):
         ip = factory_models.IpAddressFactory(ip_block_id=block.id)
 
         exitcode, out, err = run("ip_address delete "
-                                 "{0} {1} -t 123".format(block.id, ip.address))
+                                 "ip_block_id={0} address={1} "
+                                 "-t 123".format(block.id, ip.address))
         self.assertEqual(exitcode, 0)
         self.assertTrue(models.IpAddress.get(ip.id).marked_for_deallocation)
 
@@ -403,8 +416,10 @@ class TestIpRoutesCLI(tests.BaseTest):
     def test_create(self):
         block = factory_models.IpBlockFactory(cidr="77.1.1.0/24",
                                               tenant_id="123")
-        exitcode, out, err = run("ip_route create {0} 10.1.1.2  10.1.1.1 "
-                                 "255.255.255.0 -t 123".format(block.id))
+        exitcode, out, err = run("ip_route create ip_block_id={0} "
+                                 "destination=10.1.1.2  gateway=10.1.1.1 "
+                                 "netmask=255.255.255.0 "
+                                 "-t 123".format(block.id))
 
         self.assertEqual(exitcode, 0)
 
@@ -422,7 +437,8 @@ class TestIpRoutesCLI(tests.BaseTest):
         ip_route1 = factory_models.IpRouteFactory(source_block_id=block.id)
         ip_route2 = factory_models.IpRouteFactory(source_block_id=block.id)
 
-        exitcode, out, err = run("ip_route list {0} -t 123".format(block.id))
+        exitcode, out, err = run("ip_route list ip_block_id={0} "
+                                 "-t 123".format(block.id))
 
         self.assertEqual(exitcode, 0)
         self.assertIn("ip_routes", out)
@@ -433,7 +449,7 @@ class TestIpRoutesCLI(tests.BaseTest):
         block = factory_models.PrivateIpBlockFactory(tenant_id="123")
         ip_route = factory_models.IpRouteFactory(source_block_id=block.id)
 
-        exitcode, out, err = run("ip_route show {0} {1} "
+        exitcode, out, err = run("ip_route show ip_block_id={0} route_id={1} "
                                  "-t 123".format(block.id, ip_route.id))
 
         self.assertEqual(exitcode, 0)
@@ -443,7 +459,8 @@ class TestIpRoutesCLI(tests.BaseTest):
         block = factory_models.PrivateIpBlockFactory(tenant_id="123")
         ip_route = factory_models.IpRouteFactory(source_block_id=block.id)
 
-        exitcode, out, err = run("ip_route delete {0} {1} "
+        exitcode, out, err = run("ip_route delete ip_block_id={0} "
+                                 "route_id={1} "
                                  "-t 123".format(block.id, ip_route.id))
         self.assertEqual(exitcode, 0)
         self.assertIsNone(models.IpRoute.get(ip_route.id))
@@ -452,9 +469,11 @@ class TestIpRoutesCLI(tests.BaseTest):
 class TestInterfaceCLI(tests.BaseTest):
 
     def test_create(self):
-        mac_range = factory_models.MacAddressRangeFactory()
-        exitcode, out, err = run("interface create vif_id tenant_id "
-                                 "device_id network_id")
+        factory_models.MacAddressRangeFactory()
+        exitcode, out, err = run("interface create vif_id=vif_id "
+                                 "tenant_id=tenant_id "
+                                 "device_id=device_id "
+                                 "network_id=network_id")
 
         self.assertEqual(exitcode, 0)
         created_interface = models.Interface.find_by(
@@ -474,7 +493,7 @@ class TestInterfaceCLI(tests.BaseTest):
         ip2 = factory_models.IpAddressFactory(interface_id=interface.id)
         noise_ip = factory_models.IpAddressFactory()
 
-        exitcode, out, err = run("interface show vif_id -t tenant_id")
+        exitcode, out, err = run("interface show vif_id=vif_id -t tenant_id")
 
         self.assertEqual(exitcode, 0)
         self.assertIn("vif_id", out)
@@ -492,7 +511,7 @@ class TestInterfaceCLI(tests.BaseTest):
         ip2 = factory_models.IpAddressFactory(interface_id=interface.id)
         noise_ip = factory_models.IpAddressFactory()
 
-        exitcode, out, err = run("interface delete vif_id")
+        exitcode, out, err = run("interface delete vif_id=vif_id")
 
         self.assertEqual(exitcode, 0)
         self.assertIsNone(models.Interface.get(interface.id))
@@ -505,7 +524,7 @@ class TestMacAddressRangeCLI(tests.BaseTest):
 
     def test_create(self):
         exitcode, out, err = run("mac_address_range create "
-                                 "ab-bc-cd-12-23-34/24")
+                                 "cidr=ab-bc-cd-12-23-34/24")
 
         self.assertEqual(exitcode, 0)
         self.assertIsNotNone(models.MacAddressRange.get_by(
@@ -515,7 +534,7 @@ class TestMacAddressRangeCLI(tests.BaseTest):
         rng = factory_models.MacAddressRangeFactory()
 
         exitcode, out, err = run("mac_address_range show "
-                                 "%s" % rng.id)
+                                 "id=%s" % rng.id)
 
         self.assertEqual(exitcode, 0)
         self.assertIn('"id": "%s"' % rng.id, out)
@@ -534,7 +553,7 @@ class TestMacAddressRangeCLI(tests.BaseTest):
     def test_delete(self):
         rng = factory_models.MacAddressRangeFactory()
 
-        exitcode, out, err = run("mac_address_range delete %s" % rng.id)
+        exitcode, out, err = run("mac_address_range delete id=%s" % rng.id)
 
         self.assertEquals(exitcode, 0)
         self.assertIsNone(models.MacAddressRange.get(rng.id))
@@ -552,11 +571,10 @@ class TestAllowedIpCLI(tests.BaseTest):
         ip_to_allow = block.allocate_ip(
             factory_models.InterfaceFactory(network_id="123"))
 
-        exitcode, out, err = run("allowed_ip create "
-                                 "%(iface)s %(net)s %(ip)s -t RAX"
-                                 % {'iface': interface.virtual_interface_id,
-                                    'net': "123",
-                                    'ip': ip_to_allow.address})
+        exitcode, out, err = run("allowed_ip create interface_id=%s "
+                                 "network_id=123 ip_address=%s "
+                                 "-t RAX" % (interface.virtual_interface_id,
+                                             ip_to_allow.address))
 
         self.assertEqual(exitcode, 0)
         self.assertModelsEqual(interface.ips_allowed(),
@@ -572,9 +590,8 @@ class TestAllowedIpCLI(tests.BaseTest):
         allowed_ip = ip_factory(ip_block_id=block_factory(network_id="1").id)
         interface.allow_ip(allowed_ip)
 
-        exitcode, out, err = run("allowed_ip list "
-                                 "%(iface)s -t RAX"
-                                 % {'iface': interface.virtual_interface_id})
+        exitcode, out, err = run("allowed_ip list interface_id=%s -t RAX"
+                                 % interface.virtual_interface_id)
 
         self.assertEqual(exitcode, 0)
         self.assertIn("ip_addresses", out)
@@ -589,9 +606,9 @@ class TestAllowedIpCLI(tests.BaseTest):
         ip_on_interface = block.allocate_ip(interface)
 
         exitcode, out, err = run("allowed_ip show "
-                                 "%(iface)s %(ip)s -t RAX"
-                                 % {'iface': interface.virtual_interface_id,
-                                    'ip': ip_on_interface.address})
+                                 "interface_id=%s ip_address=%s -t RAX"
+                                 % (interface.virtual_interface_id,
+                                    ip_on_interface.address))
 
         self.assertEqual(exitcode, 0)
         self.assertIn("ip_address", out)
@@ -607,12 +624,22 @@ class TestAllowedIpCLI(tests.BaseTest):
         interface.allow_ip(allowed_ip)
 
         exitcode, out, err = run("allowed_ip delete "
-                                 "%(iface)s %(ip)s -t RAX"
-                                 % {'iface': interface.virtual_interface_id,
-                                    'ip': allowed_ip.address})
+                                 "interface_id=%s ip_address=%s -t RAX"
+                                 % (interface.virtual_interface_id,
+                                    allowed_ip.address))
 
         self.assertEqual(exitcode, 0)
         self.assertEqual(interface.ips_allowed(), [ip_on_interface])
+
+
+class TestMelangeCLI(tests.BaseTest):
+
+    def test_raises_error_for_non_keyword_arguments(self):
+        exitcode, out, err = run("allowed_ip delete interface_id123 -t RAX",
+                                 raise_error=False)
+        self.assertEqual(exitcode, 2)
+        self.assertIn("Action arguments should be in the form of field=value",
+                      out)
 
 
 class TestDBSyncCLI(tests.BaseTest):

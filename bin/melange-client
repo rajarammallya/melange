@@ -39,6 +39,7 @@ if os.path.exists(os.path.join(possible_topdir, 'melange', '__init__.py')):
 from melange import version
 from melange.common import auth
 from melange.common import client as base_client
+from melange.common import exception
 from melange.common import utils
 from melange.ipam import client
 
@@ -166,6 +167,14 @@ def auth_client_factory(options):
                                    options.auth_token)
 
 
+def args_to_dict(args):
+    try:
+        return dict(arg.split("=") for arg in args)
+    except ValueError:
+        raise exception.MelangeError("Action arguments "
+                                     "should be in the form of field=value")
+
+
 def main():
     oparser = optparse.OptionParser(version='%%prog %s'
                                     % version.version_string(),
@@ -202,7 +211,7 @@ def main():
 
     # call the action with the remaining arguments
     try:
-        print fn(*args)
+        print fn(**args_to_dict(args))
         sys.exit(0)
     except TypeError:
         print _("Possible wrong number of arguments supplied")
@@ -210,6 +219,9 @@ def main():
                                    utils.MethodInspector(fn))
         if options.verbose:
             raise
+        sys.exit(2)
+    except exception.MelangeError as error:
+        print error
         sys.exit(2)
     except Exception:
         print _("Command failed, please check log for more info")

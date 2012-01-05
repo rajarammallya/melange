@@ -644,6 +644,10 @@ class IpAddress(ModelBase):
     def interface(self):
         return Interface.get(self.interface_id)
 
+    @property
+    def virtual_interface_id(self):
+        return self.interface.virtual_interface_id if self.interface else None
+
     @utils.cached_property
     def mac_address(self):
         return MacAddress.get_by(interface_id=self.interface_id)

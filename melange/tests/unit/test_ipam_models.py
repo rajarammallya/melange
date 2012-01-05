@@ -1313,12 +1313,18 @@ class TestIpAddress(tests.BaseTest):
         self.assertEqual(ipv4.version, 4)
         self.assertEqual(ipv6.version, 6)
 
-    def test_retrives_interface(self):
+    def test_retrieves_interface(self):
         interface = factory_models.InterfaceFactory(virtual_interface_id="112")
         ip = factory_models.IpAddressFactory(interface_id=interface.id)
 
         self.assertEqual(ip.interface, interface)
         self.assertEqual(ip.interface.virtual_interface_id, "112")
+
+    def test_virtual_interface_id(self):
+        interface = factory_models.InterfaceFactory(virtual_interface_id="112")
+        ip = factory_models.IpAddressFactory(interface_id=interface.id)
+
+        self.assertEqual(ip.virtual_interface_id, "112")
 
     def test_mac_address(self):
         mac_range = factory_models.MacAddressRangeFactory()

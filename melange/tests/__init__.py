@@ -25,7 +25,9 @@ from melange.db import db_api
 class BaseTest(unittest.TestCase):
 
     def setUp(self):
+        #maxDiff=None ensures diff output of assert methods are not truncated
         self.maxDiff = None
+
         self.mock = mox.Mox()
         db_api.clean_db()
         super(BaseTest, self).setUp()

@@ -39,6 +39,18 @@ class TestIpConfigurationView(tests.BaseTest):
         self.assertEqual(expected_ip1_config, ip_configuration_view.data()[0])
         self.assertEqual(expected_ip2_config, ip_configuration_view.data()[1])
 
+    def test_data_returns_deallocated_ip_info(self):
+        block = factory_models.IpBlockFactory()
+        interface = factory_models.InterfaceFactory(virtual_interface_id="123")
+        ip = factory_models.IpAddressFactory(ip_block_id=block.id,
+                                              interface_id=interface.id)
+        ip.deallocate()
+        deallocated_ip = models.IpAddress.find(ip.id)
+        expected_ip_config = _ip_data(deallocated_ip, block)
+        ip_configuration_view = views.IpConfigurationView(deallocated_ip)
+
+        self.assertEqual(expected_ip_config, ip_configuration_view.data()[0])
+
     def test_data_returns_route_info(self):
         block = factory_models.IpBlockFactory()
         interface = factory_models.InterfaceFactory(virtual_interface_id="123")
@@ -57,7 +69,7 @@ class TestIpConfigurationView(tests.BaseTest):
 def _ip_data(ip, block):
     return {
         'id': ip.id,
-        'interface_id': ip.interface.virtual_interface_id,
+        'interface_id': ip.virtual_interface_id,
         'address': ip.address,
         'version': ip.version,
         'ip_block': {

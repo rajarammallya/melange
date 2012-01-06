@@ -20,6 +20,7 @@ import unittest
 import urlparse
 
 from melange.db import db_api
+from melange.common import utils
 
 
 class BaseTest(unittest.TestCase):
@@ -82,3 +83,7 @@ class BaseTest(unittest.TestCase):
     def assertErrorResponse(self, response, error_type, expected_error):
         self.assertEqual(response.status_int, error_type().code)
         self.assertIn(expected_error, response.body)
+
+    def setup_uuid_with(self, fake_uuid):
+        self.mock.StubOutWithMock(utils, "generate_uuid")
+        utils.generate_uuid().MultipleTimes().AndReturn(fake_uuid)

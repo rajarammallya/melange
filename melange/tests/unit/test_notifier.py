@@ -34,7 +34,7 @@ class NotifierTestBase():
 
     def _setup_expected_message(self, priority, event,
                                  message):
-        self._setup_uuid_with("test_uuid")
+        self.setup_uuid_with("test_uuid")
         return {
             'event_type': event,
             'timestamp': str(utils.utcnow()),
@@ -43,10 +43,6 @@ class NotifierTestBase():
             'payload': message,
             'publisher_id': socket.gethostname(),
             }
-
-    def _setup_uuid_with(self, fake_uuid):
-        self.mock.StubOutWithMock(utils, "generate_uuid")
-        utils.generate_uuid().AndReturn(fake_uuid)
 
 
 class TestLoggingNotifier(tests.BaseTest, NotifierTestBase):

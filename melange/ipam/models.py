@@ -20,6 +20,7 @@
 import datetime
 import logging
 import netaddr
+import operator
 
 from melange import db
 from melange import ipv6
@@ -688,7 +689,8 @@ class MacAddressRange(ModelBase):
 
     @classmethod
     def allocate_next_free_mac(cls, **kwargs):
-        ranges = sorted(cls.find_all(), key=lambda model: model.created_at)
+        ranges = sorted(cls.find_all(),
+                        key=operator.attrgetter('created_at', 'id'))
         for range in ranges:
             try:
                 return range.allocate_mac(**kwargs)
@@ -956,9 +958,12 @@ class Network(ModelBase):
     @classmethod
     def find_by(cls, id, **conditions):
         ip_blocks = IpBlock.find_all(network_id=id, **conditions).all()
-        if len(ip_blocks) == 0:
+        sorted_blocks = sorted(ip_blocks,
+                               key=operator.attrgetter('created_at', 'id'))
+
+        if len(sorted_blocks) == 0:
             raise ModelNotFoundError(_("Network %s not found") % id)
-        return cls(id=id, ip_blocks=ip_blocks)
+        return cls(id=id, ip_blocks=sorted_blocks)
 
     @classmethod
     def find_or_create_by(cls, id, tenant_id):

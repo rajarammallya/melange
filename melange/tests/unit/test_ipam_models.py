@@ -1025,7 +1025,7 @@ class TestIpBlock(tests.BaseTest):
         self.assertModelsEqual(block1.ip_routes(), ip_routes)
 
     def test_ip_block_creation_is_notified(self):
-        _setup_uuid(self.mock, "ip_block_uuid")
+        self.setup_uuid_with("ip_block_uuid")
         creation_time = datetime.datetime(2050, 1, 1)
         mock_notifier = _setup_notifier(self.mock)
         mock_notifier.info("create IpBlock", dict(tenant_id="tnt_id",
@@ -1348,7 +1348,7 @@ class TestIpAddress(tests.BaseTest):
 
     def test_ip_addresss_creation_is_notified(self):
         block = factory_models.IpBlockFactory(cidr="10.1.1.1/24")
-        _setup_uuid(self.mock, "ip_address_uuid")
+        self.setup_uuid_with("ip_address_uuid")
         creation_time = datetime.datetime(2050, 1, 1)
         mock_notifier = _setup_notifier(self.mock)
         mock_notifier.info("create IpAddress", dict(used_by_tenant_id="tnt_id",
@@ -1486,6 +1486,7 @@ class TestMacAddressRange(tests.BaseTest):
         two_days_before = datetime.datetime.now() - datetime.timedelta(days=2)
         with unit.StubTime(time=two_days_before):
             factory_models.MacAddressRangeFactory(cidr="BC:76:4E:20:00:00/47")
+
         factory_models.MacAddressRangeFactory(cidr="BC:76:4E:30:00:00/40")
 
         mac1 = models.MacAddressRange.allocate_next_free_mac()
@@ -1501,6 +1502,36 @@ class TestMacAddressRange(tests.BaseTest):
                          netaddr.EUI("BC:76:4E:30:00:00"))
         self.assertEqual(netaddr.EUI(mac4.address),
                          netaddr.EUI("BC:76:4E:30:00:01"))
+
+    def test_allocate_next_free_mac_chooses_range_by_created_date_and_id(self):
+        self.mock.StubOutWithMock(utils, "generate_uuid")
+
+        def setup_range(cidr, uuid):
+            utils.generate_uuid().MultipleTimes().AndReturn(uuid)
+            self.mock.ReplayAll()
+            rng = factory_models.MacAddressRangeFactory(cidr=cidr)
+            self.mock.ResetAll()
+            return rng
+        today = datetime.datetime.now()
+        two_days_before = today - datetime.timedelta(days=2)
+        with unit.StubTime(time=two_days_before):
+            setup_range("BC:00:4E:20:00:00/47", 0)
+
+        three_days_before = today - datetime.timedelta(days=3)
+        with unit.StubTime(time=three_days_before):
+            rng_of_uuid_5 = setup_range("AC:76:4E:20:00:00/48", 5)
+            rng_of_uuid_2 = setup_range("BC:76:4E:20:00:00/48", 2)
+            rng_of_uuid_3 = setup_range("CC:76:4E:20:00:00/48", 3)
+            rng_of_uuid_1 = setup_range("DC:76:4E:20:00:00/48", 1)
+            rng_of_uuid_4 = setup_range("EC:76:4E:20:00:00/48", 4)
+        self.mock.UnsetStubs()
+
+        allocate_mac = models.MacAddressRange.allocate_next_free_mac
+        self.assertTrue(rng_of_uuid_1.contains(allocate_mac().address))
+        self.assertTrue(rng_of_uuid_2.contains(allocate_mac().address))
+        self.assertTrue(rng_of_uuid_3.contains(allocate_mac().address))
+        self.assertTrue(rng_of_uuid_4.contains(allocate_mac().address))
+        self.assertTrue(rng_of_uuid_5.contains(allocate_mac().address))
 
     def test_allocate_next_free_mac_raises_error_when_no_more_free_macs(self):
         factory_models.MacAddressRangeFactory(cidr="BC:76:4E:20:0:0/48")
@@ -1980,6 +2011,41 @@ class TestNetwork(tests.BaseTest):
         ip_address = models.IpAddress.find_by(ip_block_id=free_ip_block.id)
         self.assertEqual(allocated_ipv4, ip_address)
 
+    def test_picks_block_to_allocate_sorted_by_created_date_and_id(self):
+        interface = factory_models.InterfaceFactory(tenant_id="tenant_id")
+        self.mock.StubOutWithMock(utils, "generate_uuid")
+
+        def setup_block(cidr, uuid):
+            utils.generate_uuid().MultipleTimes().AndReturn(uuid)
+            self.mock.ReplayAll()
+            block = factory_models.IpBlockFactory(cidr=cidr,
+                                                  network_id="net",
+                                                  tenant_id="tenant_id")
+            self.mock.ResetAll()
+            return block
+        today = datetime.datetime.now()
+        two_days_before = today - datetime.timedelta(days=2)
+        with unit.StubTime(time=two_days_before):
+            setup_block("10.1.1.1/31", 0)
+
+        three_days_before = today - datetime.timedelta(days=3)
+        with unit.StubTime(time=three_days_before):
+            block_of_uuid_5 = setup_block("20.1.1.1/31", 5)
+            block_of_uuid_2 = setup_block("30.1.1.1/31", 2)
+            block_of_uuid_3 = setup_block("40.1.1.1/31", 3)
+            block_of_uuid_1 = setup_block("50.1.1.1/31", 1)
+            block_of_uuid_4 = setup_block("60.1.1.1/31", 4)
+        self.mock.UnsetStubs()
+
+        network = models.Network.find_by("net", tenant_id="tenant_id")
+        allocate_ip = lambda interface: network.allocate_ips(
+                                                interface=interface)[0].address
+        self.assertTrue(block_of_uuid_1.contains(allocate_ip(interface)))
+        self.assertTrue(block_of_uuid_2.contains(allocate_ip(interface)))
+        self.assertTrue(block_of_uuid_3.contains(allocate_ip(interface)))
+        self.assertTrue(block_of_uuid_4.contains(allocate_ip(interface)))
+        self.assertTrue(block_of_uuid_5.contains(allocate_ip(interface)))
+
     def test_allocate_ip_raises_error_when_all_ip_blocks_are_full(self):
         interface = factory_models.InterfaceFactory()
         full_ip_block = factory_models.PublicIpBlockFactory(network_id="1",
@@ -2053,7 +2119,7 @@ class TestNetwork(tests.BaseTest):
         self.assertTrue(models.IpAddress.get(ip1.id).marked_for_deallocation)
         self.assertTrue(models.IpAddress.get(ip2.id).marked_for_deallocation)
 
-    def test_retrives_allocated_ips(self):
+    def test_retrieves_allocated_ips(self):
         ip_block1 = factory_models.IpBlockFactory(network_id="1",
                                                   cidr="10.0.0.0/24")
         ip_block2 = factory_models.IpBlockFactory(network_id="1",
@@ -2458,8 +2524,3 @@ def _allocate_ip(block, interface=None, **kwargs):
 def _setup_notifier(mock):
         mock.StubOutClassWithMocks(notifier, "NoopNotifier")
         return notifier.NoopNotifier()
-
-
-def _setup_uuid(mock, uuid):
-        mock.StubOutWithMock(utils, "generate_uuid")
-        utils.generate_uuid().MultipleTimes().AndReturn(uuid)

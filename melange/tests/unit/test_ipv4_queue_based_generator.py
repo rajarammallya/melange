@@ -55,14 +55,12 @@ class TestQueueBasedIpGenerator(QueueTestsBase):
 
     def test_gets_next_ip_from_queue(self):
         block = factory_models.IpBlockFactory(cidr="10.0.0.0/28")
-        queue = self.connection.SimpleQueue("block.%s" % block.id,
-                                            no_ack=False)
         queue_based_ip_generator.IpPublisher(block).execute()
 
         generated_ip = queue_based_ip_generator.QueueBasedIpGenerator(
                 block).next_ip()
 
-        self.assertEqual("10.0.0.2", generated_ip)
+        self.assertEqual("10.0.0.0", generated_ip)
 
     def test_next_ip_returns_none_if_queue_population_is_not_completed(self):
         block = factory_models.IpBlockFactory(cidr="10.0.0.0/28")

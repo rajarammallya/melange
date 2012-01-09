@@ -47,7 +47,7 @@ ip_blocks = Table('ip_blocks', meta,
         Column('is_full', Boolean()),
         Column('policy_id', String(36), ForeignKey('policies.id')),
         Column('parent_id', String(36), ForeignKey('ip_blocks.id',
-                                                    ondelete="CASCADE")))
+                                                   ondelete="CASCADE")),
         Column('high_traffic', String(255)))
 
 

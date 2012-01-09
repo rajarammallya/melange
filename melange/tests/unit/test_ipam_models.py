@@ -1046,6 +1046,14 @@ class TestIpBlock(tests.BaseTest):
 
         block.delete()
 
+    def test_no_ips_allocated(self):
+        empty_block = factory_models.IpBlockFactory()
+        block = factory_models.IpBlockFactory()
+        block.allocate_ip(factory_models.InterfaceFactory())
+
+        self.assertTrue(empty_block.no_ips_allocated())
+        self.assertFalse(block.no_ips_allocated())
+
 
 class TestIpAddress(tests.BaseTest):
 

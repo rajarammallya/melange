@@ -58,5 +58,6 @@ class IpPublisher(object):
 def queue_not_ready(queue, block):
     return len(queue.queue) < len(block) and block.no_ips_allocated()
 
+
 def queue(block):
     return messaging.Queue("block.%s" % block.id, "ipv4_queue")

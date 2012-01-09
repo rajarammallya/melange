@@ -301,6 +301,9 @@ class IpBlock(ModelBase):
     def parent(self):
         return IpBlock.get(self.parent_id)
 
+    def no_ips_allocated(self):
+        return IpAddress.find_all(ip_block_id=self.id).count() == 0
+
     def allocate_ip(self, interface, address=None, **kwargs):
 
         if self.subnets():

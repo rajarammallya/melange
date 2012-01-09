@@ -19,5 +19,11 @@ from melange.common import utils
 
 
 def address_generator_factory(ip_block):
-    return utils.import_class(
-            "melange.ipv4.db_based_ip_generator.DbBasedIpGenerator")(ip_block)
+    if ip_block.high_traffic:
+        return utils.import_class(
+            "melange.ipv4.queue_based_ip_generator."
+            "QueueBasedIpGenerator")(ip_block)
+    else:
+        return utils.import_class(
+                "melange.ipv4.db_based_ip_generator."
+                "DbBasedIpGenerator")(ip_block)

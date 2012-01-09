@@ -37,18 +37,38 @@ class TestIpPublisher(QueueTestsBase):
 
     def test_pushes_ips_into_Q(self):
         block = factory_models.IpBlockFactory(cidr="10.0.0.0/28")
+
         queue_based_ip_generator.IpPublisher(block).execute()
-        queue = self.connection.SimpleQueue("block.%s" % block.id, no_ack=True)
+
+        queue = self.connection.SimpleQueue("block.%s_%s" % (block.id,
+                                                             block.cidr),
+                                            no_ack=True)
+        ips = self._get_all_queue_items(queue)
+        self.assertEqual(len(ips), 16)
+        self.assertItemsEqual(ips, [str(ip) for ip in
+                                    netaddr.IPNetwork("10.0.0.0/28")])
+
+    def test_purges_half_filled_queue_before_pushing_ips(self):
+        block = factory_models.IpBlockFactory(cidr="10.0.0.0/28")
+        queue = self.connection.SimpleQueue("block.%s_%s" % (block.id,
+                                                             block.cidr),
+                                            no_ack=True)
+        queue.put("ip before queue purge")
+
+        queue_based_ip_generator.IpPublisher(block).execute()
+
+        ips = self._get_all_queue_items(queue)
+        self.assertEqual(len(ips), len(netaddr.IPNetwork("10.0.0.0/28")))
+        self.assertTrue("ip before queue purge" not in ips)
+
+    def _get_all_queue_items(self, queue):
         ips = []
         try:
             while(True):
                 ips.append(queue.get(block=False).body)
         except Queue.Empty:
             pass
-
-        self.assertEqual(len(ips), 16)
-        self.assertItemsEqual(ips, [str(ip) for ip in
-                                    netaddr.IPNetwork("10.0.0.0/28")])
+        return ips
 
 
 class TestQueueBasedIpGenerator(QueueTestsBase):
@@ -64,8 +84,9 @@ class TestQueueBasedIpGenerator(QueueTestsBase):
 
     def test_next_ip_returns_none_if_queue_population_is_not_completed(self):
         block = factory_models.IpBlockFactory(cidr="10.0.0.0/28")
-        queue = self.connection.SimpleQueue("block.%s" % block.id,
-                                            no_ack=False)
+        queue = self.connection.SimpleQueue("block.%s_%s" % (block.id,
+                                                             block.cidr),
+                                            no_ack=True)
         queue.put(str("10.0.0.2"))
 
         generated_ip = queue_based_ip_generator.QueueBasedIpGenerator(
@@ -75,8 +96,9 @@ class TestQueueBasedIpGenerator(QueueTestsBase):
 
     def test_ip_removed_pushes_ip_on_queue(self):
         block = factory_models.IpBlockFactory(cidr="10.0.0.0/28")
-        queue = self.connection.SimpleQueue("block.%s" % block.id,
-                                            no_ack=False)
+        queue = self.connection.SimpleQueue("block.%s_%s" % (block.id,
+                                                             block.cidr),
+                                            no_ack=True)
         queue_based_ip_generator.QueueBasedIpGenerator(
                 block).ip_removed("10.0.0.4")
 
@@ -92,11 +114,18 @@ class TestQueueBasedIpGenerator(QueueTestsBase):
 
         queue_based_ip_generator.IpPublisher.publish_all()
 
-        queue1 = self.connection.SimpleQueue("block.%s"
-                                             % high_traffic_block1.id)
-        queue2 = self.connection.SimpleQueue("block.%s"
-                                             % high_traffic_block2.id)
-        queue3 = self.connection.SimpleQueue("block.%s" % normal_block3.id)
+        queue1 = self.connection.SimpleQueue("block.%s_%s" %
+                                             (high_traffic_block1.id,
+                                              high_traffic_block1.cidr),
+                                             no_ack=True)
+        queue2 = self.connection.SimpleQueue("block.%s_%s" %
+                                             (high_traffic_block2.id,
+                                              high_traffic_block2.cidr),
+                                             no_ack=True)
+        queue3 = self.connection.SimpleQueue("block.%s_%s" %
+                                             (normal_block3.id,
+                                              normal_block3.cidr),
+                                            no_ack=True)
 
         self.assertEqual(len(queue1), 16)
         self.assertEqual(len(queue2), 64)

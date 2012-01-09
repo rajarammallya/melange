@@ -50,6 +50,9 @@ class Queue(object):
     def close(self):
         self.conn.release()
 
+    def purge(self):
+        self.queue.queue.purge()
+
 
 def queue_connection_options(queue_class):
     queue_params = config.Config.get_params_group(queue_class)

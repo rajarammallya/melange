@@ -45,6 +45,7 @@ class IpPublisher(object):
         with queue(self.block) as q:
             if not queue_not_ready(q, self.block):
                 return
+            q.purge()
             ips = netaddr.IPNetwork(self.block.cidr)
             for ip in ips:
                 q.put(str(ip))
@@ -60,4 +61,5 @@ def queue_not_ready(queue, block):
 
 
 def queue(block):
-    return messaging.Queue("block.%s" % block.id, "ipv4_queue")
+    return messaging.Queue("block.%s_%s" % (block.id, block.cidr),
+                           "ipv4_queue")

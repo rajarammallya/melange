@@ -26,13 +26,13 @@ from melange.tests.unit import mock_generator
 class TestIpv6AddressGeneratorFactory(tests.BaseTest):
 
     def setUp(self):
-        self.mock_generatore_name = \
-            "melange.tests.unit.mock_generator.MockIpV6Generator"
+        self.mock_generator_name = ("melange.tests.unit."
+                                    "mock_generator.MockIpV6Generator")
         super(TestIpv6AddressGeneratorFactory, self).setUp()
 
     def test_loads_ipv6_generator_factory_from_config_file(self):
         args = dict(tenant_id="1", mac_address="00:11:22:33:44:55")
-        with unit.StubConfig(ipv6_generator=self.mock_generatore_name):
+        with unit.StubConfig(ipv6_generator=self.mock_generator_name):
             ip_generator = ipv6.address_generator_factory("fe::/64",
                                                                  **args)
 
@@ -53,7 +53,7 @@ class TestIpv6AddressGeneratorFactory(tests.BaseTest):
                           ipv6.address_generator_factory, "fe::/64")
 
     def test_does_not_raise_error_if_generator_does_not_require_params(self):
-        with unit.StubConfig(ipv6_generator=self.mock_generatore_name):
+        with unit.StubConfig(ipv6_generator=self.mock_generator_name):
             ip_generator = ipv6.address_generator_factory("fe::/64")
 
         self.assertIsNotNone(ip_generator)

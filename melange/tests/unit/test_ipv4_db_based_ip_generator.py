@@ -20,7 +20,7 @@ import netaddr
 from melange.common import exception
 from melange.ipam import models
 from melange import tests
-from melange.ipv4 import db_based_ip_generator as g
+from melange.ipv4.db_based_ip_generator import generator
 from melange.tests.factories import models as factory_models
 
 
@@ -31,7 +31,7 @@ class TestDbBasedIpGenerator(tests.BaseTest):
         factory_models.AllocatableIpFactory(ip_block_id=block.id,
                                             address="10.0.0.8")
 
-        address = g.DbBasedIpGenerator(block).next_ip()
+        address = generator.DbBasedIpGenerator(block).next_ip()
 
         self.assertEqual(address, "10.0.0.8")
 
@@ -40,7 +40,7 @@ class TestDbBasedIpGenerator(tests.BaseTest):
         block = factory_models.PrivateIpBlockFactory(
             cidr="10.0.0.0/24", allocatable_ip_counter=int(next_address))
 
-        address = g.DbBasedIpGenerator(block).next_ip()
+        address = generator.DbBasedIpGenerator(block).next_ip()
 
         self.assertEqual(address, "10.0.0.5")
         reloaded_counter = models.IpBlock.find(block.id).allocatable_ip_counter
@@ -53,7 +53,7 @@ class TestDbBasedIpGenerator(tests.BaseTest):
             cidr="10.0.0.0/29", allocatable_ip_counter=full_counter)
 
         self.assertRaises(exception.NoMoreAddressesError,
-                          g.DbBasedIpGenerator(block).next_ip)
+                          generator.DbBasedIpGenerator(block).next_ip)
 
     def test_next_ip_picks_from_allocatable_list_even_if_cntr_overflows(self):
         full_counter = int(netaddr.IPAddress("10.0.0.8"))
@@ -62,7 +62,7 @@ class TestDbBasedIpGenerator(tests.BaseTest):
         factory_models.AllocatableIpFactory(ip_block_id=block.id,
                                             address="10.0.0.4")
 
-        address = g.DbBasedIpGenerator(block).next_ip()
+        address = generator.DbBasedIpGenerator(block).next_ip()
 
         self.assertEqual(address, "10.0.0.4")
 
@@ -70,7 +70,7 @@ class TestDbBasedIpGenerator(tests.BaseTest):
         block = factory_models.PrivateIpBlockFactory(
             cidr="10.0.0.0/29")
 
-        g.DbBasedIpGenerator(block).ip_removed("10.0.0.2")
+        generator.DbBasedIpGenerator(block).ip_removed("10.0.0.2")
 
         allocatable_ip = models.AllocatableIp.get_by(address="10.0.0.2",
             ip_block_id=block.id)

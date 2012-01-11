@@ -14,12 +14,3 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
-import os
-
-import melange
-from melange.common import config
-
-__path__.append(os.path.abspath(os.path.join(melange.melange_root_path(),
-            config.Config.get("ipv4_generator",
-                              "ipv4/db_based_ip_generator/"))))

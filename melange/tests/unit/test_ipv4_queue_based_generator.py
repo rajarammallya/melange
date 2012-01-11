@@ -21,7 +21,7 @@ import netaddr
 
 from melange import tests
 from melange.common import messaging
-from melange.ipv4 import queue_based_ip_generator
+from melange.ipv4.queue_based_ip_generator import generator
 from melange.tests.factories import models as factory_models
 
 
@@ -38,7 +38,7 @@ class TestIpPublisher(QueueTestsBase):
     def test_pushes_ips_into_Q(self):
         block = factory_models.IpBlockFactory(cidr="10.0.0.0/28")
 
-        queue_based_ip_generator.IpPublisher(block).execute()
+        generator.IpPublisher(block).execute()
 
         queue = self.connection.SimpleQueue("block.%s_%s" % (block.id,
                                                              block.cidr),
@@ -55,7 +55,7 @@ class TestIpPublisher(QueueTestsBase):
                                             no_ack=True)
         queue.put("ip before queue purge")
 
-        queue_based_ip_generator.IpPublisher(block).execute()
+        generator.IpPublisher(block).execute()
 
         ips = self._get_all_queue_items(queue)
         self.assertEqual(len(ips), len(netaddr.IPNetwork("10.0.0.0/28")))
@@ -75,9 +75,9 @@ class TestQueueBasedIpGenerator(QueueTestsBase):
 
     def test_gets_next_ip_from_queue(self):
         block = factory_models.IpBlockFactory(cidr="10.0.0.0/28")
-        queue_based_ip_generator.IpPublisher(block).execute()
+        generator.IpPublisher(block).execute()
 
-        generated_ip = queue_based_ip_generator.QueueBasedIpGenerator(
+        generated_ip = generator.QueueBasedIpGenerator(
                 block).next_ip()
 
         self.assertEqual("10.0.0.0", generated_ip)
@@ -89,7 +89,7 @@ class TestQueueBasedIpGenerator(QueueTestsBase):
                                             no_ack=True)
         queue.put(str("10.0.0.2"))
 
-        generated_ip = queue_based_ip_generator.QueueBasedIpGenerator(
+        generated_ip = generator.QueueBasedIpGenerator(
                 block).next_ip()
 
         self.assertIsNone(generated_ip)
@@ -99,7 +99,7 @@ class TestQueueBasedIpGenerator(QueueTestsBase):
         queue = self.connection.SimpleQueue("block.%s_%s" % (block.id,
                                                              block.cidr),
                                             no_ack=True)
-        queue_based_ip_generator.QueueBasedIpGenerator(
+        generator.QueueBasedIpGenerator(
                 block).ip_removed("10.0.0.4")
 
         actual_ip_on_queue = queue.get(block=False).body
@@ -112,7 +112,7 @@ class TestQueueBasedIpGenerator(QueueTestsBase):
                                                             high_traffic=True)
         normal_block3 = factory_models.IpBlockFactory(cidr="30.0.0.0")
 
-        queue_based_ip_generator.IpPublisher.publish_all()
+        generator.IpPublisher.publish_all()
 
         queue1 = self.connection.SimpleQueue("block.%s_%s" %
                                              (high_traffic_block1.id,

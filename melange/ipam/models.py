@@ -24,7 +24,7 @@ import operator
 
 from melange import db
 from melange import ipv6
-from melange import ipv4
+from melange.ipv4 import generator as ipv4_generator
 from melange.common import config
 from melange.common import exception
 from melange.common import notifier
@@ -270,7 +270,7 @@ class IpBlock(ModelBase):
         return IpBlock.find_all(parent_id=self.id).all()
 
     def __len__(self):
-        return len(netaddr.IPNetwork(self.cidr))
+        return netaddr.IPNetwork(self.cidr).size
 
     def siblings(self):
         if not self.parent:
@@ -351,7 +351,7 @@ class IpBlock(ModelBase):
                            if self.does_address_exists(address) is False),
                            None)
         else:
-            generator = ipv4.address_generator_factory(self)
+            generator = ipv4_generator.get_generator(self)
             address = next((address for address in IpAddressIterator(generator)
                             if self._address_is_allocatable(self.policy(),
                                                             address)),
@@ -409,7 +409,7 @@ class IpBlock(ModelBase):
 
         for ip in db.db_api.find_deallocated_ips(
             deallocated_by=self._deallocated_by_date(), ip_block_id=self.id):
-            ipv4.address_generator_factory(self).ip_removed(ip.address)
+            ipv4_generator.get_generator(self).ip_removed(ip.address)
             ip.delete()
 
     def _deallocated_by_date(self):

@@ -1,3 +1,4 @@
+
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 
 # Copyright 2011 OpenStack LLC.
@@ -5,7 +6,7 @@
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
-#    a copy of the License at
+#    a copy db_based_ip_generator.of the License at
 #
 #         http://www.apache.org/licenses/LICENSE-2.0
 #
@@ -47,5 +48,9 @@ class DbBasedIpGenerator(object):
         return address
 
     def ip_removed(self, address):
-        models.AllocatableIp.create(ip_block_id=self.ip_block.id,
-                                    address=address)
+        ipam.models.AllocatableIp.create(ip_block_id=self.ip_block.id,
+                                         address=address)
+
+
+def get_generator(ip_block):
+    return DbBasedIpGenerator(ip_block)

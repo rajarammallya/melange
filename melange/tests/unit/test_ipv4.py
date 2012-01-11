@@ -17,9 +17,8 @@
 
 from melange import tests
 from melange.tests.factories import models as factory_models
-from melange import ipv4
-from melange.ipv4 import db_based_ip_generator as db_gen
-from melange.ipv4 import queue_based_ip_generator as queue_gen
+from melange.ipv4.db_based_ip_generator import generator as db_gen
+from melange.ipv4.queue_based_ip_generator import generator as queue_gen
 
 
 class TestAddressGeneratorFactory(tests.BaseTest):
@@ -27,15 +26,13 @@ class TestAddressGeneratorFactory(tests.BaseTest):
     def test_factory_returns_db_generator_for_normal_blocks(self):
         block = factory_models.IpBlockFactory()
 
-        actual_generator = ipv4.address_generator_factory(block)
-
-        self.assertEqual(db_gen.DbBasedIpGenerator,
-                         type(actual_generator))
+        actual_generator = db_gen.get_generator(block)
+        self.assertEqual(db_gen.DbBasedIpGenerator, type(actual_generator))
 
     def test_factory_returns_queue_generator_for_high_traffic_blocks(self):
         block = factory_models.IpBlockFactory(high_traffic=True)
 
-        actual_generator = ipv4.address_generator_factory(block)
+        actual_generator = queue_gen.get_generator(block)
 
         self.assertEqual(queue_gen.QueueBasedIpGenerator,
                          type(actual_generator))

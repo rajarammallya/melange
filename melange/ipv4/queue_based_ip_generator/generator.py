@@ -58,7 +58,7 @@ class IpPublisher(object):
 
 
 def queue_not_ready(queue, block):
-    return len(queue.queue) < len(block) and block.no_ips_allocated()
+    return len(queue.queue) < block.size() and block.no_ips_allocated()
 
 
 def queue(block):

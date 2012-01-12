@@ -196,9 +196,9 @@ class TestIpBlock(tests.BaseTest):
 
     def test_length_of_block(self):
         block = factory_models.IpBlockFactory
-        self.assertEqual(len(block(cidr="10.0.0.0/24")), 256)
-        self.assertEqual(len(block(cidr="20.0.0.0/31")), 2)
-        self.assertEqual(len(block(cidr="30.0.0.0/32")), 1)
+        self.assertEqual(block(cidr="10.0.0.0/24").size(), 256)
+        self.assertEqual(block(cidr="20.0.0.0/31").size(), 2)
+        self.assertEqual(block(cidr="30.0.0.0/32").size(), 1)
 
     def test_valid_cidr(self):
         factory = factory_models.PrivateIpBlockFactory

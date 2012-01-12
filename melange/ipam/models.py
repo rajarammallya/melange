@@ -269,7 +269,7 @@ class IpBlock(ModelBase):
     def subnets(self):
         return IpBlock.find_all(parent_id=self.id).all()
 
-    def __len__(self):
+    def size(self):
         return netaddr.IPNetwork(self.cidr).size
 
     def siblings(self):

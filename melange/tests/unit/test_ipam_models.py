@@ -16,11 +16,14 @@
 #    under the License.
 
 import datetime
+from kombu import connection as kombu_conn
 import mox
+import Queue
 import netaddr
 
 from melange import tests
 from melange.common import exception
+from melange.common import messaging
 from melange.common import notifier
 from melange.common import utils
 from melange.db import db_query
@@ -1460,16 +1463,6 @@ class TestMacAddressRange(tests.BaseTest):
         self.assertEqual(netaddr.EUI(mac_address2.address),
                          netaddr.EUI("BC:76:4E:00:00:01"))
 
-    def test_allocate_mac_address_updates_next_mac_address_field(self):
-        mac_range = factory_models.MacAddressRangeFactory(
-            cidr="BC:76:4E:40:00:00/27")
-
-        mac_range.allocate_mac()
-
-        updated_mac_range = models.MacAddressRange.get(mac_range.id)
-        self.assertEqual(netaddr.EUI(updated_mac_range.next_address),
-                         netaddr.EUI('BC:76:4E:40:00:01'))
-
     def test_allocate_mac_address_raises_no_more_addresses_error_if_full(self):
         rng = factory_models.MacAddressRangeFactory(cidr="BC:76:4E:20:0:0/48")
 
@@ -1611,13 +1604,6 @@ class TestMacAddressRange(tests.BaseTest):
             self.assertRaises(models.NoMoreMacAddressesError,
                               rng.allocate_mac)
 
-    def test_range_is_full(self):
-        rng = factory_models.MacAddressRangeFactory(cidr="BC:76:4E:20:0:0/48")
-        self.assertFalse(rng.is_full())
-
-        rng.allocate_mac()
-        self.assertTrue(rng.is_full())
-
     def test_mac_allocation_enabled_when_ranges_exist(self):
         factory_models.MacAddressRangeFactory(cidr="BC:76:4E:20:0:0/48")
 
@@ -1655,6 +1641,57 @@ class TestMacAddressRange(tests.BaseTest):
     def _mock_mac_creation(self):
         return models.MacAddress.create(address=mox.IgnoreArg(),
                                         mac_address_range_id=mox.IgnoreArg())
+
+
+class TestDbBasedMacGenerator(tests.BaseTest):
+
+    def test_range_is_full(self):
+        rng = factory_models.MacAddressRangeFactory(cidr="BC:76:4E:20:0:0/48")
+        mac_generator = models.DbBasedMacGenerator(rng)
+        self.assertFalse(mac_generator.is_full())
+
+        rng.allocate_mac()
+        self.assertTrue(mac_generator.is_full())
+
+    def test_allocate_mac_address_updates_next_mac_address_field(self):
+        mac_range = factory_models.MacAddressRangeFactory(
+            cidr="BC:76:4E:40:00:00/27")
+
+        models.DbBasedMacGenerator(mac_range).next_ip()
+
+        updated_mac_range = models.MacAddressRange.get(mac_range.id)
+        self.assertEqual(netaddr.EUI(updated_mac_range.next_address),
+                         netaddr.EUI('BC:76:4E:40:00:01'))
+
+class TestQueueBasedMacPublisher(tests.BaseTest):
+
+    def setUp(self):
+        super(TestQueueBasedMacPublisher, self).setUp()
+        self.connection = kombu_conn.BrokerConnection(
+            **messaging.queue_connection_options("mac_queue"))
+
+    def test_pushes_mac_addresses_into_queue(self):
+        mac_range = factory_models.MacAddressRangeFactory(
+            cidr="BC:76:4E:40:00:00/47")
+
+        models.MacPublisher(mac_range).execute()
+
+        queue = self.connection.SimpleQueue("mac.%s_%s", (mac_range.id,
+                                                          mac_range.cidr))
+
+        macs = self._get_all_queue_items(queue)
+        self.assertEqual(len(macs), 2)
+        self.assertItemsEqual(macs, ["BC:76:4E:40:00:00:00",
+                                     "BC:76:4E:40:00:00:01"])
+
+    def _get_all_queue_items(self, queue):
+        macs = []
+        try:
+            while(True):
+                macs.append(queue.get(block=False).body)
+        except Queue.Empty:
+            pass
+        return macs
 
 
 class TestMacAddress(tests.BaseTest):

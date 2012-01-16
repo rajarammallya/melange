@@ -707,12 +707,13 @@ class MacAddressRange(ModelBase):
         return cls.count() > 0
 
     def allocate_mac(self, **kwargs):
-        if self.is_full():
+        generator = DbBasedMacGenerator(self)
+        if generator.is_full():
             raise NoMoreMacAddressesError()
 
         max_retry_count = int(config.Config.get("mac_allocation_retries", 10))
         for retries in range(max_retry_count):
-            next_address = self._next_eligible_address()
+            next_address = generator.next_ip()
             try:
                 return MacAddress.create(address=next_address,
                                          mac_address_range_id=self.id,
@@ -720,7 +721,7 @@ class MacAddressRange(ModelBase):
             except exception.DBConstraintError as error:
                 LOG.debug("MAC allocation retry count:{0}".format(retries + 1))
                 LOG.exception(error)
-                if not self.contains(next_address + 1):
+                if generator.is_full():
                     raise NoMoreMacAddressesError()
 
         raise ConcurrentAllocationError(
@@ -728,39 +729,51 @@ class MacAddressRange(ModelBase):
 
     def contains(self, address):
         address = int(netaddr.EUI(address))
-        return (address >= self._first_address() and
-                address <= self._last_address())
-
-    def is_full(self):
-        return self._get_next_address() > self._last_address()
+        return (address >= self.first_address() and
+                address <= self.last_address())
 
     def length(self):
         base_address, slash, prefix_length = self.cidr.partition("/")
         prefix_length = int(prefix_length)
         return 2 ** (48 - prefix_length)
 
-    def _first_address(self):
+    def first_address(self):
         base_address, slash, prefix_length = self.cidr.partition("/")
         prefix_length = int(prefix_length)
         netmask = (2 ** prefix_length - 1) << (48 - prefix_length)
         base_address = netaddr.EUI(base_address)
         return int(netaddr.EUI(int(base_address) & netmask))
 
-    def _last_address(self):
-        return self._first_address() + self.length() - 1
+    def last_address(self):
+        return self.first_address() + self.length() - 1
 
-    def _next_eligible_address(self):
+
+class DbBasedMacGenerator():
+
+    def __init__(self, mac_range):
+        self.mac_range = mac_range
+
+    def next_ip(self):
         allocatable_address = db.db_api.pop_allocatable_address(
-                AllocatableMac, mac_address_range_id=self.id)
+                AllocatableMac, mac_address_range_id=self.mac_range.id)
         if allocatable_address is not None:
                 return allocatable_address
 
-        address = self._get_next_address()
-        self.update(next_address=address + 1)
+        address = self._next_eligible_address()
+        self.mac_range.update(next_address=address + 1)
         return address
 
-    def _get_next_address(self):
-        return self.next_address or self._first_address()
+    def _next_eligible_address(self):
+        return self.mac_range.next_address or self.mac_range.first_address()
+
+    def is_full(self):
+        return self._next_eligible_address() > self.mac_range.last_address()
+
+
+class QueueBasedMacGenerator():
+
+    def __init__(self, mac_range):
+        self.mac_range = mac_range
 
 
 class MacAddress(ModelBase):

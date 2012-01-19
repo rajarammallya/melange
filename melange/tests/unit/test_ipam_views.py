@@ -26,7 +26,7 @@ class TestIpConfigurationView(tests.BaseTest):
     def test_data_returns_block_ip_info(self):
         block1 = factory_models.IpBlockFactory()
         block2 = factory_models.IpBlockFactory()
-        interface = factory_models.InterfaceFactory(virtual_interface_id="123")
+        interface = factory_models.InterfaceFactory(vif_id_on_device="123")
         ip1 = factory_models.IpAddressFactory(ip_block_id=block1.id,
                                               interface_id=interface.id)
         ip2 = factory_models.IpAddressFactory(ip_block_id=block2.id,
@@ -41,7 +41,7 @@ class TestIpConfigurationView(tests.BaseTest):
 
     def test_data_returns_deallocated_ip_info(self):
         block = factory_models.IpBlockFactory()
-        interface = factory_models.InterfaceFactory(virtual_interface_id="123")
+        interface = factory_models.InterfaceFactory(vif_id_on_device="123")
         ip = factory_models.IpAddressFactory(ip_block_id=block.id,
                                               interface_id=interface.id)
         ip.deallocate()
@@ -53,7 +53,7 @@ class TestIpConfigurationView(tests.BaseTest):
 
     def test_data_returns_route_info(self):
         block = factory_models.IpBlockFactory()
-        interface = factory_models.InterfaceFactory(virtual_interface_id="123")
+        interface = factory_models.InterfaceFactory(vif_id_on_device="123")
         route1 = factory_models.IpRouteFactory(source_block_id=block.id)
         route2 = factory_models.IpRouteFactory(source_block_id=block.id)
         ip = factory_models.IpAddressFactory(ip_block_id=block.id,

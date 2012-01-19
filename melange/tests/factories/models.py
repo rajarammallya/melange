@@ -90,7 +90,7 @@ class PolicyFactory(factory.Factory):
 
 class InterfaceFactory(factory.Factory):
     FACTORY_FOR = models.Interface
-    virtual_interface_id = factory.LazyAttribute(lambda a:
+    vif_id_on_device = factory.LazyAttribute(lambda a:
                                                  utils.generate_uuid())
     device_id = "instance_id"
     tenant_id = "RAX"

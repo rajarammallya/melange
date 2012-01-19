@@ -138,12 +138,11 @@ mac_addresses = Table('mac_addresses', meta,
 
 interfaces = Table('interfaces', meta,
         Column('id', String(36), primary_key=True, nullable=False),
-        Column('virtual_interface_id', String(36), nullable=False),
+        Column('vif_id_on_device', String(36)),
         Column('device_id', String(36)),
         Column('tenant_id', String(36)),
         Column('created_at', DateTime()),
-        Column('updated_at', DateTime()),
-        UniqueConstraint('virtual_interface_id'))
+        Column('updated_at', DateTime()))
 
 allowed_ips = Table('allowed_ips', meta,
         Column('id', String(36), primary_key=True, nullable=False),

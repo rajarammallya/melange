@@ -384,12 +384,12 @@ class InterfaceIpAllocationsController(BaseController):
 
     def bulk_delete(self, request, network_id, interface_id, tenant_id):
         network = models.Network.find_by(id=network_id, tenant_id=tenant_id)
-        interface = models.Interface.find_by(virtual_interface_id=interface_id)
+        interface = models.Interface.find_by(vif_id_on_device=interface_id)
         network.deallocate_ips(interface_id=interface.id)
 
     def index(self, request, network_id, interface_id, tenant_id):
         network = models.Network.find_by(id=network_id, tenant_id=tenant_id)
-        interface = models.Interface.find_by(virtual_interface_id=interface_id)
+        interface = models.Interface.find_by(vif_id_on_device=interface_id)
         ips_on_interface = network.allocated_ips(interface_id=interface.id)
         ip_configuration_view = views.IpConfigurationView(*ips_on_interface)
         return dict(ip_addresses=ip_configuration_view.data())
@@ -416,9 +416,50 @@ class InterfacesController(BaseController, ShowAction, DeleteAction):
 
     def show(self, request, virtual_interface_id, tenant_id=None):
         interface = models.Interface.find_by(
-                virtual_interface_id=virtual_interface_id, tenant_id=tenant_id)
+                vif_id_on_device=virtual_interface_id,
+                tenant_id=tenant_id)
         view_data = views.InterfaceConfigurationView(interface).data()
         return dict(interface=view_data)
+
+    def delete(self, request, **kwargs):
+        kwargs['vif_id_on_device'] = kwargs.pop('virtual_interface_id', None)
+        self._model.find_by(**kwargs).delete()
+
+
+class InstanceInterfacesController(BaseController):
+
+    def update(self, request, device_id, body=None):
+        models.Interface.delete_by(device_id=device_id)
+
+        params = self._extract_required_params(body, 'instance')
+        tenant_id = params['tenant_id']
+        created_interfaces = []
+        for iface in params['interfaces']:
+
+            network_params = utils.stringify_keys(iface.pop('network', None))
+            interface = models.Interface.create_and_configure(
+                    device_id=device_id, tenant_id=tenant_id, **iface)
+
+            if network_params:
+                network = models.Network.find_or_create_by(
+                            network_params.pop('id'),
+                            network_params.pop('tenant_id'))
+                network.allocate_ips(interface=interface, **network_params)
+
+            view_data = views.InterfaceConfigurationView(interface).data()
+            created_interfaces.append(view_data)
+
+        return {'instance': {'interfaces': created_interfaces}}
+
+    def show(self, request, device_id):
+        interfaces = models.Interface.find_all(device_id=device_id)
+        view_data = [views.InterfaceConfigurationView(iface).data()
+                        for iface in interfaces]
+
+        return {'instance': {'interfaces': view_data}}
+
+    def delete(self, request, device_id):
+        models.Interface.delete_by(device_id=device_id)
 
 
 class MacAddressRangesController(BaseController, ShowAction, DeleteAction):
@@ -438,14 +479,16 @@ class MacAddressRangesController(BaseController, ShowAction, DeleteAction):
 class InterfaceAllowedIpsController(BaseController):
 
     def index(self, request, interface_id, tenant_id):
-        interface = models.Interface.find_by(virtual_interface_id=interface_id,
-                                             tenant_id=tenant_id)
+        interface = models.Interface.find_by(
+                        vif_id_on_device=interface_id,
+                        tenant_id=tenant_id)
         return dict(ip_addresses=[ip.data() for ip in interface.ips_allowed()])
 
     def create(self, request, interface_id, tenant_id, body=None):
         params = self._extract_required_params(body, 'allowed_ip')
         interface = models.Interface.find_by(
-            virtual_interface_id=interface_id, tenant_id=tenant_id)
+                        vif_id_on_device=interface_id,
+                        tenant_id=tenant_id)
         network = models.Network.find_by(id=params['network_id'])
         ip = network.find_allocated_ip(address=params['ip_address'],
                                        used_by_tenant_id=tenant_id)
@@ -454,13 +497,14 @@ class InterfaceAllowedIpsController(BaseController):
 
     def show(self, request, interface_id, tenant_id, address):
         interface = models.Interface.find_by(
-            virtual_interface_id=interface_id, tenant_id=tenant_id)
+                        vif_id_on_device=interface_id,
+                        tenant_id=tenant_id)
         ip = interface.find_allowed_ip(address)
         return dict(ip_address=ip.data())
 
     def delete(self, request, interface_id, tenant_id, address):
         interface = models.Interface.find_by(
-            virtual_interface_id=interface_id, tenant_id=tenant_id)
+            vif_id_on_device=interface_id, tenant_id=tenant_id)
         ip = interface.find_allowed_ip(address)
         interface.disallow_ip(ip)
 
@@ -483,6 +527,7 @@ class API(wsgi.Router):
         self._allocated_ips_mapper(mapper)
         self._ip_routes_mapper(mapper)
         self._interface_mapper(mapper)
+        self._instance_interface_mapper(mapper)
         self._mac_address_range_mapper(mapper)
 
     def _allocated_ips_mapper(self, mapper):
@@ -536,6 +581,24 @@ class API(wsgi.Router):
                         controller=interface_allowed_ips.create_resource(),
                         path_prefix=("/ipam/tenants/{tenant_id}/"
                                      "interfaces/{interface_id}"))
+
+    def _instance_interface_mapper(self, mapper):
+        res = InstanceInterfacesController().create_resource()
+        self._connect(mapper,
+                      "/ipam/instances/{device_id}/interfaces",
+                      controller=res,
+                      action="update",
+                      conditions=dict(method=['PUT']))
+        self._connect(mapper,
+                      "/ipam/instances/{device_id}/interfaces",
+                      controller=res,
+                      action="show",
+                      conditions=dict(method=['GET']))
+        self._connect(mapper,
+                      "/ipam/instances/{device_id}/interfaces",
+                      controller=res,
+                      action="delete",
+                      conditions=dict(method=['DELETE']))
 
     def _mac_address_range_mapper(self, mapper):
         range_res = MacAddressRangesController().create_resource()

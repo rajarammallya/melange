@@ -657,7 +657,7 @@ class TestIpBlock(tests.BaseTest):
         net2_block = factory_models.IpBlockFactory(network_id="2")
 
         expected_error_msg = ("Interface %s is configured on another network"
-                              % iface_with_net1.virtual_interface_id)
+                              % iface_with_net1.vif_id_on_device)
 
         self.assertRaisesExcMessage(models.IpAllocationNotAllowedError,
                                     expected_error_msg,
@@ -1256,7 +1256,7 @@ class TestIpAddress(tests.BaseTest):
         self.assertEqual(data['version'], ip.version)
         self.assertEqual(data['used_by_tenant'], interface.tenant_id)
         self.assertEqual(data['used_by_device'], interface.device_id)
-        self.assertEqual(data['interface_id'], interface.virtual_interface_id)
+        self.assertEqual(data['interface_id'], interface.vif_id_on_device)
         self.assertEqual(data['created_at'], ip.created_at)
         self.assertEqual(data['updated_at'], ip.updated_at)
 
@@ -1314,14 +1314,14 @@ class TestIpAddress(tests.BaseTest):
         self.assertEqual(ipv6.version, 6)
 
     def test_retrieves_interface(self):
-        interface = factory_models.InterfaceFactory(virtual_interface_id="112")
+        interface = factory_models.InterfaceFactory(vif_id_on_device="112")
         ip = factory_models.IpAddressFactory(interface_id=interface.id)
 
         self.assertEqual(ip.interface, interface)
         self.assertEqual(ip.interface.virtual_interface_id, "112")
 
-    def test_virtual_interface_id(self):
-        interface = factory_models.InterfaceFactory(virtual_interface_id="112")
+    def test_vif_id_on_device(self):
+        interface = factory_models.InterfaceFactory(vif_id_on_device="112")
         ip = factory_models.IpAddressFactory(interface_id=interface.id)
 
         self.assertEqual(ip.virtual_interface_id, "112")
@@ -2195,7 +2195,7 @@ class TestInterface(tests.BaseTest):
 
     def test_find_or_configure_finds_existing_interface(self):
         existing_interface = factory_models.InterfaceFactory(
-            virtual_interface_id="11234",
+            vif_id_on_device="11234",
             device_id="huge_instance",
             tenant_id="tnt")
 
@@ -2208,7 +2208,7 @@ class TestInterface(tests.BaseTest):
 
     def test_find_or_configure_finds_without_device_id(self):
         existing_interface = factory_models.InterfaceFactory(
-            virtual_interface_id="11234",
+            vif_id_on_device="11234",
             device_id="huge_instance",
             tenant_id="tnt")
 
@@ -2220,7 +2220,7 @@ class TestInterface(tests.BaseTest):
 
     def test_find_or_configure_fails_if_vif_exists_for_another_tenant(self):
         existing_interface = factory_models.InterfaceFactory(
-            virtual_interface_id="vif", device_id="device", tenant_id="tnt1")
+            vif_id_on_device="vif", device_id="device", tenant_id="tnt1")
 
         self.assertRaises(models.InvalidModelError,
                           models.Interface.find_or_configure,
@@ -2236,7 +2236,7 @@ class TestInterface(tests.BaseTest):
 
         created_interface = models.Interface.find_by(id=interface.id)
         self.assertEqual(interface, created_interface)
-        self.assertEqual(created_interface.virtual_interface_id,
+        self.assertEqual(created_interface.vif_id_on_device,
                          "new_interface")
         self.assertEqual(created_interface.device_id, "huge_instance")
         self.assertEqual(created_interface.tenant_id, "tenant")
@@ -2270,19 +2270,11 @@ class TestInterface(tests.BaseTest):
 
         self.assertIsNone(models.MacAddress.get_by(interface_id=interface.id))
 
-    def test_validate_presence_of_virtual_interface_id(self):
-        interface = factory_models.InterfaceFactory.build(
-            virtual_interface_id=None)
-
-        self.assertFalse(interface.is_valid())
-        self.assertEqual(interface.errors['virtual_interface_id'],
-                         ["virtual_interface_id should be present"])
-
     def test_validate_virtual_interface_id_is_unique(self):
-        factory_models.InterfaceFactory(virtual_interface_id="iface_id")
+        factory_models.InterfaceFactory(vif_id_on_device="iface_id")
 
         dup_iface = factory_models.InterfaceFactory.build(
-            virtual_interface_id="iface_id")
+            vif_id_on_device="iface_id")
 
         self.assertFalse(dup_iface.is_valid())
         self.assertEqual(dup_iface.errors['virtual_interface_id'],
@@ -2373,6 +2365,21 @@ class TestInterface(tests.BaseTest):
         net1_block.allocate_ip(interface)
 
         self.assertEqual(interface.plugged_in_network_id(), "net1")
+
+    def test_delete_by(self):
+        interface1 = factory_models.InterfaceFactory(device_id="instance1")
+        net1_block = factory_models.IpBlockFactory(network_id="net1")
+        iface1_ip = net1_block.allocate_ip(interface1)
+        interface2 = factory_models.InterfaceFactory(device_id="instance1")
+        interface3 = factory_models.InterfaceFactory(device_id="instance1")
+        noise_interface = factory_models.InterfaceFactory(device_id="ins")
+
+        models.Interface.delete_by(device_id="instance1")
+
+        [self.assertIsNone(models.Interface.get(iface.id)) for iface in
+                    [interface1, interface2, interface3]]
+        self.assertTrue(models.IpAddress.get(
+                                iface1_ip.id).marked_for_deallocation)
 
 
 class TestAllowedIp(tests.BaseTest):
@@ -2504,7 +2511,7 @@ class TestAllowedIp(tests.BaseTest):
 
     def test_find_allowed_ip_raises_model_not_found(self):
         interface = factory_models.InterfaceFactory(
-            virtual_interface_id="vif_1")
+            vif_id_on_device="vif_1")
         self._plug_interface_into_network("AAA", interface)
         ip1 = self._ip_on_network("AAA")
         ip2 = self._ip_on_network("AAA")
@@ -2520,7 +2527,7 @@ class TestAllowedIp(tests.BaseTest):
 
     def test_cannot_allow_ip_when_interface_is_pluged_into_other_network(self):
         interface_plugged_into_net1 = factory_models.InterfaceFactory(
-            virtual_interface_id="viffy")
+            vif_id_on_device="viffy")
         net1_block = factory_models.IpBlockFactory(network_id="1")
         net1_ip = net1_block.allocate_ip(interface_plugged_into_net1)
         net2_block = factory_models.IpBlockFactory(network_id="2")
@@ -2536,7 +2543,7 @@ class TestAllowedIp(tests.BaseTest):
 
     def test_cannot_allow_ip_if_interface_isnt_plugged_into_any_network(self):
         unplugged_interface = factory_models.InterfaceFactory(
-            virtual_interface_id="vif_id")
+            vif_id_on_device="vif_id")
         ip = factory_models.IpAddressFactory()
 
         err_msg = ("Ip %s cannot be allowed on interface vif_id "

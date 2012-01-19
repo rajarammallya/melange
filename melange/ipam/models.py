@@ -794,19 +794,20 @@ class Interface(ModelBase):
     @classmethod
     def find_or_configure(cls, virtual_interface_id=None, device_id=None,
                           tenant_id=None, mac_address=None):
-        interface = Interface.get_by(virtual_interface_id=virtual_interface_id,
+        interface = Interface.get_by(vif_id_on_device=virtual_interface_id,
                                      tenant_id=tenant_id)
         if interface:
             return interface
 
         return cls.create_and_configure(virtual_interface_id,
                                         device_id,
-                                        tenant_id, mac_address)
+                                        tenant_id,
+                                        mac_address)
 
     @classmethod
     def create_and_configure(cls, virtual_interface_id=None, device_id=None,
                              tenant_id=None, mac_address=None):
-        interface = Interface.create(virtual_interface_id=virtual_interface_id,
+        interface = Interface.create(vif_id_on_device=virtual_interface_id,
                                      device_id=device_id,
                                      tenant_id=tenant_id)
         if mac_address:
@@ -886,16 +887,28 @@ class Interface(ModelBase):
             return self.mac_address.eui_format
 
     def _validate(self):
-        self._validate_presence_of('virtual_interface_id', 'tenant_id')
+        self._validate_presence_of("tenant_id")
         self._validate_uniqueness_of_virtual_interface_id()
 
     def _validate_uniqueness_of_virtual_interface_id(self):
+        if self.vif_id_on_device is None:
+            return
         existing_interface = self.get_by(
-            virtual_interface_id=self.virtual_interface_id)
+            vif_id_on_device=self.vif_id_on_device)
         if existing_interface and self != existing_interface:
             msg = ("Virtual Interface %s already exists")
             self._add_error('virtual_interface_id',
                             msg % self.virtual_interface_id)
+
+    @property
+    def virtual_interface_id(self):
+        return self.vif_id_on_device or self.id
+
+    @classmethod
+    def delete_by(self, **kwargs):
+        ifaces = Interface.find_all(**kwargs)
+        for iface in ifaces:
+            iface.delete()
 
 
 class Policy(ModelBase):

@@ -16,7 +16,12 @@
 #    under the License.
 
 import gettext
+import pkgutil
 import os
+
+
+__path__ = pkgutil.extend_path(__path__, __name__)
+
 
 gettext.install('melange', unicode=1)
 

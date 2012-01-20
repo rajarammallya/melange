@@ -1631,6 +1631,14 @@ class TestMacAddressRange(tests.BaseTest):
     def test_mac_allocation_disabled_when_no_ranges_exist(self):
         self.assertFalse(models.MacAddressRange.mac_allocation_enabled())
 
+    def test_deallocated_macs_are_allocated_again(self):
+        rng = factory_models.MacAddressRangeFactory(cidr="BC:76:4E:20:0:0/40")
+        mac = rng.allocate_mac()
+
+        mac.delete()
+
+        self.assertEqual(rng.allocate_mac().address, mac.address)
+
     def test_contains_mac_address(self):
         rng = factory_models.MacAddressRangeFactory(cidr="BC:76:4E:20:0:0/40")
 
@@ -1681,6 +1689,17 @@ class TestMacAddress(tests.BaseTest):
         self.assertFalse(mac.is_valid())
         self.assertEqual(mac.errors['address'],
                          ["address does not belong to range"])
+
+    def test_delete_pushes_mac_address_on_allocatable_mac_list(self):
+        rng = factory_models.MacAddressRangeFactory(cidr="BC:76:4E:20:0:0/40")
+        mac = rng.allocate_mac()
+
+        mac.delete()
+
+        self.assertIsNone(models.MacAddress.get(mac.id))
+        allocatable_mac = models.AllocatableMac.get_by(
+                                mac_address_range_id=rng.id)
+        self.assertEqual(mac.address, allocatable_mac.address)
 
 
 class TestPolicy(tests.BaseTest):

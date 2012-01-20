@@ -185,14 +185,14 @@ def find_all_allocated_ips(model, used_by_device=None, used_by_tenant=None,
     return query
 
 
-def pop_allocatable_address(**conditions):
-    ip = _query_by(ipam.models.AllocatableIp, **conditions).\
-         with_lockmode('update').first()
-    if not ip:
+def pop_allocatable_address(address_model, **conditions):
+    address_rec = _query_by(address_model, **conditions).\
+                     with_lockmode('update').first()
+    if not address_rec:
         return None
 
-    delete(ip)
-    return ip.address
+    delete(address_rec)
+    return address_rec.address
 
 
 def save_allowed_ip(interface_id, ip_address_id):

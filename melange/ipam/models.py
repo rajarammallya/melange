@@ -707,19 +707,16 @@ class MacAddressRange(ModelBase):
             raise NoMoreMacAddressesError()
 
         max_retry_count = int(config.Config.get("mac_allocation_retries", 10))
-        next_address = self._next_eligible_address()
         for retries in range(max_retry_count):
+            next_address = self._next_eligible_address()
             try:
-                mac = MacAddress.create(address=next_address,
-                                        mac_address_range_id=self.id,
-                                        **kwargs)
-                self.update(next_address=next_address + 1)
-                return mac
+                return MacAddress.create(address=next_address,
+                                         mac_address_range_id=self.id,
+                                         **kwargs)
             except exception.DBConstraintError as error:
                 LOG.debug("MAC allocation retry count:{0}".format(retries + 1))
                 LOG.exception(error)
-                next_address = next_address + 1
-                if not self.contains(next_address):
+                if not self.contains(next_address + 1):
                     raise NoMoreMacAddressesError()
 
         raise ConcurrentAllocationError(
@@ -731,7 +728,7 @@ class MacAddressRange(ModelBase):
                 address <= self._last_address())
 
     def is_full(self):
-        return self._next_eligible_address() > self._last_address()
+        return self._get_next_address() > self._last_address()
 
     def length(self):
         base_address, slash, prefix_length = self.cidr.partition("/")
@@ -749,6 +746,16 @@ class MacAddressRange(ModelBase):
         return self._first_address() + self.length() - 1
 
     def _next_eligible_address(self):
+        allocatable_address = db.db_api.pop_allocatable_address(
+                AllocatableMac, mac_address_range_id=self.id)
+        if allocatable_address is not None:
+                return allocatable_address
+
+        address = self._get_next_address()
+        self.update(next_address=address + 1)
+        return address
+
+    def _get_next_address(self):
         return self.next_address or self._first_address()
 
 
@@ -769,6 +776,15 @@ class MacAddress(ModelBase):
 
     def _validate(self):
         self._validate_belongs_to_mac_address_range()
+
+    def delete(self):
+        AllocatableMac.create(mac_address_range_id=self.mac_address_range_id,
+                              address=self.address)
+        super(MacAddress, self).delete()
+
+
+class AllocatableMac(ModelBase):
+    pass
 
 
 class Interface(ModelBase):
@@ -1047,6 +1063,7 @@ def persisted_models():
         'MacAddressRange': MacAddressRange,
         'MacAddress': MacAddress,
         'Interface': Interface,
+        'AllocatableMac': AllocatableMac
         }
 
 

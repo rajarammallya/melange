@@ -19,6 +19,7 @@ import netaddr
 
 from melange.common import exception
 from melange.db import db_api
+from melange import ipam
 
 
 class DbBasedIpGenerator(object):
@@ -28,7 +29,7 @@ class DbBasedIpGenerator(object):
 
     def next_ip(self):
         allocatable_address = db_api.pop_allocatable_address(
-            ip_block_id=self.ip_block.id)
+             ipam.models.AllocatableIp, ip_block_id=self.ip_block.id)
 
         if allocatable_address is not None:
                 return allocatable_address

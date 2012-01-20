@@ -1,5 +1,6 @@
 # Running Melange App
 >cd <melange_root>
+>sudo pip install -r tools/pip-requires
 >cp etc/melange/melange.conf.sample  ~/melange.conf
 >bin/melange-manage db_sync
 >bin/melange

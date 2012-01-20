@@ -2176,15 +2176,17 @@ class TestInterface(tests.BaseTest):
 
         self.assertEqual(existing_interface, interface_found)
 
-    def test_find_or_configure_fails_if_vif_exists_for_another_device(self):
+    def test_find_or_configure_finds_without_device_id(self):
         existing_interface = factory_models.InterfaceFactory(
-            virtual_interface_id="vif", device_id="device1", tenant_id="tnt")
+            virtual_interface_id="11234",
+            device_id="huge_instance",
+            tenant_id="tnt")
 
-        self.assertRaises(models.InvalidModelError,
-                          models.Interface.find_or_configure,
-                          virtual_interface_id="vif",
-                          device_id="device2",
-                          tenant_id="tnt")
+        interface_found = models.Interface.find_or_configure(
+            virtual_interface_id="11234",
+            tenant_id="tnt")
+
+        self.assertEqual(existing_interface, interface_found)
 
     def test_find_or_configure_fails_if_vif_exists_for_another_tenant(self):
         existing_interface = factory_models.InterfaceFactory(

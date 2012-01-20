@@ -779,7 +779,6 @@ class Interface(ModelBase):
     def find_or_configure(cls, virtual_interface_id=None, device_id=None,
                           tenant_id=None, mac_address=None):
         interface = Interface.get_by(virtual_interface_id=virtual_interface_id,
-                                     device_id=device_id,
                                      tenant_id=tenant_id)
         if interface:
             return interface

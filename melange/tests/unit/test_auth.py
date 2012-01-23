@@ -15,11 +15,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import httplib2
-import json
-import mox
 import routes
-import urlparse
 import webob
 import webob.exc
 
@@ -157,54 +153,3 @@ class TestTenantBasedAuth(tests.BaseTest):
         self.assertTrue(self.auth_provider.authorize(request,
                                                      tenant_id="1",
                                                      roles=["Admin"]))
-
-
-class TestKeyStoneClient(tests.BaseTest):
-
-    def test_get_token_doesnot_call_auth_service_when_token_is_given(self):
-        url = "http://localhost:5001"
-        client = auth.KeystoneClient(url, "username", "access_key",
-                                     "auth_token")
-        self.mock.StubOutWithMock(client, "request")
-
-        self.assertEqual(client.get_token(), "auth_token")
-
-    def test_get_token_calls_auth_service_when_token_is_not_given(self):
-        url = "http://localhost:5001"
-        client = auth.KeystoneClient(url, "username", "access_key",
-                                     auth_token=None)
-
-        self.mock.StubOutWithMock(client, "request")
-        request_body = json.dumps({
-            "passwordCredentials": {
-                "username": "username",
-                'password': "access_key"},
-            })
-
-        response_body = json.dumps({'auth': {'token': {'id': "auth_token"}}})
-        res = httplib2.Response(dict(status='200'))
-        client.request(urlparse.urljoin(url, "/v2.0/tokens"),
-                       "POST",
-                       headers=mox.IgnoreArg(),
-                       body=request_body).AndReturn((res, response_body))
-
-        self.mock.ReplayAll()
-        self.assertEqual(client.get_token(), "auth_token")
-
-    def test_raises_error_when_retreiveing_token_fails(self):
-        url = "http://localhost:5001"
-        client = auth.KeystoneClient(url, None, "access_key", auth_token=None)
-        self.mock.StubOutWithMock(client, "request")
-        res = httplib2.Response(dict(status='401'))
-        response_body = "Failed to get token"
-        client.request(urlparse.urljoin(url, "/v2.0/tokens"),
-                       "POST",
-                       headers=mox.IgnoreArg(),
-                       body=mox.IgnoreArg()).AndReturn((res, response_body))
-
-        self.mock.ReplayAll()
-        expected_error_msg = ("Error occured while retrieving token :"
-                              " Failed to get token")
-        self.assertRaisesExcMessage(Exception,
-                                    expected_error_msg,
-                                    client.get_token)

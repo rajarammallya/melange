@@ -57,27 +57,3 @@ class TenantBasedAuth(object):
             return True
         raise exc.HTTPForbidden(_("User with tenant id %s cannot access "
                                   "this resource") % tenant_id)
-
-
-class KeystoneClient(httplib2.Http):
-
-    def __init__(self, url, username, access_key, auth_token=None):
-        super(KeystoneClient, self).__init__()
-        self.url = urlparse.urljoin(url, "/v2.0/tokens")
-        self.username = username
-        self.access_key = access_key
-        self.auth_token = auth_token
-
-    def get_token(self):
-        if self.auth_token:
-            return self.auth_token
-        headers = {'content-type': 'application/json'}
-        request_body = json.dumps({"passwordCredentials":
-                                       {"username": self.username,
-                                        'password': self.access_key}})
-        res, body = self.request(self.url, "POST", headers=headers,
-                                 body=request_body)
-        if int(res.status) >= 400:
-            raise Exception(_("Error occured while retrieving token : %s")
-                              % body)
-        return json.loads(body)['auth']['token']['id']

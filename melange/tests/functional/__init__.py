@@ -16,16 +16,11 @@
 #    under the License.
 
 import os
-import socket
 import subprocess
 
 import melange
 from melange.common import config
 from melange.db import db_api
-from melange.tests.functional import server
-
-
-_PORT = None
 
 
 def test_config_file():
@@ -33,12 +28,8 @@ def test_config_file():
 
 
 def setup():
-    print "Restarting melange server..."
-    srv = server.Server("melange",
-                         melange.melange_bin_path('melange'), )
     options = dict(config_file=test_config_file())
     _db_sync(options)
-    srv.restart(port=setup_unused_port(), **options)
     _configure_db(options)
 
 
@@ -51,11 +42,6 @@ def _db_sync(options):
     conf = config.Config.load_paste_config("melange", options, None)
     db_api.drop_db(conf)
     db_api.db_sync(conf)
-
-
-def teardown():
-    print "Stopping melange server..."
-    server.Server("melange", melange.melange_bin_path('melange')).stop()
 
 
 def execute(cmd, raise_error=True):
@@ -91,22 +77,3 @@ def execute(cmd, raise_error=True):
               "\n\nSTDERR: %(err)s" % locals()
         raise RuntimeError(msg)
     return exitcode, out, err
-
-
-def get_unused_port():
-    """Returns an unused port on localhost."""
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.bind(('localhost', 0))
-    addr, port = s.getsockname()
-    s.close()
-    return port
-
-
-def setup_unused_port():
-    global _PORT
-    _PORT = get_unused_port()
-    return _PORT
-
-
-def get_api_port():
-    return _PORT

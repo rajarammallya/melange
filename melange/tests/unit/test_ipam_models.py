@@ -1999,6 +1999,17 @@ class TestNetwork(tests.BaseTest):
         self.assertEqual(network.ip_blocks[0].network_id, '1')
         self.assertEqual(network.ip_blocks[0].type, 'private')
 
+    def test_find_or_create_raises_err_if_no_default_cidr_and_net_blocks(self):
+        noise_ip_block = factory_models.PublicIpBlockFactory(network_id="9999",
+                                                             tenant_id="tnt")
+
+        with unit.StubConfig(default_cidr=None):
+            self.assertRaisesExcMessage(models.ModelNotFoundError,
+                                        "Network 100 not found",
+                                        models.Network.find_or_create_by,
+                                        id="100",
+                                        tenant_id="tnt")
+
     def test_allocate_ip_to_allocate_both_ipv4_and_ipv6_addresses(self):
         ipv4_block = factory_models.PublicIpBlockFactory(network_id="1",
                                                          cidr="10.0.0.0/24",

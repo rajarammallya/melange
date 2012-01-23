@@ -470,6 +470,9 @@ class TestInterfaceCLI(tests.BaseTest):
 
     def test_create(self):
         factory_models.MacAddressRangeFactory()
+        factory_models.IpBlockFactory(network_id="network_id",
+                                      tenant_id="tenant_id")
+
         exitcode, out, err = run("interface create vif_id=vif_id "
                                  "tenant_id=tenant_id "
                                  "device_id=device_id "

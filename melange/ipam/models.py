@@ -985,7 +985,11 @@ class Network(ModelBase):
         try:
             return cls.find_by(id=id, tenant_id=tenant_id)
         except ModelNotFoundError:
-            ip_block = IpBlock.create(cidr=config.Config.get('default_cidr'),
+            default_cidr = config.Config.get('default_cidr', None)
+            if not default_cidr:
+                raise ModelNotFoundError(_("Network %s not found") % id)
+
+            ip_block = IpBlock.create(cidr=default_cidr,
                                       network_id=id,
                                       tenant_id=tenant_id,
                                       type=IpBlock.PRIVATE_TYPE)

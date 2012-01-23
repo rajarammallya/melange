@@ -33,10 +33,11 @@ db_api_implementation = "melange.db.sqlalchemy.api"
 # Path to the extensions
 api_extensions_path = melange/extensions
 
-# Cidr used for auto creating private ip block in a network
-default_cidr = 10.0.0.0/24
+# Cidr for auto creating first ip block in a network
+# If unspecified, auto creating is turned off
+# default_cidr = 10.0.0.0/24
 
-#IPV6 Generator Factory
+#IPV6 Generator Factory, defaults to rfc2462
 #ipv6_generator=melange.ipv6.tenant_based_generator.TenantBasedIpV6Generator
 
 #DNS info for a data_center

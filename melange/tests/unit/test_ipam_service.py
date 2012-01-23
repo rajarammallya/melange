@@ -1966,6 +1966,9 @@ class TestInterfaceIpAllocationsController(ControllerTestBase):
         self.assertEqual(interface.virtual_interface_id, "123")
 
     def test_create_makes_network_owner_the_interface_owner_by_default(self):
+        network_1_block = factory_models.IpBlockFactory(tenant_id="tnt_id",
+                                                        network_id="1")
+
         path = "/ipam/tenants/tnt_id/networks/1/interfaces/123/ip_allocations"
         response = self.app.post_json(path)
 
@@ -2049,14 +2052,15 @@ class TestInterfaceIpAllocationsController(ControllerTestBase):
                          response.json['ip_addresses'])
 
     def test_create_when_network_not_found_creates_default_cidr_block(self):
-        response = self.app.post("/ipam/tenants/tnt_id/networks/1"
-                                 "/interfaces/123/ip_allocations")
+        with unit.StubConfig(default_cidr="10.0.0.0/24"):
+            response = self.app.post("/ipam/tenants/tnt_id/networks/1"
+                                     "/interfaces/123/ip_allocations")
 
         self.assertEqual(response.status_int, 201)
         ip_address_json = response.json['ip_addresses'][0]
         created_block = models.IpAddress.find(ip_address_json['id']).ip_block
         self.assertEqual(created_block.network_id, "1")
-        self.assertEqual(created_block.cidr, config.Config.get('default_cidr'))
+        self.assertEqual(created_block.cidr, "10.0.0.0/24")
         self.assertEqual(created_block.type, "private")
         self.assertEqual(created_block.tenant_id, "tnt_id")
 
@@ -2217,20 +2221,21 @@ class TestInterfacesController(ControllerTestBase):
         self.assertEquals(ipv6_address.interface_id, created_interface.id)
 
     def test_create_when_network_not_found_creates_default_cidr_block(self):
-        self.app.post_json("/ipam/interfaces",
-                           {'interface': {
-                               'id': "virt_iface",
-                               'device_id': "instance",
-                               'tenant_id': "tnt_id",
-                               'network': {'id': "net1"},
-                               }
-                            })
-        interface = models.Interface.find_by(virtual_interface_id='virt_iface')
+        with unit.StubConfig(default_cidr="10.0.0.0/24"):
+            self.app.post_json("/ipam/interfaces",
+                               {'interface': {
+                                   'id': "virt_iface",
+                                   'device_id': "instance",
+                                   'tenant_id': "tnt_id",
+                                   'network': {'id': "net1"},
+                                   }
+                                })
 
+        interface = models.Interface.find_by(virtual_interface_id='virt_iface')
         created_block = models.IpAddress.find_by(
             interface_id=interface.id).ip_block
         self.assertEqual(created_block.network_id, "net1")
-        self.assertEqual(created_block.cidr, config.Config.get('default_cidr'))
+        self.assertEqual(created_block.cidr, "10.0.0.0/24")
         self.assertEqual(created_block.type, "private")
         self.assertEqual(created_block.tenant_id, "tnt_id")
 

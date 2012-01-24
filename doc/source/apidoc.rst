@@ -1072,18 +1072,33 @@ Create all interfaces for an instance and allocate ips for the interfaces
     ====== ========================================================================================= =================================================================
     Verb   URI                                                                                       Description
     ====== ========================================================================================= =================================================================
-    PUT    /ipam/tenants/{tenant_id}/instances/{instance_id}/interfaces/                             Create interfaces, allocate macs and ips on all networks provided
+    PUT    /ipam/instances/{instance_id}/interfaces/                                                 Create interfaces, allocate macs and ips on all networks provided
     ====== ========================================================================================= =================================================================
 
 **Params:**
 
-'tenant_id' : The 'lessee' tenant for whom the interface is being created.
-
 'instance_id' : Can be a uuid, any string accepted. Is an id pointing to the instance(or any other device) on which the ip will be used.
 
-'mac_address' : Optional, can be provided if Melange is not in charge of generating mac addresses
+**Params Body Example:**
+
+::
+
+    {
+      "instance": {
+        "tenant_id": "tnt",
+        "interfaces": [
+            {"network": {"id": "public_net1", "tenant_id": "RAX"}, "mac_address": null},
+            {"network": {"id": "public_net2", "tenant_id": "RAX"}, "mac_address": null},
+         ]
+
+        }
+    }
+
+'tenant_id' : The 'lessee' tenant for whom the interface is being created.
 
 'network' : all network and ip related details Eg:  'network': { 'id': "net1", 'addresses': ['10.0.0.2'], 'tenant': 'the_network_tenant'}
+
+'mac_address' : Optional, can be provided if Melange is not in charge of generating mac addresses
 
 **Response Codes:**
 
@@ -1145,7 +1160,7 @@ Get details of all interfaces on the instance
     ====== ======================================================================================== ===========================================================================
     Verb   URI                                                                                      Description
     ====== ======================================================================================== ===========================================================================
-    GET    /ipam/tenants/{tenant_id}/instances/{instance_id}/interfaces/                            Get all interface details of an instance along with all ips allocated on it
+    GET    /ipam/instances/{instance_id}/interfaces/                                                Get all interface details of an instance along with all ips allocated on it
     ====== ======================================================================================== ===========================================================================
 
 **Params:**
@@ -1207,7 +1222,7 @@ Delete all interfaces of the instance
     ====== ======================================================================================== =================================================================
     Verb   URI                                                                                      Description
     ====== ======================================================================================== =================================================================
-    DELETE /ipam/tenants/{tenant_id}/networks/{network_id}/interfaces/{vif_id}                      delete all instance interfaces along with all ips allocated on it
+    DELETE /ipam/instances/{instance_id}/interfaces                                                 delete all instance interfaces along with all ips allocated on it
     ====== ======================================================================================== =================================================================
 
 **Params:**

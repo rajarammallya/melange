@@ -75,6 +75,7 @@ def _ip_data(ip, block):
         'ip_block': {
             'id': block.id,
             'cidr': block.cidr,
+            'network_id': block.network_id,
             'broadcast': block.broadcast,
             'gateway': block.gateway,
             'netmask': block.netmask,

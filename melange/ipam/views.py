@@ -49,6 +49,7 @@ class IpConfigurationView(object):
             'cidr': block.cidr,
             'broadcast': block.broadcast,
             'gateway': block.gateway,
+            'network_id': block.network_id,
             'netmask': block.netmask,
             'dns1': block.dns1,
             'dns2': block.dns2,

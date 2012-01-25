@@ -943,7 +943,7 @@ Create an Interface and allocate ips on the network
 
 'mac_address' : Optional, can be provided if Melange is not in charge of generating mac addresses
 
-'network' : all network and ip related details Eg:  'network': { 'id': "net1", 'addresses': ['10.0.0.2']}
+'network' : all network and ip related details Eg:  'network': { 'id': "net1", 'addresses': ['10.0.0.2'], 'tenant_id': "network_owner_tenant_id"}
 
 **Response Codes:**
 

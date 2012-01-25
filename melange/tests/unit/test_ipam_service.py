@@ -2130,7 +2130,7 @@ class TestInterfacesController(ControllerTestBase):
         self.assertEqual(response.json['interface']['device_id'], "instance")
 
     def test_create_with_given_address_in_network_details(self):
-        ip_block = factory_models.PrivateIpBlockFactory(tenant_id="tnt_id",
+        ip_block = factory_models.PrivateIpBlockFactory(tenant_id="RAX",
                                                         network_id="net1",
                                                         cidr="10.0.0.0/24")
 
@@ -2138,10 +2138,11 @@ class TestInterfacesController(ControllerTestBase):
                            {'interface': {
                                'id': "virt_iface",
                                'device_id': "instance",
-                               'tenant_id': "tnt_id",
+                               'tenant_id': "instance_tnt_id",
                                'network': {
                                    'id': "net1",
                                    'addresses': ['10.0.0.2'],
+                                   'tenant_id': "RAX"
                                    },
                                },
                             })
@@ -2151,6 +2152,7 @@ class TestInterfacesController(ControllerTestBase):
         created_interface = models.Interface.find_by(
             vif_id_on_device="virt_iface")
         self.assertEqual(ip_address.interface_id, created_interface.id)
+        self.assertEqual(ip_address.used_by_tenant_id, "instance_tnt_id")
 
     def test_create_interface_allocates_mac(self):
         factory_models.MacAddressRangeFactory()
@@ -2178,7 +2180,7 @@ class TestInterfacesController(ControllerTestBase):
                                'id': "virt_iface",
                                'device_id': "instance",
                                'tenant_id': "tnt1",
-                               'network': {'id': "net1"}
+                               'network': {'id': "net1", 'tenant_id': "tnt1"}
                                }
                             })
 
@@ -2187,13 +2189,14 @@ class TestInterfacesController(ControllerTestBase):
 
         allocated_ip = models.IpAddress.find_by(ip_block_id=block.id)
         self.assertEquals(allocated_ip.interface_id, created_interface.id)
+        self.assertEquals(allocated_ip.used_by_tenant_id, "tnt1")
 
     def test_create_allocates_v6_address_with_given_params(self):
         mac_address = "11-22-33-44-55-66"
         ipv6_generator = mock_generator.MockIpV6Generator("fe::/96")
-        ipv6_block = factory_models.PrivateIpBlockFactory(tenant_id="tnt_id",
-                                                          network_id="net1",
-                                                          cidr="fe::/96")
+        ipv6_block = factory_models.IpBlockFactory(tenant_id="RAX",
+                                                   network_id="net1",
+                                                   cidr="fe::/96")
         self.mock.StubOutWithMock(ipv6, "address_generator_factory")
         ipv6.address_generator_factory("fe::/96",
                                        mac_address=mac_address,
@@ -2210,6 +2213,7 @@ class TestInterfacesController(ControllerTestBase):
                                'mac_address': mac_address,
                                'network': {
                                    'id': "net1",
+                                   'tenant_id': "RAX"
                                    },
                                },
                             })
@@ -2219,6 +2223,7 @@ class TestInterfacesController(ControllerTestBase):
 
         ipv6_address = models.IpAddress.find_by(ip_block_id=ipv6_block.id)
         self.assertEquals(ipv6_address.interface_id, created_interface.id)
+        self.assertEquals(ipv6_address.used_by_tenant_id, "tnt_id")
 
     def test_create_when_network_not_found_creates_default_cidr_block(self):
         with unit.StubConfig(default_cidr="10.0.0.0/24"):
@@ -2227,7 +2232,8 @@ class TestInterfacesController(ControllerTestBase):
                                    'id': "virt_iface",
                                    'device_id': "instance",
                                    'tenant_id': "tnt_id",
-                                   'network': {'id': "net1"},
+                                   'network': {'id': "net1",
+                                       'tenant_id': "RAX"},
                                    }
                                 })
 
@@ -2237,7 +2243,7 @@ class TestInterfacesController(ControllerTestBase):
         self.assertEqual(created_block.network_id, "net1")
         self.assertEqual(created_block.cidr, "10.0.0.0/24")
         self.assertEqual(created_block.type, "private")
-        self.assertEqual(created_block.tenant_id, "tnt_id")
+        self.assertEqual(created_block.tenant_id, "RAX")
 
     def test_delete_deallocates_mac_and_ips_too(self):
         ip_block1 = factory_models.PrivateIpBlockFactory(tenant_id="tnt_id",
@@ -2275,6 +2281,36 @@ class TestInterfacesController(ControllerTestBase):
         self.assertEqual(len(iface_data['ip_addresses']), 2)
         self.assertEqual(iface_data['ip_addresses'],
                          views.IpConfigurationView(*iface.ip_addresses).data())
+
+    def test_interface_create_and_then_allocate_ips(self):
+        ip_block = factory_models.PrivateIpBlockFactory(tenant_id="RAX",
+                                                       network_id="public_net",
+                                                       cidr="10.0.0.0/24")
+        self.app.post_json("/ipam/interfaces",
+                           {'interface': {
+                               'id': "virt_iface",
+                               'device_id': "instance",
+                               'tenant_id': "tenant_of_instance",
+                               }
+                           })
+
+        self.app.post_json("/ipam/tenants/RAX/networks/public_net/"
+                           "interfaces/virt_iface/ip_allocations",
+                           {'network': {
+                               'tenant_id': "tenant_of_instance",
+                               }
+                           })
+
+        created_interface = models.Interface.find_by(
+                vif_id_on_device="virt_iface")
+        created_ip = models.IpAddress.find_by(ip_block_id=ip_block.id)
+
+        self.assertEqual(created_interface.tenant_id, "tenant_of_instance")
+        self.assertEqual(created_interface.device_id, "instance")
+        self.assertEqual(created_interface.plugged_in_network_id(),
+                         "public_net")
+        self.assertEqual(created_ip.used_by_tenant_id, "tenant_of_instance")
+        self.assertEqual(created_ip.virtual_interface_id, "virt_iface")
 
 
 class TestInstanceInterfacesController(ControllerTestBase):

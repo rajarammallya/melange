@@ -408,7 +408,7 @@ class InterfacesController(BaseController, ShowAction, DeleteAction):
         if network_params:
             network = models.Network.find_or_create_by(
                 network_params.pop('id'),
-                params['tenant_id'])
+                network_params.pop('tenant_id'))
             network.allocate_ips(interface=interface, **network_params)
 
         view_data = views.InterfaceConfigurationView(interface).data()

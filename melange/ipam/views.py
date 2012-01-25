@@ -71,7 +71,7 @@ class InterfaceConfigurationView(object):
 
     def data(self):
         data = self.interface.data()
-        data['mac_address'] = self.interface.mac_address_eui_format
+        data['mac_address'] = self.interface.mac_address_unix_format
         ip_addresses = self.interface.ip_addresses
         data['ip_addresses'] = IpConfigurationView(*ip_addresses).data()
         return data

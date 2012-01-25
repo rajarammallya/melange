@@ -104,7 +104,7 @@ class TestInterfaceConfigurationView(tests.BaseTest):
 
         data = views.InterfaceConfigurationView(interface).data()
 
-        self.assertEqual(data['mac_address'], mac.eui_format)
+        self.assertEqual(data['mac_address'], mac.unix_format)
         self.assertEqual(data['id'], interface.virtual_interface_id)
 
     def test_data_returns_ip_address_configuration_information(self):

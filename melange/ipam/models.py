@@ -765,6 +765,10 @@ class MacAddress(ModelBase):
     def eui_format(self):
         return str(netaddr.EUI(self.address))
 
+    @property
+    def unix_format(self):
+        return self.eui_format.replace('-', ':')
+
     def _before_save(self):
         self.address = int(netaddr.EUI(self.address))
 
@@ -885,6 +889,11 @@ class Interface(ModelBase):
     def mac_address_eui_format(self):
         if self.mac_address:
             return self.mac_address.eui_format
+
+    @property
+    def mac_address_unix_format(self):
+        if self.mac_address:
+            return self.mac_address.unix_format
 
     def _validate(self):
         self._validate_presence_of("tenant_id")

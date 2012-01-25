@@ -2168,7 +2168,7 @@ class TestInterfacesController(ControllerTestBase):
             interface_id=created_interface.id)
         self.assertIsNotNone(allocated_mac)
         self.assertEqual(response.json['interface']['mac_address'],
-                         allocated_mac.eui_format)
+                         allocated_mac.unix_format)
 
     def test_create_interface_allocates_ips_from_network(self):
         block = factory_models.IpBlockFactory(network_id="net1",
@@ -2271,7 +2271,7 @@ class TestInterfacesController(ControllerTestBase):
         self.assertEqual(response.status_int, 200)
         iface_data = response.json["interface"]
         self.assertEqual(iface_data['id'], iface.virtual_interface_id)
-        self.assertEqual(iface_data['mac_address'], mac.eui_format)
+        self.assertEqual(iface_data['mac_address'], mac.unix_format)
         self.assertEqual(len(iface_data['ip_addresses']), 2)
         self.assertEqual(iface_data['ip_addresses'],
                          views.IpConfigurationView(*iface.ip_addresses).data())

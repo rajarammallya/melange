@@ -2336,7 +2336,7 @@ class TestInterface(tests.BaseTest):
 
         self.assertEqual(interface.mac_address, mac)
 
-    def test_returns_eui_formatted_mac_address(self):
+    def test_eui_formatted_mac_address(self):
         interface = factory_models.InterfaceFactory()
         models.MacAddress.create(interface_id=interface.id,
                                  address="ab:bc:cd:12:23:34")
@@ -2348,6 +2348,19 @@ class TestInterface(tests.BaseTest):
         interface = factory_models.InterfaceFactory()
 
         self.assertIsNone(interface.mac_address_eui_format)
+
+    def test_unix_formatted_mac_address(self):
+        interface = factory_models.InterfaceFactory()
+        models.MacAddress.create(interface_id=interface.id,
+                                 address="ab:bc:cd:12:23:34")
+
+        self.assertEqual(interface.mac_address_unix_format,
+                         "AB:BC:CD:12:23:34")
+
+    def test_mac_address_unix_format_is_none_when_no_mac_address(self):
+        interface = factory_models.InterfaceFactory()
+
+        self.assertIsNone(interface.mac_address_unix_format)
 
     def test_ip_addresses(self):
         interface = factory_models.InterfaceFactory()

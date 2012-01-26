@@ -18,7 +18,7 @@
 
 """Routines for configuring Melange."""
 
-from openstack.common import config as openstack_config
+from melange.openstack.common import config as openstack_config
 
 
 parse_options = openstack_config.parse_options

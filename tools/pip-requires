@@ -17,4 +17,3 @@ nosexcover
 webtest
 factory_boy
 httplib2
--e git+https://github.com/jkoelker/openstack-common.git@melange_compat#egg=openstack.common

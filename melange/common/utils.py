@@ -22,7 +22,7 @@ import inspect
 import re
 import uuid
 
-from openstack.common import utils as openstack_utils
+from melange.openstack.common import utils as openstack_utils
 
 from melange.common import exception
 

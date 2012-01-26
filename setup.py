@@ -38,7 +38,7 @@ except ImportError:
 
 gettext.install('melange', unicode=1)
 
-from openstack.common.utils import parse_mailmap, str_dict_replace
+from melange.openstack.common.utils import parse_mailmap, str_dict_replace
 from melange import version
 
 

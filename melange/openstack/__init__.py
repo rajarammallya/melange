@@ -1,7 +1,6 @@
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 
-# Copyright 2011 OpenStack LLC.
-# Copyright 2011 Justin Santa Barbara
+# Copyright 2010-2011 OpenStack LLC.
 # All Rights Reserved.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -15,15 +14,3 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
-from melange.openstack.common import extensions
-
-
-def factory(global_config, **local_config):
-    """Paste factory."""
-    def _factory(app):
-        extensions.DEFAULT_XMLNS = "http://docs.openstack.org/melange"
-        ext_mgr = extensions.ExtensionManager(
-            global_config.get('api_extensions_path', ''))
-        return extensions.ExtensionMiddleware(app, global_config, ext_mgr)
-    return _factory

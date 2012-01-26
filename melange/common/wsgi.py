@@ -27,7 +27,7 @@ import webob.dec
 import webob.exc
 
 
-from openstack.common import wsgi as openstack_wsgi
+from melange.openstack.common import wsgi as openstack_wsgi
 
 from melange.common import exception
 from melange.common import utils

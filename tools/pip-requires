@@ -17,3 +17,4 @@ nosexcover
 webtest
 factory_boy
 httplib2
+lxml

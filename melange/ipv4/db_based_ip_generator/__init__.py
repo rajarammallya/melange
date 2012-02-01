@@ -14,3 +14,13 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
+import os
+
+from melange.ipv4.db_based_ip_generator import models
+from melange.ipv4.db_based_ip_generator import mapper
+from melange.ipv4.db_based_ip_generator.generator import get_generator
+
+def migrate_repo_path():
+    return os.path.join(os.path.dirname(__file__),
+                        "migrate_repo")

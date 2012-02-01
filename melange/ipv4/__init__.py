@@ -15,11 +15,16 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import imp
 import os
 
 import melange
 from melange.common import config
 
-__path__.append(os.path.abspath(os.path.join(melange.melange_root_path(),
-            config.Config.get("ipv4_generator",
-                              "ipv4/db_based_ip_generator/"))))
+
+def plugin():
+    pluggable_generator_file = config.Config.get("ipv4_generator",
+                                                 os.path.join(melange.melange_root_path(),
+                                                              "ipv4/db_based_ip_generator/__init__.py"))
+
+    return imp.load_source("pluggable_generator", pluggable_generator_file)

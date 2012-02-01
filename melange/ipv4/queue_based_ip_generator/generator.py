@@ -16,9 +16,11 @@
 #    under the License.
 
 import netaddr
-from melange.common import messaging
+
 from melange import ipam
+from melange.common import messaging
 from melange.ipv4.db_based_ip_generator import generator as db_gen
+from melange.ipv4.queue_based_ip_generator import models
 
 
 class QueueBasedIpGenerator(object):
@@ -53,7 +55,8 @@ class IpPublisher(object):
 
     @classmethod
     def publish_all(cls):
-        for block in ipam.models.IpBlock.find_all(high_traffic=True):
+        for high_traffic in models.HighTrafficBlock.find_all():
+            block = ipam.models.IpBlock.find(high_traffic.ip_block_id)
             cls(block).execute()
 
 
@@ -68,7 +71,7 @@ def queue(block):
 
 def get_generator(ip_block):
 
-    if ip_block.high_traffic:
+    if models.HighTrafficBlock.get_by(ip_block_id=ip_block.id):
         return QueueBasedIpGenerator(ip_block)
     else:
         return db_gen.get_generator(ip_block)

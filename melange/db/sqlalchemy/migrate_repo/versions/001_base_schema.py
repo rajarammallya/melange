@@ -47,8 +47,7 @@ ip_blocks = Table('ip_blocks', meta,
         Column('is_full', Boolean()),
         Column('policy_id', String(36), ForeignKey('policies.id')),
         Column('parent_id', String(36), ForeignKey('ip_blocks.id',
-                                                   ondelete="CASCADE")),
-        Column('high_traffic', String(255)))
+                                                   ondelete="CASCADE")))
 
 
 ip_addresses = Table('ip_addresses', meta,
@@ -112,13 +111,6 @@ ip_routes = Table('ip_routes', meta,
         Column('created_at', DateTime()),
         Column('updated_at', DateTime()))
 
-allocatable_ips = Table('allocatable_ips', meta,
-        Column('id', String(36), primary_key=True, nullable=False),
-        Column('ip_block_id', String(36), ForeignKey('ip_blocks.id')),
-        Column('address', String(255), nullable=False),
-        Column('created_at', DateTime()),
-        Column('updated_at', DateTime()))
-
 mac_address_ranges = Table('mac_address_ranges', meta,
         Column('id', String(36), primary_key=True, nullable=False),
         Column('cidr', String(255), nullable=False),
@@ -166,7 +158,7 @@ def upgrade(migrate_engine):
     meta.bind = migrate_engine
     create_tables([policies, ip_ranges, ip_octets, ip_blocks, ip_routes,
                    mac_address_ranges, interfaces, mac_addresses, ip_addresses,
-                   ip_nats, allocatable_ips, allowed_ips, allocatable_macs])
+                   ip_nats, allowed_ips, allocatable_macs])
 
 
 def downgrade(migrate_engine):

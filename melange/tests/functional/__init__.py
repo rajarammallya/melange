@@ -21,6 +21,8 @@ import subprocess
 import melange
 from melange.common import config
 from melange.db import db_api
+from melange.ipv4 import db_based_ip_generator
+from melange.ipv4 import queue_based_ip_generator
 
 
 def test_config_file():
@@ -29,19 +31,9 @@ def test_config_file():
 
 def setup():
     options = dict(config_file=test_config_file())
-    _db_sync(options)
-    _configure_db(options)
-
-
-def _configure_db(options):
     conf = config.Config.load_paste_config("melange", options, None)
-    db_api.configure_db(conf)
 
-
-def _db_sync(options):
-    conf = config.Config.load_paste_config("melange", options, None)
-    db_api.drop_db(conf)
-    db_api.db_sync(conf)
+    db_api.db_reset(conf, db_based_ip_generator, queue_based_ip_generator)
 
 
 def execute(cmd, raise_error=True):

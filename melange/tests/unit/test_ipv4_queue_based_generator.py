@@ -22,6 +22,8 @@ import netaddr
 from melange import tests
 from melange.common import messaging
 from melange.ipv4.queue_based_ip_generator import generator
+from melange.ipv4.queue_based_ip_generator import models
+from melange.ipv4.queue_based_ip_generator import mapper
 from melange.tests.factories import models as factory_models
 
 
@@ -106,10 +108,11 @@ class TestQueueBasedIpGenerator(QueueTestsBase):
         self.assertEqual(actual_ip_on_queue, "10.0.0.4")
 
     def test_publish_all_pushes_high_traffic_blocks_on_queue(self):
-        high_traffic_block1 = factory_models.IpBlockFactory(cidr="10.0.0.0/28",
-                                                            high_traffic=True)
-        high_traffic_block2 = factory_models.IpBlockFactory(cidr="20.0.0.0/26",
-                                                            high_traffic=True)
+
+        high_traffic_block1 = factory_models.IpBlockFactory(cidr="10.0.0.0/28")
+        models.HighTrafficBlock.create(ip_block_id=high_traffic_block1.id)
+        high_traffic_block2 = factory_models.IpBlockFactory(cidr="20.0.0.0/26")
+        models.HighTrafficBlock.create(ip_block_id=high_traffic_block2.id)
         normal_block3 = factory_models.IpBlockFactory(cidr="30.0.0.0")
 
         generator.IpPublisher.publish_all()

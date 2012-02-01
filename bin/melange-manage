@@ -18,9 +18,7 @@
 
 import optparse
 import os
-import re
 import sys
-import time
 
 # If ../melange/__init__.py exists, add ../ to Python search path, so that
 # it will override what happens to be installed in /usr/(local/)lib/python...
@@ -32,7 +30,6 @@ if os.path.exists(os.path.join(possible_topdir, 'melange', '__init__.py')):
 
 from melange import version
 from melange.common import config
-from melange.common import wsgi
 from melange.common import utils
 from melange.db import db_api
 
@@ -56,14 +53,14 @@ class Commands(object):
     def __init__(self, conf):
         self.conf = conf
 
-    def db_sync(self):
-        db_api.db_sync(self.conf)
+    def db_sync(self, repo_path=None):
+        db_api.db_sync(self.conf, repo_path=None)
 
-    def db_upgrade(self, version=None):
-        db_api.db_upgrade(self.conf, version)
+    def db_upgrade(self, version=None, repo_path=None):
+        db_api.db_upgrade(self.conf, version, repo_path=None)
 
-    def db_downgrade(self, version):
-        db_api.db_downgrade(self.conf, version)
+    def db_downgrade(self, version, repo_path=None):
+        db_api.db_downgrade(self.conf, version, repo_path=None)
 
     def execute(self, command_name, *args):
         if self.has(command_name):

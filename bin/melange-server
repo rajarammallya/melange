@@ -18,9 +18,7 @@
 
 import optparse
 import os
-import re
 import sys
-import time
 
 # If ../melange/__init__.py exists, add ../ to Python search path, so that
 # it will override what happens to be installed in /usr/(local/)lib/python...
@@ -30,6 +28,7 @@ possible_topdir = os.path.normpath(os.path.join(os.path.abspath(sys.argv[0]),
 if os.path.exists(os.path.join(possible_topdir, 'melange', '__init__.py')):
     sys.path.insert(0, possible_topdir)
 
+from melange import ipv4
 from melange import version
 from melange.common import config
 from melange.common import wsgi
@@ -59,6 +58,7 @@ if __name__ == '__main__':
     try:
         conf, app = config.Config.load_paste_app('melange', options, args)
         db_api.configure_db(conf)
+        db_api.configure_db(conf, ipv4.plugin().mapper)
         server = wsgi.Server()
         server.start(app, options.get('port', conf['bind_port']),
                      conf['bind_host'])

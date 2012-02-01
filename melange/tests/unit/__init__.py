@@ -29,6 +29,8 @@ from melange.common import config
 from melange.common import utils
 from melange.common import wsgi
 from melange.db import db_api
+from melange.ipv4 import db_based_ip_generator
+from melange.ipv4 import queue_based_ip_generator
 
 
 def test_config_path():
@@ -83,6 +85,4 @@ def setup():
     options = {"config_file": test_config_path()}
     conf = config.Config.load_paste_config("melangeapp", options, None)
 
-    db_api.drop_db(conf)
-    db_api.db_sync(conf)
-    db_api.configure_db(conf)
+    db_api.db_reset(conf, db_based_ip_generator, queue_based_ip_generator)

@@ -991,12 +991,6 @@ class TestIpBlock(tests.BaseTest):
                 ip_block.delete_deallocated_ips()
 
         self.assertEqual(ip_block.addresses(), [ip2])
-        allocatable_ips = [(ip.address, ip.ip_block_id) for ip in
-                            models.AllocatableIp.find_all()]
-        self.assertItemsEqual(allocatable_ips, [(ip1.address, ip1.ip_block_id),
-                                                (ip3.address, ip2.ip_block_id),
-                                                (ip4.address, ip3.ip_block_id),
-                                                ])
 
     def test_is_full_flag_reset_when_addresses_are_deleted(self):
         interface = factory_models.InterfaceFactory()

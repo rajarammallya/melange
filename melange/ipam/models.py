@@ -24,7 +24,7 @@ import operator
 
 from melange import db
 from melange import ipv6
-from melange.ipv4 import generator as ipv4_generator
+from melange import ipv4
 from melange.common import config
 from melange.common import exception
 from melange.common import notifier
@@ -351,7 +351,7 @@ class IpBlock(ModelBase):
                            if self.does_address_exists(address) is False),
                            None)
         else:
-            generator = ipv4_generator.get_generator(self)
+            generator = ipv4.plugin().get_generator(self)
             address = next((address for address in IpAddressIterator(generator)
                             if self._address_is_allocatable(self.policy(),
                                                             address)),
@@ -409,7 +409,8 @@ class IpBlock(ModelBase):
 
         for ip in db.db_api.find_deallocated_ips(
             deallocated_by=self._deallocated_by_date(), ip_block_id=self.id):
-            ipv4_generator.get_generator(self).ip_removed(ip.address)
+            generator = ipv4.plugin().get_generator(self)
+            generator.ip_removed(ip.address)
             ip.delete()
 
     def _deallocated_by_date(self):
@@ -672,10 +673,6 @@ class IpAddress(ModelBase):
 
     def __str__(self):
         return self.address
-
-
-class AllocatableIp(ModelBase):
-    pass
 
 
 class IpRoute(ModelBase):
@@ -1102,7 +1099,6 @@ def persisted_models():
         'IpRange': IpRange,
         'IpOctet': IpOctet,
         'IpRoute': IpRoute,
-        'AllocatableIp': AllocatableIp,
         'MacAddressRange': MacAddressRange,
         'MacAddress': MacAddress,
         'Interface': Interface,

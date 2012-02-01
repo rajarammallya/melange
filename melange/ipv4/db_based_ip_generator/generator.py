@@ -1,4 +1,3 @@
-
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 
 # Copyright 2011 OpenStack LLC.
@@ -20,8 +19,7 @@ import netaddr
 
 from melange.common import exception
 from melange.db import db_api
-from melange import ipam
-
+from melange.ipv4.db_based_ip_generator import models
 
 class DbBasedIpGenerator(object):
 
@@ -30,7 +28,7 @@ class DbBasedIpGenerator(object):
 
     def next_ip(self):
         allocatable_address = db_api.pop_allocatable_address(
-             ipam.models.AllocatableIp, ip_block_id=self.ip_block.id)
+             models.AllocatableIp, ip_block_id=self.ip_block.id)
 
         if allocatable_address is not None:
                 return allocatable_address
@@ -48,7 +46,7 @@ class DbBasedIpGenerator(object):
         return address
 
     def ip_removed(self, address):
-        ipam.models.AllocatableIp.create(ip_block_id=self.ip_block.id,
+        models.AllocatableIp.create(ip_block_id=self.ip_block.id,
                                          address=address)
 
 

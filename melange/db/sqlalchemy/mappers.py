@@ -18,18 +18,20 @@
 from sqlalchemy import MetaData
 from sqlalchemy import Table
 from sqlalchemy import orm
+from sqlalchemy.orm import exc as orm_exc
 
 
 def map(engine, models):
     meta = MetaData()
     meta.bind = engine
+    if mapping_exists(models["IpBlock"]):
+        return
     ip_nats_table = Table('ip_nats', meta, autoload=True)
     ip_addresses_table = Table('ip_addresses', meta, autoload=True)
     policies_table = Table('policies', meta, autoload=True)
     ip_ranges_table = Table('ip_ranges', meta, autoload=True)
     ip_octets_table = Table('ip_octets', meta, autoload=True)
     ip_routes_table = Table('ip_routes', meta, autoload=True)
-    allocatable_ips_table = Table('allocatable_ips', meta, autoload=True)
     mac_address_ranges_table = Table('mac_address_ranges', meta, autoload=True)
     mac_addresses_table = Table('mac_addresses', meta, autoload=True)
     interfaces_table = Table('interfaces', meta, autoload=True)
@@ -39,13 +41,12 @@ def map(engine, models):
     orm.mapper(models["IpBlock"], Table('ip_blocks', meta, autoload=True))
     orm.mapper(models["IpAddress"], ip_addresses_table)
     orm.mapper(models["Policy"], policies_table)
+    orm.mapper(models["Interface"], interfaces_table)
     orm.mapper(models["IpRange"], ip_ranges_table)
     orm.mapper(models["IpOctet"], ip_octets_table)
     orm.mapper(models["IpRoute"], ip_routes_table)
-    orm.mapper(models["AllocatableIp"], allocatable_ips_table)
     orm.mapper(models["MacAddressRange"], mac_address_ranges_table)
     orm.mapper(models["MacAddress"], mac_addresses_table)
-    orm.mapper(models["Interface"], interfaces_table)
     orm.mapper(models["AllocatableMac"], allocatable_macs_table)
 
     inside_global_join = (ip_nats_table.c.inside_global_address_id
@@ -69,6 +70,14 @@ def map(engine, models):
                    'ip_address': orm.relation(models["IpAddress"])
                        }
                )
+
+
+def mapping_exists(model):
+    try:
+        orm.class_mapper(model)
+        return True
+    except orm_exc.UnmappedClassError:
+        return False
 
 
 class IpNat(object):

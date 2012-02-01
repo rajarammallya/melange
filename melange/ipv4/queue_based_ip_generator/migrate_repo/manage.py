@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 
 # Copyright 2011 OpenStack LLC.
@@ -15,13 +16,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import os
+from migrate.versioning.shell import main
 
-from melange.ipv4.queue_based_ip_generator import models
-from melange.ipv4.queue_based_ip_generator import mapper
-from melange.ipv4.queue_based_ip_generator.generator import get_generator
-
-
-def migrate_repo_path():
-    return os.path.join(os.path.dirname(__file__),
-                        "migrate_repo")
+main(debug='False', repository='.')

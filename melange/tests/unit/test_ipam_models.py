@@ -1662,7 +1662,7 @@ class TestQueueBasedMacPublisher(tests.BaseTest):
     def setUp(self):
         super(TestQueueBasedMacPublisher, self).setUp()
         self.connection = kombu_conn.BrokerConnection(
-            **messaging.queue_connection_options("mac_queue"))
+            **messaging.queue_connection_options("ipv4_queue"))
 
     def test_pushes_mac_addresses_into_queue(self):
         mac_range = factory_models.MacAddressRangeFactory(
@@ -1670,13 +1670,14 @@ class TestQueueBasedMacPublisher(tests.BaseTest):
 
         models.MacPublisher(mac_range).execute()
 
-        queue = self.connection.SimpleQueue("mac.%s_%s", (mac_range.id,
-                                                          mac_range.cidr))
+        queue = self.connection.SimpleQueue("mac.%s_%s" % (mac_range.id,
+                                                           mac_range.cidr),
+                                            no_ack=True)
 
         macs = self._get_all_queue_items(queue)
         self.assertEqual(len(macs), 2)
-        self.assertItemsEqual(macs, ["BC:76:4E:40:00:00:00",
-                                     "BC:76:4E:40:00:00:01"])
+        self.assertItemsEqual(macs, [str(int(netaddr.EUI("BC:76:4E:40:00:00"))),
+                                     str(int(netaddr.EUI("BC:76:4E:40:00:01")))])
 
     def _get_all_queue_items(self, queue):
         macs = []

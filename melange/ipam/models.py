@@ -27,6 +27,7 @@ from melange import ipv6
 from melange import ipv4
 from melange.common import config
 from melange.common import exception
+from melange.common import messaging
 from melange.common import notifier
 from melange.common import utils
 
@@ -771,6 +772,19 @@ class QueueBasedMacGenerator():
 
     def __init__(self, mac_range):
         self.mac_range = mac_range
+
+
+class MacPublisher():
+
+    def __init__(self, mac_range):
+        self.mac_range = mac_range
+
+    def execute(self):
+        with messaging.Queue("mac.%s_%s" % (self.mac_range.id, self.mac_range.cidr),
+                "ipv4_queue") as q:
+            for address in range(self.mac_range.first_address(),
+                                 self.mac_range.last_address() + 1):
+                q.put(str(address))
 
 
 class MacAddress(ModelBase):

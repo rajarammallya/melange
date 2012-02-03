@@ -1,6 +1,6 @@
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 
-# Copyright 2011 OpenStack LLC.
+# Copyright 2012 OpenStack LLC.
 # All Rights Reserved.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -19,59 +19,48 @@ import netaddr
 
 from melange import ipam
 from melange.common import messaging
-from melange.ipv4.db_based_ip_generator import generator as db_gen
-from melange.ipv4.queue_based_ip_generator import models
+from melange.queue_based_generators.common import generator
+from melange.queue_based_generators.ip_generator import models
 
 
-class QueueBasedIpGenerator(object):
+class IpQueue(object):
+
+    def queue_not_initialized(self, queue ):
+        return (len(queue.queue) < self.block.size() and
+                 self.block.no_ips_allocated())
+
+    def queue(self):
+        return messaging.Queue("block.%s_%s" % (self.block.id,
+                                                self.block.cidr),
+                               "ipv4_queue")
+
+
+class QueueBasedIpGenerator(IpQueue):
 
     def __init__(self, block):
         self.block = block
 
     def next_ip(self):
-        with queue(self.block) as q:
-            if queue_not_ready(q, self.block):
+        with self.queue() as q:
+            if self.queue_not_initialized(q):
                 return None
             return q.pop()
 
     def ip_removed(self, address):
-        with queue(self.block) as q:
+        with self.queue() as q:
             return q.put(address)
 
 
-class IpPublisher(object):
+class IpPublisher(IpQueue, generator.AddressPublisher):
 
     def __init__(self, block):
         self.block = block
 
-    def execute(self):
-        with queue(self.block) as q:
-            if not queue_not_ready(q, self.block):
-                return
-            q.purge()
-            ips = netaddr.IPNetwork(self.block.cidr)
-            for ip in ips:
-                q.put(str(ip))
+    def address_iterator(self):
+        return netaddr.IPNetwork(self.block.cidr)
 
     @classmethod
     def publish_all(cls):
         for high_traffic in models.HighTrafficBlock.find_all():
             block = ipam.models.IpBlock.find(high_traffic.ip_block_id)
-            cls(block).execute()
-
-
-def queue_not_ready(queue, block):
-    return len(queue.queue) < block.size() and block.no_ips_allocated()
-
-
-def queue(block):
-    return messaging.Queue("block.%s_%s" % (block.id, block.cidr),
-                           "ipv4_queue")
-
-
-def get_generator(ip_block):
-
-    if models.HighTrafficBlock.get_by(ip_block_id=ip_block.id):
-        return QueueBasedIpGenerator(ip_block)
-    else:
-        return db_gen.get_generator(ip_block)
+            cls(block).republish()

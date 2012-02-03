@@ -1,6 +1,6 @@
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 
-# Copyright 2012 OpenStack LLC.
+# Copyright 2011 OpenStack LLC.
 # All Rights Reserved.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -15,16 +15,21 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import imp
 import os
 
-import melange
-from melange.common import config
+from melange.queue_based_generators.ip_generator import models
+from melange.queue_based_generators.ip_generator import mapper
+from melange.ipv4.db_based_ip_generator import generator as db_gen
+from melange.queue_based_generators.ip_generator import generator
 
 
-def plugin():
-    pluggable_generator_file = config.Config.get("ipv4_generator",
-                             os.path.join(melange.melange_root_path(),
-                                    "ipv4/db_based_ip_generator/__init__.py"))
+def migrate_repo_path():
+    return os.path.join(os.path.dirname(__file__),
+                        "migrate_repo")
 
-    return imp.load_source("pluggable_generator", pluggable_generator_file)
+
+def get_generator(ip_block):
+    if models.HighTrafficBlock.get_by(ip_block_id=ip_block.id):
+        return generator.QueueBasedIpGenerator(ip_block)
+    else:
+        return db_gen.get_generator(ip_block)

@@ -17,5 +17,6 @@
 
 from melange.ipam import models
 
+
 class AllocatableIp(models.ModelBase):
     pass

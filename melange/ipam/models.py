@@ -27,7 +27,6 @@ from melange import ipv6
 from melange import ipv4
 from melange.common import config
 from melange.common import exception
-from melange.common import messaging
 from melange.common import notifier
 from melange.common import utils
 
@@ -745,6 +744,9 @@ class MacAddressRange(ModelBase):
     def last_address(self):
         return self.first_address() + self.length() - 1
 
+    def no_macs_allocated(self):
+        return MacAddress.find_all(mac_address_range_id=self.id).count() == 0
+
 
 class DbBasedMacGenerator():
 
@@ -766,25 +768,6 @@ class DbBasedMacGenerator():
 
     def is_full(self):
         return self._next_eligible_address() > self.mac_range.last_address()
-
-
-class QueueBasedMacGenerator():
-
-    def __init__(self, mac_range):
-        self.mac_range = mac_range
-
-
-class MacPublisher():
-
-    def __init__(self, mac_range):
-        self.mac_range = mac_range
-
-    def execute(self):
-        with messaging.Queue("mac.%s_%s" % (self.mac_range.id, self.mac_range.cidr),
-                "ipv4_queue") as q:
-            for address in range(self.mac_range.first_address(),
-                                 self.mac_range.last_address() + 1):
-                q.put(str(address))
 
 
 class MacAddress(ModelBase):

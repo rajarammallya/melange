@@ -22,9 +22,11 @@ from melange import ipv4
 from melange.ipam import models
 from melange.tests.factories import models as factory_models
 
+
 class AllocatableIpFactory(factory.Factory):
     FACTORY_FOR = ipv4.plugin().models.AllocatableIp
-    ip_block_id = factory.LazyAttribute(lambda a: factory_models.IpBlockFactory().id)
+    ip_block_id = factory.LazyAttribute(
+            lambda a: factory_models.IpBlockFactory().id)
 
     @factory.lazy_attribute_sequence
     def address(ip, n):

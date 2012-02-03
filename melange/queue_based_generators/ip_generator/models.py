@@ -5,7 +5,7 @@
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
-#    a copy db_based_ip_generator.of the License at
+#    a copy of the License at
 #
 #         http://www.apache.org/licenses/LICENSE-2.0
 #
@@ -15,17 +15,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from sqlalchemy import MetaData
-from sqlalchemy import Table
-from sqlalchemy import orm
+from melange.ipam import models
 
-from melange.db.sqlalchemy import mappers
-from melange.ipv4.queue_based_ip_generator import models
 
-def map(engine):
-    if mappers.mapping_exists(models.HighTrafficBlock):
-        return
-    meta_data = MetaData()
-    meta_data.bind = engine
-    high_traffic_block_table = Table('high_traffic_blocks', meta_data, autoload=True)
-    orm.mapper(models.HighTrafficBlock, high_traffic_block_table)
+class HighTrafficBlock(models.ModelBase):
+    pass

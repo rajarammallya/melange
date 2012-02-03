@@ -21,6 +21,7 @@ from melange.common import exception
 from melange.db import db_api
 from melange.ipv4.db_based_ip_generator import models
 
+
 class DbBasedIpGenerator(object):
 
     def __init__(self, ip_block):
@@ -47,8 +48,4 @@ class DbBasedIpGenerator(object):
 
     def ip_removed(self, address):
         models.AllocatableIp.create(ip_block_id=self.ip_block.id,
-                                         address=address)
-
-
-def get_generator(ip_block):
-    return DbBasedIpGenerator(ip_block)
+                                    address=address)

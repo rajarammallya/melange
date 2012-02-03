@@ -16,14 +16,11 @@
 #    under the License.
 
 import datetime
-from kombu import connection as kombu_conn
 import mox
-import Queue
 import netaddr
 
 from melange import tests
 from melange.common import exception
-from melange.common import messaging
 from melange.common import notifier
 from melange.common import utils
 from melange.db import db_query
@@ -1656,37 +1653,6 @@ class TestDbBasedMacGenerator(tests.BaseTest):
         updated_mac_range = models.MacAddressRange.get(mac_range.id)
         self.assertEqual(netaddr.EUI(updated_mac_range.next_address),
                          netaddr.EUI('BC:76:4E:40:00:01'))
-
-class TestQueueBasedMacPublisher(tests.BaseTest):
-
-    def setUp(self):
-        super(TestQueueBasedMacPublisher, self).setUp()
-        self.connection = kombu_conn.BrokerConnection(
-            **messaging.queue_connection_options("ipv4_queue"))
-
-    def test_pushes_mac_addresses_into_queue(self):
-        mac_range = factory_models.MacAddressRangeFactory(
-            cidr="BC:76:4E:40:00:00/47")
-
-        models.MacPublisher(mac_range).execute()
-
-        queue = self.connection.SimpleQueue("mac.%s_%s" % (mac_range.id,
-                                                           mac_range.cidr),
-                                            no_ack=True)
-
-        macs = self._get_all_queue_items(queue)
-        self.assertEqual(len(macs), 2)
-        self.assertItemsEqual(macs, [str(int(netaddr.EUI("BC:76:4E:40:00:00"))),
-                                     str(int(netaddr.EUI("BC:76:4E:40:00:01")))])
-
-    def _get_all_queue_items(self, queue):
-        macs = []
-        try:
-            while(True):
-                macs.append(queue.get(block=False).body)
-        except Queue.Empty:
-            pass
-        return macs
 
 
 class TestMacAddress(tests.BaseTest):

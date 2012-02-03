@@ -22,7 +22,7 @@ import melange
 from melange.common import config
 from melange.db import db_api
 from melange.ipv4 import db_based_ip_generator
-from melange.ipv4 import queue_based_ip_generator
+from melange.queue_based_generators import ip_generator as queue_gen
 
 
 def test_config_file():
@@ -33,7 +33,7 @@ def setup():
     options = dict(config_file=test_config_file())
     conf = config.Config.load_paste_config("melange", options, None)
 
-    db_api.db_reset(conf, db_based_ip_generator, queue_based_ip_generator)
+    db_api.db_reset(conf, db_based_ip_generator, queue_gen)
 
 
 def execute(cmd, raise_error=True):

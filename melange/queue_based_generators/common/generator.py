@@ -1,6 +1,6 @@
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 
-# Copyright 2011 OpenStack LLC.
+# Copyright 2012 OpenStack LLC.
 # All Rights Reserved.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -15,13 +15,22 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import os
 
-from melange.ipv4.queue_based_ip_generator import models
-from melange.ipv4.queue_based_ip_generator import mapper
-from melange.ipv4.queue_based_ip_generator.generator import get_generator
+class AddressPublisher(object):
 
+    def republish(self):
+        with self.queue() as q:
+            if not self.queue_not_initialized(q):
+                return
+            q.purge()
+            for address in self.address_iterator():
+                q.put(str(address))
 
-def migrate_repo_path():
-    return os.path.join(os.path.dirname(__file__),
-                        "migrate_repo")
+    def queue(self):
+        pass
+
+    def queue_not_initialized(self, queue):
+        return True
+
+    def addresss_iterator():
+        pass

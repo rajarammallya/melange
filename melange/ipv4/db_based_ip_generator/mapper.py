@@ -22,6 +22,7 @@ from sqlalchemy import Table
 from melange.db.sqlalchemy import mappers
 from melange.ipv4.db_based_ip_generator import models
 
+
 def map(engine):
     if mappers.mapping_exists(models.AllocatableIp):
         return

@@ -19,8 +19,13 @@ import os
 
 from melange.ipv4.db_based_ip_generator import models
 from melange.ipv4.db_based_ip_generator import mapper
-from melange.ipv4.db_based_ip_generator.generator import get_generator
+from melange.ipv4.db_based_ip_generator import generator
+
 
 def migrate_repo_path():
     return os.path.join(os.path.dirname(__file__),
                         "migrate_repo")
+
+
+def get_generator(ip_block):
+    return generator.DbBasedIpGenerator(ip_block)

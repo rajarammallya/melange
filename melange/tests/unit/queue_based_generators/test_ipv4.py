@@ -15,26 +15,35 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import os
+
+import melange
+from melange import ipv4
 from melange import tests
+from melange.tests import unit
 from melange.tests.factories import models as factory_models
 from melange.ipv4.db_based_ip_generator import generator as db_gen
-from melange.ipv4.queue_based_ip_generator import generator as queue_gen
-from melange.ipv4.queue_based_ip_generator import models as queue_models
+from melange.queue_based_generators.ip_generator import generator as queue_gen
+from melange.queue_based_generators.ip_generator import models as queue_models
 
 
 class TestAddressGeneratorFactory(tests.BaseTest):
 
-    def test_factory_returns_db_generator_for_normal_blocks(self):
+    def test_factory_returns_db_generator_by_default(self):
         block = factory_models.IpBlockFactory()
 
-        actual_generator = db_gen.get_generator(block)
+        actual_generator = ipv4.plugin().get_generator(block)
         self.assertEqual(db_gen.DbBasedIpGenerator, type(actual_generator))
 
-    def test_factory_returns_queue_generator_for_high_traffic_blocks(self):
+    def test_factory_returns_queue_generator_with_config_change(self):
         block = factory_models.IpBlockFactory()
         queue_models.HighTrafficBlock.create(ip_block_id=block.id)
+        queue_plugin_path = os.path.join(
+                melange.melange_root_path(),
+                "queue_based_generators/ip_generator/__init__.py")
 
-        actual_generator = queue_gen.get_generator(block)
+        with unit.StubConfig(ipv4_generator=queue_plugin_path):
+            actual_generator = ipv4.plugin().get_generator(block)
 
-        self.assertEqual(queue_gen.QueueBasedIpGenerator,
-                         type(actual_generator))
+            self.assertEqual(queue_gen.QueueBasedIpGenerator,
+                             type(actual_generator))

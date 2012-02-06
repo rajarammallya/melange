@@ -39,6 +39,7 @@ if os.path.exists(os.path.join(possible_topdir, 'melange', '__init__.py')):
     sys.path.insert(0, possible_topdir)
 
 from melange import ipv4
+from melange import mac
 from melange.db import db_api
 from melange.common import config
 from melange.ipam import models
@@ -47,8 +48,7 @@ from melange.ipam import models
 if __name__ == '__main__':
     try:
         conf = config.load_app_environment(optparse.OptionParser())
-        db_api.configure_db(conf)
-        db_api.configure_db(conf, ipv4.plugin().mapper)
+        db_api.configure_db(conf, ipv4.plugin(), mac.plugin())
         models.IpBlock.delete_all_deallocated_ips()
     except RuntimeError as error:
         sys.exit("ERROR: %s" % error)

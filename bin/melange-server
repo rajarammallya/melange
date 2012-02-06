@@ -29,6 +29,7 @@ if os.path.exists(os.path.join(possible_topdir, 'melange', '__init__.py')):
     sys.path.insert(0, possible_topdir)
 
 from melange import ipv4
+from melange import mac
 from melange import version
 from melange.common import config
 from melange.common import wsgi
@@ -57,8 +58,7 @@ if __name__ == '__main__':
     (options, args) = config.parse_options(oparser)
     try:
         conf, app = config.Config.load_paste_app('melange', options, args)
-        db_api.configure_db(conf)
-        db_api.configure_db(conf, ipv4.plugin().mapper)
+        db_api.configure_db(conf, ipv4.plugin(), mac.plugin())
         server = wsgi.Server()
         server.start(app, options.get('port', conf['bind_port']),
                      conf['bind_host'])

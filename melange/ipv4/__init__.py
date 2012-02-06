@@ -27,4 +27,4 @@ def plugin():
                              os.path.join(melange.melange_root_path(),
                                     "ipv4/db_based_ip_generator/__init__.py"))
 
-    return imp.load_source("pluggable_generator", pluggable_generator_file)
+    return imp.load_source("pluggable_ip_generator", pluggable_generator_file)

@@ -224,8 +224,12 @@ def remove_allowed_ip(**conditions):
     delete()
 
 
-def configure_db(options, models_mapper=None):
-    session.configure_db(options, models_mapper)
+def configure_db(options, *plugins):
+    session.configure_db(options)
+    for plugin in plugins:
+        repo_path = plugin.migrate_repo_path()
+        if repo_path:
+            session.configure_db(options, models_mapper=plugin.mapper)
 
 
 def drop_db(options):
@@ -251,10 +255,11 @@ def db_downgrade(options, version, repo_path=None):
 def db_reset(options, *plugins):
     drop_db(options)
     db_sync(options)
-    configure_db(options)
     for plugin in plugins:
-        db_sync(options, repo_path=plugin.migrate_repo_path())
-        configure_db(options, models_mapper=plugin.mapper)
+        repo_path = plugin.migrate_repo_path()
+        if repo_path:
+            db_sync(options, repo_path=repo_path)
+    configure_db(options, *plugins)
 
 
 def _base_query(cls):

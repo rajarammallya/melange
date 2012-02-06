@@ -25,6 +25,7 @@ import operator
 from melange import db
 from melange import ipv6
 from melange import ipv4
+from melange import mac
 from melange.common import config
 from melange.common import exception
 from melange.common import notifier
@@ -704,13 +705,13 @@ class MacAddressRange(ModelBase):
         return cls.count() > 0
 
     def allocate_mac(self, **kwargs):
-        generator = DbBasedMacGenerator(self)
+        generator = mac.plugin().get_generator(self)
         if generator.is_full():
             raise NoMoreMacAddressesError()
 
         max_retry_count = int(config.Config.get("mac_allocation_retries", 10))
         for retries in range(max_retry_count):
-            next_address = generator.next_ip()
+            next_address = generator.next_mac()
             try:
                 return MacAddress.create(address=next_address,
                                          mac_address_range_id=self.id,
@@ -748,28 +749,6 @@ class MacAddressRange(ModelBase):
         return MacAddress.find_all(mac_address_range_id=self.id).count() == 0
 
 
-class DbBasedMacGenerator():
-
-    def __init__(self, mac_range):
-        self.mac_range = mac_range
-
-    def next_ip(self):
-        allocatable_address = db.db_api.pop_allocatable_address(
-                AllocatableMac, mac_address_range_id=self.mac_range.id)
-        if allocatable_address is not None:
-                return allocatable_address
-
-        address = self._next_eligible_address()
-        self.mac_range.update(next_address=address + 1)
-        return address
-
-    def _next_eligible_address(self):
-        return self.mac_range.next_address or self.mac_range.first_address()
-
-    def is_full(self):
-        return self._next_eligible_address() > self.mac_range.last_address()
-
-
 class MacAddress(ModelBase):
 
     @property
@@ -784,22 +763,23 @@ class MacAddress(ModelBase):
         self.address = int(netaddr.EUI(self.address))
 
     def _validate_belongs_to_mac_address_range(self):
-        if self.mac_address_range_id:
-            rng = MacAddressRange.find(self.mac_address_range_id)
-            if not rng.contains(self.address):
+        if self.mac_range:
+            if not self.mac_range.contains(self.address):
                 self._add_error('address', "address does not belong to range")
 
     def _validate(self):
         self._validate_belongs_to_mac_address_range()
 
     def delete(self):
-        AllocatableMac.create(mac_address_range_id=self.mac_address_range_id,
-                              address=self.address)
+        if self.mac_range:
+            generator = mac.plugin().get_generator(self.mac_range)
+            generator.mac_removed(self.address)
         super(MacAddress, self).delete()
 
-
-class AllocatableMac(ModelBase):
-    pass
+    @utils.cached_property
+    def mac_range(self):
+        if self.mac_address_range_id:
+            return MacAddressRange.find(self.mac_address_range_id)
 
 
 class Interface(ModelBase):
@@ -1099,7 +1079,6 @@ def persisted_models():
         'MacAddressRange': MacAddressRange,
         'MacAddress': MacAddress,
         'Interface': Interface,
-        'AllocatableMac': AllocatableMac
         }
 
 

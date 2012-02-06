@@ -1,6 +1,7 @@
+#!/usr/bin/env python
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 
-# Copyright 2012 OpenStack LLC.
+# Copyright 2011 OpenStack LLC.
 # All Rights Reserved.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -15,4 +16,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-# template repository default versions module
+from migrate.versioning.shell import main
+
+main(debug='False', repository='.')

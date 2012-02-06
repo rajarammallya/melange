@@ -32,7 +32,7 @@ class IpQueue(object):
     def queue(self):
         return messaging.Queue("block.%s_%s" % (self.block.id,
                                                 self.block.cidr),
-                               "ipv4_queue")
+                               "addr_queue")
 
 
 class QueueBasedIpGenerator(IpQueue):

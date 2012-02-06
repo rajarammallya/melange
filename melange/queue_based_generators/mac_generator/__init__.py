@@ -14,3 +14,14 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
+from melange.queue_based_generators.mac_generator import mapper
+from melange.queue_based_generators.mac_generator import generator
+
+
+def migrate_repo_path():
+    return None
+
+
+def get_generator(rng):
+    return generator.QueueBasedMacGenerator(rng)

@@ -15,4 +15,16 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-# template repository default versions module
+import imp
+import os
+
+import melange
+from melange.common import config
+
+
+def plugin():
+    pluggable_generator_file = config.Config.get("mac_generator",
+                             os.path.join(melange.melange_root_path(),
+                                    "mac/db_based_mac_generator/__init__.py"))
+
+    return imp.load_source("pluggable_mac_generator", pluggable_generator_file)

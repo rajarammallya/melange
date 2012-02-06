@@ -1,6 +1,6 @@
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 
-# Copyright 2012 OpenStack LLC.
+# Copyright 2011 OpenStack LLC.
 # All Rights Reserved.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -15,4 +15,17 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-# template repository default versions module
+import os
+
+from melange.mac.db_based_mac_generator import models
+from melange.mac.db_based_mac_generator import mapper
+from melange.mac.db_based_mac_generator import generator
+
+
+def migrate_repo_path():
+    return os.path.join(os.path.dirname(__file__),
+                        "migrate_repo")
+
+
+def get_generator(rng):
+    return generator.DbBasedMacGenerator(rng)

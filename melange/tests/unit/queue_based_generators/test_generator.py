@@ -32,7 +32,7 @@ class QueueTestsBase(tests.BaseTest):
     def setUp(self):
         super(QueueTestsBase, self).setUp()
         self.connection = kombu_conn.BrokerConnection(
-            **messaging.queue_connection_options("ipv4_queue"))
+            **messaging.queue_connection_options("addr_queue"))
 
     def _get_all_queue_items(self, queue):
         addresses = []

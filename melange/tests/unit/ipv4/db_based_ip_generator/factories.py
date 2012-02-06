@@ -18,13 +18,13 @@
 import factory
 import netaddr
 
-from melange import ipv4
+from melange.ipv4.db_based_ip_generator import models as db_gen_models
 from melange.ipam import models
 from melange.tests.factories import models as factory_models
 
 
 class AllocatableIpFactory(factory.Factory):
-    FACTORY_FOR = ipv4.plugin().models.AllocatableIp
+    FACTORY_FOR = db_gen_models.AllocatableIp
     ip_block_id = factory.LazyAttribute(
             lambda a: factory_models.IpBlockFactory().id)
 

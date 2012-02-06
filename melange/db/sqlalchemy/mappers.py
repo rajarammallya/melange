@@ -36,7 +36,6 @@ def map(engine, models):
     mac_addresses_table = Table('mac_addresses', meta, autoload=True)
     interfaces_table = Table('interfaces', meta, autoload=True)
     allowed_ips_table = Table('allowed_ips', meta, autoload=True)
-    allocatable_macs_table = Table('allocatable_macs', meta, autoload=True)
 
     orm.mapper(models["IpBlock"], Table('ip_blocks', meta, autoload=True))
     orm.mapper(models["IpAddress"], ip_addresses_table)
@@ -47,7 +46,6 @@ def map(engine, models):
     orm.mapper(models["IpRoute"], ip_routes_table)
     orm.mapper(models["MacAddressRange"], mac_address_ranges_table)
     orm.mapper(models["MacAddress"], mac_addresses_table)
-    orm.mapper(models["AllocatableMac"], allocatable_macs_table)
 
     inside_global_join = (ip_nats_table.c.inside_global_address_id
                           == ip_addresses_table.c.id)

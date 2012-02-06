@@ -50,15 +50,15 @@ keep_deallocated_ips_for_days = 2
 #Number of retries for allocating an IP
 ip_allocation_retries = 5
 
-# ============ ipv4 queue kombu connection options ========================
+# ============ address queue kombu connection options ========================
 
-ipv4_queue_hostname = localhost
-ipv4_queue_userid = guest
-ipv4_queue_password = guest
-ipv4_queue_ssl = False
-ipv4_queue_port = 5672
-ipv4_queue_virtual_host = /
-ipv4_queue_transport = memory
+addr_queue_hostname = localhost
+addr_queue_userid = guest
+addr_queue_password = guest
+addr_queue_ssl = False
+addr_queue_port = 5672
+addr_queue_virtual_host = /
+addr_queue_transport = memory
 
 [composite:melange]
 use = call:melange.common.wsgi:versioned_urlmap

@@ -24,7 +24,7 @@ class MacQueue(object):
     def queue(self):
         return messaging.Queue("mac.%s_%s" % (self.mac_range.id,
                                               self.mac_range.cidr),
-                               "ipv4_queue")
+                               "addr_queue")
 
     def queue_not_initialized(self, queue):
         return (len(queue.queue) < self.mac_range.length() and
@@ -45,6 +45,9 @@ class QueueBasedMacGenerator(MacQueue):
     def mac_removed(self, address):
         with self.queue() as q:
             return q.put(address)
+
+    def is_full(self):
+        len(self.queue.queue) == 0
 
 
 class MacPublisher(MacQueue, generator.AddressPublisher):

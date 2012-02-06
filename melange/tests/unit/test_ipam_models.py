@@ -1634,27 +1634,6 @@ class TestMacAddressRange(tests.BaseTest):
                                         mac_address_range_id=mox.IgnoreArg())
 
 
-class TestDbBasedMacGenerator(tests.BaseTest):
-
-    def test_range_is_full(self):
-        rng = factory_models.MacAddressRangeFactory(cidr="BC:76:4E:20:0:0/48")
-        mac_generator = models.DbBasedMacGenerator(rng)
-        self.assertFalse(mac_generator.is_full())
-
-        rng.allocate_mac()
-        self.assertTrue(mac_generator.is_full())
-
-    def test_allocate_mac_address_updates_next_mac_address_field(self):
-        mac_range = factory_models.MacAddressRangeFactory(
-            cidr="BC:76:4E:40:00:00/27")
-
-        models.DbBasedMacGenerator(mac_range).next_ip()
-
-        updated_mac_range = models.MacAddressRange.get(mac_range.id)
-        self.assertEqual(netaddr.EUI(updated_mac_range.next_address),
-                         netaddr.EUI('BC:76:4E:40:00:01'))
-
-
 class TestMacAddress(tests.BaseTest):
 
     def test_mac_address_in_eui_format(self):
@@ -1682,17 +1661,6 @@ class TestMacAddress(tests.BaseTest):
         self.assertFalse(mac.is_valid())
         self.assertEqual(mac.errors['address'],
                          ["address does not belong to range"])
-
-    def test_delete_pushes_mac_address_on_allocatable_mac_list(self):
-        rng = factory_models.MacAddressRangeFactory(cidr="BC:76:4E:20:0:0/40")
-        mac = rng.allocate_mac()
-
-        mac.delete()
-
-        self.assertIsNone(models.MacAddress.get(mac.id))
-        allocatable_mac = models.AllocatableMac.get_by(
-                                mac_address_range_id=rng.id)
-        self.assertEqual(mac.address, allocatable_mac.address)
 
 
 class TestPolicy(tests.BaseTest):

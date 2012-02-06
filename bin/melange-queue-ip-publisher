@@ -30,12 +30,12 @@ if os.path.exists(os.path.join(possible_topdir, 'melange', '__init__.py')):
 
 from melange.db import db_api
 from melange.common import config
-from melange.ipv4 import queue_based_ip_generator
+from melange.queue_based_generators import ip_generator
 
 if __name__ == '__main__':
     try:
         conf = config.load_app_environment(optparse.OptionParser())
-        db_api.configure_db(conf)
-        queue_based_ip_generator.IpPublisher.publish_all()
+        db_api.configure_db(conf, ip_generator)
+        ip_generator.generator.IpPublisher.publish_all()
     except RuntimeError as error:
         sys.exit("ERROR: %s" % error)

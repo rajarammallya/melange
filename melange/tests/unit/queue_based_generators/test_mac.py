@@ -18,37 +18,36 @@
 import os
 
 import melange
-from melange import ipv4
+from melange import mac
 from melange import tests
 from melange.tests import unit
 from melange.tests.factories import models as factory_models
-from melange.ipv4.db_based_ip_generator import generator as db_gen
-from melange.queue_based_generators.ip_generator import generator as queue_gen
-from melange.queue_based_generators.ip_generator import models as queue_models
+from melange.mac.db_based_mac_generator import generator as db_gen
+from melange.queue_based_generators.mac_generator import generator as queue_gen
 
 
 class TestAddressGeneratorFactory(tests.BaseTest):
 
     def test_factory_returns_db_generator_by_default(self):
-        block = factory_models.IpBlockFactory()
+        mac_range = factory_models.MacAddressRangeFactory()
 
-        actual_generator = ipv4.plugin().get_generator(block)
-        self.assertEqual(db_gen.DbBasedIpGenerator, type(actual_generator))
+        actual_generator = mac.plugin().get_generator(mac_range)
+        print actual_generator
+        print db_gen.DbBasedMacGenerator
+        self.assertEqual(db_gen.DbBasedMacGenerator, type(actual_generator))
 
     def test_factory_returns_queue_generator_with_config_change(self):
-        ipv4.reset_plugin()
-        block = factory_models.IpBlockFactory()
-        queue_models.HighTrafficBlock.create(ip_block_id=block.id)
+        mac.reset_plugin()
+        mac_range = factory_models.MacAddressRangeFactory()
         queue_plugin_path = os.path.join(
                 melange.melange_root_path(),
-                "queue_based_generators/ip_generator/__init__.py")
+                "queue_based_generators/mac_generator/__init__.py")
 
-        with unit.StubConfig(ipv4_generator=queue_plugin_path):
-            actual_generator = ipv4.plugin().get_generator(block)
-
-            self.assertEqual(queue_gen.QueueBasedIpGenerator,
+        with unit.StubConfig(mac_generator=queue_plugin_path):
+            actual_generator = mac.plugin().get_generator(mac_range)
+            self.assertEqual(queue_gen.QueueBasedMacGenerator,
                              type(actual_generator))
 
     def tearDown(self):
-        ipv4.reset_plugin()
-        super(TestAddressGeneratorFactory, self).tearDown
+        mac.reset_plugin()
+        super(TestAddressGeneratorFactory, self).tearDown()

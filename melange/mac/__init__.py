@@ -21,10 +21,21 @@ import os
 import melange
 from melange.common import config
 
+_PLUGIN = None
+
 
 def plugin():
-    pluggable_generator_file = config.Config.get("mac_generator",
-                             os.path.join(melange.melange_root_path(),
+    global _PLUGIN
+    if not _PLUGIN:
+        pluggable_generator_file = config.Config.get("mac_generator",
+                                 os.path.join(melange.melange_root_path(),
                                     "mac/db_based_mac_generator/__init__.py"))
 
-    return imp.load_source("pluggable_mac_generator", pluggable_generator_file)
+        _PLUGIN = imp.load_source("pluggable_mac_generator",
+                                  pluggable_generator_file)
+    return _PLUGIN
+
+
+def reset_plugin():
+    global _PLUGIN
+    _PLUGIN = None

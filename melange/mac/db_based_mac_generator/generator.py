@@ -19,7 +19,7 @@ from melange.db import db_api
 from melange.mac.db_based_mac_generator import models
 
 
-class DbBasedMacGenerator():
+class DbBasedMacGenerator(object):
 
     def __init__(self, mac_range):
         self.mac_range = mac_range

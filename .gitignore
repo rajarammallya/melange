@@ -6,8 +6,11 @@ build/*
 build-stamp
 melange.egg-info
 .melange-venv
+.tox
 .venv
 *.sqlite
 *.log
 tags
 *~
+ChangeLog
+melange/vcsversion.py

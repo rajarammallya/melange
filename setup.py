@@ -27,6 +27,10 @@ from setuptools import setup
 gettext.install('melange', unicode=1)
 
 from melange.openstack.common.setup import parse_mailmap, str_dict_replace
+from melange.openstack.common.setup import parse_requirements
+from melange.openstack.common.setup import parse_dependency_links
+from melange.openstack.common.setup import write_requirements
+
 from melange import version
 
 
@@ -93,6 +97,12 @@ try:
 except:
     pass
 
+requires = parse_requirements(['requirements.txt', 'tools/pip-requires'])
+
+depend_links = parse_dependency_links(['requirements.txt',
+                                       'tools/pip-requires'])
+
+write_requirements()
 
 setup(name='melange',
       version=version.canonical_version_string(),
@@ -103,6 +113,8 @@ setup(name='melange',
       cmdclass=cmdclass,
       packages=find_packages(exclude=['bin']),
       include_package_data=True,
+      install_requires=requires,
+      dependency_links=depend_links,
       test_suite='nose.collector',
       classifiers=[
           'Development Status :: 4 - Beta',

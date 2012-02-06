@@ -4,6 +4,8 @@ include ChangeLog MANIFEST.in pylintrc Authors
 include melange/db/sqlalchemy/migrate_repo/migrate.cfg
 include melange/db/sqlalchemy/migrate_repo/README
 include melange/db/sqlalchemy/migrate_repo/versions/*.sql
+include requirements.txt
+include tools/*
 graft doc
 graft tools
 graft etc

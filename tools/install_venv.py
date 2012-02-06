@@ -31,6 +31,7 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 VENV = os.path.join(ROOT, '.venv')
 PIP_REQUIRES = os.path.join(ROOT, 'tools', 'pip-requires')
+TEST_REQUIRES = os.path.join(ROOT, 'tools', 'test-requires')
 PY_VERSION = "python%s.%s" % (sys.version_info[0], sys.version_info[1])
 
 
@@ -103,8 +104,9 @@ def install_dependencies(venv=VENV):
     # get it in stalled in the right order
     run_command(['tools/with_venv.sh', 'pip', 'install', '-E', venv,
               'greenlet'], redirect_output=False)
-    run_command(['tools/with_venv.sh', 'pip', 'install', '-E', venv, '-r',
-              PIP_REQUIRES], redirect_output=False)
+    for requires in (PIP_REQUIRES, TEST_REQUIRES):
+        run_command(['tools/with_venv.sh', 'pip', 'install', '-E', venv, '-r',
+                     requires], redirect_output=False)
 
     # Tell the virtual env how to "import melange"
     pthfile = os.path.join(venv, "lib", PY_VERSION, "site-packages",

@@ -192,7 +192,7 @@ class TestIpBlock(tests.BaseTest):
         self.assertEqual(v4_block.broadcast, "10.0.0.255")
         self.assertEqual(v4_block.netmask, "255.255.255.0")
         self.assertEqual(v6_block.broadcast, "fe::ffff:ffff:ffff:ffff")
-        self.assertEqual(v6_block.netmask, "ffff:ffff:ffff:ffff::")
+        self.assertEqual(v6_block.netmask, "64")
 
     def test_valid_cidr(self):
         factory = factory_models.PrivateIpBlockFactory

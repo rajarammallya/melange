@@ -261,7 +261,10 @@ class IpBlock(ModelBase):
 
     @property
     def netmask(self):
-        return str(netaddr.IPNetwork(self.cidr).netmask)
+        if self.is_ipv6():
+            return str(netaddr.IPNetwork(self.cidr).prefixlen)
+        else:
+            return str(netaddr.IPNetwork(self.cidr).netmask)
 
     def is_ipv6(self):
         return netaddr.IPNetwork(self.cidr).version == 6

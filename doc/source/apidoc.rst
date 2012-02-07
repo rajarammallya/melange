@@ -1441,7 +1441,7 @@ Error - 404 Not Found [When network for a given network_id and tenant_id is not 
                     "gateway": "fe::1",
                     "id": "7ab2f803-a5d7-4d77-bb42-1eb1e8732e93",
                     "ip_routes": [],
-                    "netmask": "ffff:ffff:ffff:ffff:ffff:ffff::"
+                    "netmask": "96"
                 },
                 "version": 6
             }

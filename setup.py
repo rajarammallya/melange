@@ -26,12 +26,11 @@ from setuptools import setup
 
 gettext.install('melange', unicode=1)
 
-from melange.openstack.common.setup import parse_mailmap, str_dict_replace
 from melange.openstack.common.setup import parse_requirements
 from melange.openstack.common.setup import parse_dependency_links
 from melange.openstack.common.setup import write_requirements
 from melange.openstack.common.setup import write_vcsversion
-from melange.openstack.common.setup import run_git_command
+from melange.openstack.common.setup import write_git_changelog
 
 from melange import version
 
@@ -39,15 +38,8 @@ from melange import version
 class local_sdist(sdist):
     """Customized sdist hook - builds the ChangeLog file from VC first"""
     def run(self):
-        if os.path.isdir('.git'):
-            git_log_gnu = 'git log --format="%ai %aN %n%n%x09* %s%d%n"'
-            changelog = run_git_command(git_log_gnu)
-            mailmap = parse_mailmap()
-            with open("ChangeLog", "w") as changelog_file:
-                changelog_file.write(str_dict_replace(changelog, mailmap))
+        write_git_changelog()
         sdist.run(self)
-
-
 cmdclass = {'sdist': local_sdist}
 
 

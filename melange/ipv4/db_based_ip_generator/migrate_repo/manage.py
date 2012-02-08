@@ -1,6 +1,7 @@
+#!/usr/bin/env python
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 
-# Copyright 2011 OpenStack LLC.
+# Copyright 2012 OpenStack LLC.
 # All Rights Reserved.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -15,27 +16,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import imp
-import os
+from migrate.versioning.shell import main
 
-import melange
-from melange.common import config
-
-_PLUGIN = None
-
-
-def plugin():
-    global _PLUGIN
-    if not _PLUGIN:
-        pluggable_generator_file = config.Config.get("ipv4_generator",
-                                 os.path.join(melange.melange_root_path(),
-                                    "ipv4/db_based_ip_generator/__init__.py"))
-
-        _PLUGIN = imp.load_source("pluggable_ip_generator",
-                                  pluggable_generator_file)
-    return _PLUGIN
-
-
-def reset_plugin():
-    global _PLUGIN
-    _PLUGIN = None
+main(debug='False', repository='.')

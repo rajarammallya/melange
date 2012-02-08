@@ -1,6 +1,6 @@
 SQLAlchemy
 eventlet
-kombu==1.0.4
+kombu==1.5.1
 routes
 WebOb
 mox

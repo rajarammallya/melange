@@ -17,6 +17,7 @@
 
 # See http://code.google.com/p/python-nose/issues/detail?id=373
 # The code below enables nosetests to work with i18n _() blocks
+
 import __builtin__
 setattr(__builtin__, '_', lambda x: x)
 
@@ -28,6 +29,8 @@ from melange.common import config
 from melange.common import utils
 from melange.common import wsgi
 from melange.db import db_api
+from melange.ipv4 import db_based_ip_generator
+from melange.mac import db_based_mac_generator
 
 
 def test_config_path():
@@ -82,6 +85,4 @@ def setup():
     options = {"config_file": test_config_path()}
     conf = config.Config.load_paste_config("melangeapp", options, None)
 
-    db_api.drop_db(conf)
-    db_api.db_sync(conf)
-    db_api.configure_db(conf)
+    db_api.db_reset(conf, db_based_ip_generator, db_based_mac_generator)

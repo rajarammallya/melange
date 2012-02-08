@@ -32,11 +32,14 @@ _MAKER = None
 LOG = logging.getLogger('melange.db.sqlalchemy.session')
 
 
-def configure_db(options):
+def configure_db(options, models_mapper=None):
     configure_sqlalchemy_log(options)
     global _ENGINE
     if not _ENGINE:
         _ENGINE = _create_engine(options)
+    if models_mapper:
+        models_mapper.map(_ENGINE)
+    else:
         mappers.map(_ENGINE, ipam.models.persisted_models())
 
 
@@ -98,4 +101,5 @@ def drop_db(options):
     engine = _create_engine(options)
     meta.bind = engine
     meta.reflect()
+    meta.drop_all()
     meta.drop_all()

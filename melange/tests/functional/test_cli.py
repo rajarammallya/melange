@@ -18,9 +18,9 @@
 import datetime
 
 import melange
+from melange import tests
 from melange.common import config
 from melange.ipam import models
-from melange import tests
 from melange.tests.factories import models as factory_models
 from melange.tests import functional
 

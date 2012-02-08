@@ -1,11 +1,11 @@
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 
-# Copyright 2011 OpenStack LLC.
+# Copyright 2012 OpenStack LLC.
 # All Rights Reserved.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
-#    a copy of the License at
+#    a copy db_based_ip_generator.of the License at
 #
 #         http://www.apache.org/licenses/LICENSE-2.0
 #
@@ -19,7 +19,7 @@ import netaddr
 
 from melange.common import exception
 from melange.db import db_api
-from melange import ipam
+from melange.ipv4.db_based_ip_generator import models
 
 
 class DbBasedIpGenerator(object):
@@ -29,7 +29,7 @@ class DbBasedIpGenerator(object):
 
     def next_ip(self):
         allocatable_address = db_api.pop_allocatable_address(
-             ipam.models.AllocatableIp, ip_block_id=self.ip_block.id)
+             models.AllocatableIp, ip_block_id=self.ip_block.id)
 
         if allocatable_address is not None:
                 return allocatable_address
@@ -45,3 +45,7 @@ class DbBasedIpGenerator(object):
         self.ip_block.update(allocatable_ip_counter=allocatable_ip_counter + 1)
 
         return address
+
+    def ip_removed(self, address):
+        models.AllocatableIp.create(ip_block_id=self.ip_block.id,
+                                    address=address)

@@ -54,3 +54,12 @@ class Config(object):
         return dict((key.replace(group_key, "", 1), cls.instance.get(key))
                     for key in cls.instance
                     if key.startswith(group_key))
+
+
+def load_app_environment(oparser):
+    add_common_options(oparser)
+    add_log_options(oparser)
+    (options, args) = parse_options(oparser)
+    conf = Config.load_paste_config('melange', options, args)
+    setup_logging(options=options, conf=conf)
+    return conf

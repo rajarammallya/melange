@@ -226,6 +226,10 @@ def remove_allowed_ip(**conditions):
 
 def configure_db(options, *plugins):
     session.configure_db(options)
+    configure_db_for_plugins(options, *plugins)
+
+
+def configure_db_for_plugins(options, *plugins):
     for plugin in plugins:
         repo_path = plugin.migrate_repo_path()
         if repo_path:
@@ -255,6 +259,11 @@ def db_downgrade(options, version, repo_path=None):
 def db_reset(options, *plugins):
     drop_db(options)
     db_sync(options)
+    db_reset_for_plugins(options, *plugins)
+    configure_db(options)
+
+
+def db_reset_for_plugins(options, *plugins):
     for plugin in plugins:
         repo_path = plugin.migrate_repo_path()
         if repo_path:

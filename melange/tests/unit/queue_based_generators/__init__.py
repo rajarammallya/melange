@@ -14,3 +14,16 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
+import melange
+from melange.common import config
+from melange.db import db_api
+from melange.queue_based_generators import mac_generator as mac_queue_gen
+from melange.queue_based_generators import ip_generator as ip_queue_gen
+
+
+def setup():
+    options = {"config_file": melange.melange_etc_path("melange.conf.sample")}
+    conf = config.Config.load_paste_config("melangeapp", options, None)
+
+    db_api.db_reset_for_plugins(conf, mac_queue_gen, ip_queue_gen)

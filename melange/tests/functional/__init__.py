@@ -23,8 +23,6 @@ from melange.common import config
 from melange.db import db_api
 from melange.ipv4 import db_based_ip_generator
 from melange.mac import db_based_mac_generator
-from melange.queue_based_generators import ip_generator as ip_queue_gen
-from melange.queue_based_generators import ip_generator as mac_queue_gen
 
 
 def test_config_file():
@@ -35,8 +33,7 @@ def setup():
     options = dict(config_file=test_config_file())
     conf = config.Config.load_paste_config("melange", options, None)
 
-    db_api.db_reset(conf, db_based_ip_generator, db_based_mac_generator,
-                    ip_queue_gen, mac_queue_gen)
+    db_api.db_reset(conf, db_based_ip_generator, db_based_mac_generator)
 
 
 def execute(cmd, raise_error=True):

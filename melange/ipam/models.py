@@ -75,6 +75,7 @@ class ModelBase(object):
         self._convert_columns_to_proper_type()
         self._before_save()
         self['updated_at'] = utils.utcnow()
+        LOG.debug("Saving %s: %s" % (self.__class__.__name__, self.__dict__))
         return db.db_api.save(self)
 
     def delete(self):
@@ -252,6 +253,7 @@ class IpBlock(ModelBase):
 
     @classmethod
     def delete_all_deallocated_ips(cls):
+        LOG.info("Deleting all deallocated IPs")
         for block in db.db_api.find_all_blocks_with_deallocated_ips():
             block.delete_deallocated_ips()
 
@@ -396,17 +398,21 @@ class IpBlock(ModelBase):
         return network in other_network or other_network in network
 
     def find_ip(self, **kwargs):
+        LOG.debug("Searching for IP block %r for IP matching "
+                  "%s" % (self.id, kwargs))
         return IpAddress.find_by(ip_block_id=self.id, **kwargs)
 
     def deallocate_ip(self, address):
         ip_address = IpAddress.find_by(ip_block_id=self.id, address=address)
         if ip_address != None:
+            LOG.debug("Deallocating IP: %s" % ip_address)
             ip_address.deallocate()
 
     def delete_deallocated_ips(self):
         self.update(is_full=False)
         for ip in db.db_api.find_deallocated_ips(
             deallocated_by=self._deallocated_by_date(), ip_block_id=self.id):
+            LOG.debug("Deleting deallocated IP: %s" % ip)
             ip.delete()
 
     def _deallocated_by_date(self):
@@ -568,15 +574,18 @@ class IpAddress(ModelBase):
 
     @classmethod
     def find_all_by_network(cls, network_id, **conditions):
+        LOG.debug("Retrieving all IPs for network %s" % network_id)
         return db.db_query.find_all_ips_in_network(cls,
                                              network_id=network_id,
                                              **conditions)
 
     @classmethod
     def find_all_allocated_ips(cls, **conditions):
+        LOG.debug("Retrieving all allocated IPs.")
         return db.db_query.find_all_allocated_ips(cls, **conditions)
 
     def delete(self):
+        LOG.debug("Deleting IP address: %r" % self)
         if self._explicitly_allowed_on_interfaces():
             return self.update(marked_for_deallocation=False,
                                deallocated_at=None,
@@ -606,11 +615,13 @@ class IpAddress(ModelBase):
             for local_address in ip_addresses])
 
     def deallocate(self):
+        LOG.debug("Marking IP address for deallocation: %r" % self)
         self.update(marked_for_deallocation=True,
                     deallocated_at=utils.utcnow(),
                     interface_id=None)
 
     def restore(self):
+        LOG.debug("Restored IP address: %r" % self)
         self.update(marked_for_deallocation=False, deallocated_at=None)
 
     def inside_globals(self, **kwargs):

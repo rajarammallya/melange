@@ -15,6 +15,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import logging
 import routes
 import webob.exc
 
@@ -24,6 +25,9 @@ from melange.common import utils
 from melange.common import wsgi
 from melange.ipam import models
 from melange.ipam import views
+
+
+LOG = logging.getLogger('melange.ipam.service')
 
 
 class BaseController(wsgi.Controller):
@@ -93,19 +97,24 @@ class IpBlockController(BaseController, DeleteAction, ShowAction):
         return models.IpBlock.find_by(**kwargs)
 
     def index(self, request, tenant_id):
+        LOG.info("Listing all IP blocks for tenant '%s'" % tenant_id)
         type_dict = utils.filter_dict(request.params, 'type')
         all_blocks = models.IpBlock.find_all(tenant_id=tenant_id, **type_dict)
         return self._paginated_response('ip_blocks', all_blocks, request)
 
     def create(self, request, tenant_id, body=None):
+        LOG.info("Creating an IP block for tenant '%s'" % tenant_id)
         params = self._extract_required_params(body, 'ip_block')
         block = models.IpBlock.create(tenant_id=tenant_id, **params)
+        LOG.debug("New IP block parameters: %s" % params)
         return wsgi.Result(dict(ip_block=block.data()), 201)
 
     def update(self, request, id, tenant_id, body=None):
+        LOG.info("Updating IP block %(id)s for %(tenant_id)s" % locals())
         ip_block = self._find_block(id=id, tenant_id=tenant_id)
         params = self._extract_required_params(body, 'ip_block')
         ip_block.update(**utils.exclude(params, 'cidr', 'type'))
+        LOG.debug("Updated IP block %(id)s parameters: %(params)s" % locals())
         return wsgi.Result(dict(ip_block=ip_block.data()), 200)
 
 
@@ -403,6 +412,7 @@ class InterfacesController(BaseController, ShowAction, DeleteAction):
         params = self._extract_required_params(body, 'interface')
         params['virtual_interface_id'] = params.pop('id', None)
         network_params = utils.stringify_keys(params.pop('network', None))
+        LOG.debug("Creating interface with parameters: %s" % params)
         interface = models.Interface.create_and_configure(**params)
 
         if network_params:
@@ -423,6 +433,7 @@ class InterfacesController(BaseController, ShowAction, DeleteAction):
 
     def delete(self, request, **kwargs):
         kwargs['vif_id_on_device'] = kwargs.pop('virtual_interface_id', None)
+        LOG.debug("Deleting interface (kwargs=%s)" % kwargs)
         self._model.find_by(**kwargs).delete()
 
 
@@ -459,6 +470,7 @@ class InstanceInterfacesController(BaseController):
         return {'instance': {'interfaces': view_data}}
 
     def delete(self, request, device_id):
+        LOG.debug("Deleting instance interface (device_id=%s)" % device_id)
         models.Interface.delete_by(device_id=device_id)
 
 
@@ -468,6 +480,7 @@ class MacAddressRangesController(BaseController, ShowAction, DeleteAction):
 
     def create(self, request, body=None):
         params = self._extract_required_params(body, 'mac_address_range')
+        LOG.info("Creating MAC address range: %s" % params)
         mac_range = models.MacAddressRange.create(**params)
         return wsgi.Result(dict(mac_address_range=mac_range.data()), 201)
 

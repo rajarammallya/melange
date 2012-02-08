@@ -15,10 +15,15 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import logging
+
 import kombu.connection
 
 from melange.common import config
 from melange.common import utils
+
+
+LOG = logging.getLogger('melange.common.messaging')
 
 
 class Queue(object):
@@ -34,14 +39,18 @@ class Queue(object):
         self.close()
 
     def connect(self):
-        self.conn = kombu.connection.BrokerConnection(
-            **queue_connection_options("ipv4_queue"))
+        options = queue_connection_options("ipv4_queue")
+        LOG.info("Connecting to message queue.")
+        LOG.debug("Message queue connect options: %(options)s" % locals())
+        self.conn = kombu.connection.BrokerConnection(**options)
 
     def put(self, msg):
-            queue = self.conn.SimpleQueue(self.name, no_ack=True)
-            queue.put(msg)
+        queue = self.conn.SimpleQueue(self.name, no_ack=True)
+        LOG.debug("Putting message '%(msg)s' on queue '%(queue)s'" % locals())
+        queue.put(msg)
 
     def close(self):
+        LOG.info("Closing connection to message queue.")
         self.conn.close()
 
 

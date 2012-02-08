@@ -29,6 +29,9 @@ _ENGINE = None
 _MAKER = None
 
 
+LOG = logging.getLogger('melange.db.sqlalchemy.session')
+
+
 def configure_db(options):
     configure_sqlalchemy_log(options)
     global _ENGINE
@@ -48,9 +51,18 @@ def configure_sqlalchemy_log(options):
 
 
 def _create_engine(options):
-    timeout = config.get_option(options, 'sql_idle_timeout', type='int',
-                                default=3600)
-    return create_engine(options['sql_connection'], pool_recycle=timeout)
+    engine_args = {
+        "pool_recycle": config.get_option(options,
+                                          'sql_idle_timeout',
+                                          type='int',
+                                          default=3600),
+        "echo": config.get_option(options,
+                                  'sql_query_log',
+                                  type='bool',
+                                  default=False),
+    }
+    LOG.info("Creating SQLAlchemy engine with args: %s" % engine_args)
+    return create_engine(options['sql_connection'], **engine_args)
 
 
 def get_session(autocommit=True, expire_on_commit=False):

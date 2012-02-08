@@ -25,6 +25,7 @@ import operator
 from melange import db
 from melange import ipv6
 from melange import ipv4
+from melange import mac
 from melange.common import config
 from melange.common import exception
 from melange.common import notifier
@@ -274,6 +275,9 @@ class IpBlock(ModelBase):
     def subnets(self):
         return IpBlock.find_all(parent_id=self.id).all()
 
+    def size(self):
+        return netaddr.IPNetwork(self.cidr).size
+
     def siblings(self):
         if not self.parent:
             return []
@@ -303,6 +307,9 @@ class IpBlock(ModelBase):
     def parent(self):
         return IpBlock.get(self.parent_id)
 
+    def no_ips_allocated(self):
+        return IpAddress.find_all(ip_block_id=self.id).count() == 0
+
     def allocate_ip(self, interface, address=None, **kwargs):
 
         if self.subnets():
@@ -326,10 +333,10 @@ class IpBlock(ModelBase):
         max_allowed_retry = int(config.Config.get("ip_allocation_retries", 10))
 
         for retries in range(max_allowed_retry):
-            address = self._generate_ip_address(
-                used_by_tenant=interface.tenant_id,
-                mac_address=interface.mac_address_eui_format,
-                **kwargs)
+            address = self._generate_ip(
+                            used_by_tenant=interface.tenant_id,
+                            mac_address=interface.mac_address_eui_format,
+                            **kwargs)
             try:
                 return IpAddress.create(address=address,
                                         ip_block_id=self.id,
@@ -342,26 +349,24 @@ class IpBlock(ModelBase):
         raise ConcurrentAllocationError(
             _("Cannot allocate address for block %s at this time") % self.id)
 
-    def _generate_ip_address(self, **kwargs):
+    def _generate_ip(self, **kwargs):
         if self.is_ipv6():
-            address_generator = ipv6.address_generator_factory(self.cidr,
-                                                               **kwargs)
-
-            return utils.find(lambda address:
-                              self.does_address_exists(address) is False,
-                              IpAddressIterator(address_generator))
+            generator = ipv6.address_generator_factory(self.cidr,
+                                                       **kwargs)
+            address = next((address for address in IpAddressIterator(generator)
+                           if self.does_address_exists(address) is False),
+                           None)
         else:
-            generator = ipv4.address_generator_factory(self)
-            policy = self.policy()
-            address = utils.find(lambda address:
-                                 self._address_is_allocatable(policy, address),
-                                 IpAddressIterator(generator))
+            generator = ipv4.plugin().get_generator(self)
+            address = next((address for address in IpAddressIterator(generator)
+                            if self._address_is_allocatable(self.policy(),
+                                                            address)),
+                            None)
 
-            if address:
-                return address
-
+        if not address:
             self.update(is_full=True)
             raise exception.NoMoreAddressesError(_("IpBlock is full"))
+        return address
 
     def _allocate_specific_ip(self, interface, address):
 
@@ -410,9 +415,12 @@ class IpBlock(ModelBase):
 
     def delete_deallocated_ips(self):
         self.update(is_full=False)
+
         for ip in db.db_api.find_deallocated_ips(
             deallocated_by=self._deallocated_by_date(), ip_block_id=self.id):
             LOG.debug("Deleting deallocated IP: %s" % ip)
+            generator = ipv4.plugin().get_generator(self)
+            generator.ip_removed(ip.address)
             ip.delete()
 
     def _deallocated_by_date(self):
@@ -588,8 +596,6 @@ class IpAddress(ModelBase):
                                deallocated_at=None,
                                interface_id=None)
 
-        AllocatableIp.create(ip_block_id=self.ip_block_id,
-                             address=self.address)
         super(IpAddress, self).delete()
 
     def _explicitly_allowed_on_interfaces(self):
@@ -681,10 +687,6 @@ class IpAddress(ModelBase):
         return self.address
 
 
-class AllocatableIp(ModelBase):
-    pass
-
-
 class IpRoute(ModelBase):
 
     _data_fields = ['destination', 'netmask', 'gateway']
@@ -714,12 +716,13 @@ class MacAddressRange(ModelBase):
         return cls.count() > 0
 
     def allocate_mac(self, **kwargs):
-        if self.is_full():
+        generator = mac.plugin().get_generator(self)
+        if generator.is_full():
             raise NoMoreMacAddressesError()
 
         max_retry_count = int(config.Config.get("mac_allocation_retries", 10))
         for retries in range(max_retry_count):
-            next_address = self._next_eligible_address()
+            next_address = generator.next_mac()
             try:
                 return MacAddress.create(address=next_address,
                                          mac_address_range_id=self.id,
@@ -727,7 +730,7 @@ class MacAddressRange(ModelBase):
             except exception.DBConstraintError as error:
                 LOG.debug("MAC allocation retry count:{0}".format(retries + 1))
                 LOG.exception(error)
-                if not self.contains(next_address + 1):
+                if generator.is_full():
                     raise NoMoreMacAddressesError()
 
         raise ConcurrentAllocationError(
@@ -735,39 +738,26 @@ class MacAddressRange(ModelBase):
 
     def contains(self, address):
         address = int(netaddr.EUI(address))
-        return (address >= self._first_address() and
-                address <= self._last_address())
-
-    def is_full(self):
-        return self._get_next_address() > self._last_address()
+        return (address >= self.first_address() and
+                address <= self.last_address())
 
     def length(self):
         base_address, slash, prefix_length = self.cidr.partition("/")
         prefix_length = int(prefix_length)
         return 2 ** (48 - prefix_length)
 
-    def _first_address(self):
+    def first_address(self):
         base_address, slash, prefix_length = self.cidr.partition("/")
         prefix_length = int(prefix_length)
         netmask = (2 ** prefix_length - 1) << (48 - prefix_length)
         base_address = netaddr.EUI(base_address)
         return int(netaddr.EUI(int(base_address) & netmask))
 
-    def _last_address(self):
-        return self._first_address() + self.length() - 1
+    def last_address(self):
+        return self.first_address() + self.length() - 1
 
-    def _next_eligible_address(self):
-        allocatable_address = db.db_api.pop_allocatable_address(
-                AllocatableMac, mac_address_range_id=self.id)
-        if allocatable_address is not None:
-                return allocatable_address
-
-        address = self._get_next_address()
-        self.update(next_address=address + 1)
-        return address
-
-    def _get_next_address(self):
-        return self.next_address or self._first_address()
+    def no_macs_allocated(self):
+        return MacAddress.find_all(mac_address_range_id=self.id).count() == 0
 
 
 class MacAddress(ModelBase):
@@ -784,22 +774,23 @@ class MacAddress(ModelBase):
         self.address = int(netaddr.EUI(self.address))
 
     def _validate_belongs_to_mac_address_range(self):
-        if self.mac_address_range_id:
-            rng = MacAddressRange.find(self.mac_address_range_id)
-            if not rng.contains(self.address):
+        if self.mac_range:
+            if not self.mac_range.contains(self.address):
                 self._add_error('address', "address does not belong to range")
 
     def _validate(self):
         self._validate_belongs_to_mac_address_range()
 
     def delete(self):
-        AllocatableMac.create(mac_address_range_id=self.mac_address_range_id,
-                              address=self.address)
+        if self.mac_range:
+            generator = mac.plugin().get_generator(self.mac_range)
+            generator.mac_removed(self.address)
         super(MacAddress, self).delete()
 
-
-class AllocatableMac(ModelBase):
-    pass
+    @utils.cached_property
+    def mac_range(self):
+        if self.mac_address_range_id:
+            return MacAddressRange.find(self.mac_address_range_id)
 
 
 class Interface(ModelBase):
@@ -1096,11 +1087,9 @@ def persisted_models():
         'IpRange': IpRange,
         'IpOctet': IpOctet,
         'IpRoute': IpRoute,
-        'AllocatableIp': AllocatableIp,
         'MacAddressRange': MacAddressRange,
         'MacAddress': MacAddress,
         'Interface': Interface,
-        'AllocatableMac': AllocatableMac
         }
 
 

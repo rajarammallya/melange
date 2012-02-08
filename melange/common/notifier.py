@@ -72,7 +72,7 @@ class QueueNotifier(Notifier):
     def notify(self, level, msg):
         topic = "%s.%s" % ("melange.notifier", level.upper())
 
-        with messaging.Queue(topic) as queue:
+        with messaging.Queue(topic, "notifier") as queue:
             queue.put(msg)
 
 

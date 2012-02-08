@@ -50,15 +50,15 @@ keep_deallocated_ips_for_days = 2
 #Number of retries for allocating an IP
 ip_allocation_retries = 5
 
-# ============ ipv4 queue kombu connection options ========================
+# ============ notifer queue kombu connection options ========================
 
-ipv4_queue_hostname = localhost
-ipv4_queue_userid = guest
-ipv4_queue_password = guest
-ipv4_queue_ssl = False
-ipv4_queue_port = 5672
-ipv4_queue_virtual_host = /
-ipv4_queue_transport = memory
+notifier_queue_hostname = localhost
+notifier_queue_userid = guest
+notifier_queue_password = guest
+notifier_queue_ssl = False
+notifier_queue_port = 5672
+notifier_queue_virtual_host = /
+notifier_queue_transport = memory
 
 [composite:melange]
 use = call:melange.common.wsgi:versioned_urlmap

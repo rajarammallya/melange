@@ -23,14 +23,14 @@ from melange.tests import unit
 class TestQueue(tests.BaseTest):
 
     def test_queue_connection_options_are_read_from_config(self):
-        with(unit.StubConfig(ipv4_queue_hostname="localhost",
-                             ipv4_queue_userid="guest",
-                             ipv4_queue_password="guest",
-                             ipv4_queue_ssl="True",
-                             ipv4_queue_port="5555",
-                             ipv4_queue_virtual_host="/",
-                             ipv4_queue_transport="memory")):
-            queue_params = messaging.queue_connection_options("ipv4_queue")
+        with(unit.StubConfig(notifier_queue_hostname="localhost",
+                             notifier_queue_userid="guest",
+                             notifier_queue_password="guest",
+                             notifier_queue_ssl="True",
+                             notifier_queue_port="5555",
+                             notifier_queue_virtual_host="/",
+                             notifier_queue_transport="memory")):
+            queue_params = messaging.queue_connection_options("notifier_queue")
 
         self.assertEqual(queue_params, dict(hostname="localhost",
                                             userid="guest",

@@ -18,6 +18,7 @@
 import logging
 
 import kombu.connection
+from kombu.pools import connections
 
 from melange.common import config
 from melange.common import utils
@@ -28,34 +29,48 @@ LOG = logging.getLogger('melange.common.messaging')
 
 class Queue(object):
 
-    def __init__(self, name):
+    def __init__(self, name, queue_class):
         self.name = name
+        self.queue_class = queue_class
 
     def __enter__(self):
         self.connect()
+        self.queue = self.conn.SimpleQueue(self.name, no_ack=False)
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
         self.close()
 
     def connect(self):
-        options = queue_connection_options("ipv4_queue")
+        options = queue_connection_options(self.queue_class)
         LOG.info("Connecting to message queue.")
         LOG.debug("Message queue connect options: %(options)s" % locals())
-        self.conn = kombu.connection.BrokerConnection(**options)
+        self.conn = connections[kombu.connection.BrokerConnection(
+                                **options)].acquire()
 
     def put(self, msg):
-        queue = self.conn.SimpleQueue(self.name, no_ack=True)
-        LOG.debug("Putting message '%(msg)s' on queue '%(queue)s'" % locals())
-        queue.put(msg)
+        LOG.debug("Putting message '%(msg)s' on queue '%(queue)s'"
+                   % dict(msg=msg, queue=self.name))
+        self.queue.put(msg)
+
+    def pop(self):
+        msg = self.queue.get(block=False)
+        LOG.debug("Popped message '%(msg)s' from queue '%(queue)s'"
+                   % dict(msg=msg, queue=self.name))
+        return msg.payload
 
     def close(self):
-        LOG.info("Closing connection to message queue.")
-        self.conn.close()
+        LOG.info("Closing connection to message queue '%(queue)s'."
+                  % dict(queue=self.name))
+        self.conn.release()
+
+    def purge(self):
+        LOG.info("Purging message queue '%(queue)s'." % dict(queue=self.name))
+        self.queue.queue.purge()
 
 
-def queue_connection_options(queue_type):
-    queue_params = config.Config.get_params_group(queue_type)
+def queue_connection_options(queue_class):
+    queue_params = config.Config.get_params_group(queue_class)
     queue_params['ssl'] = utils.bool_from_string(queue_params.get('ssl',
                                                                   "false"))
     queue_params['port'] = int(queue_params.get('port', 5672))

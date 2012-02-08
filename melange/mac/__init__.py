@@ -1,6 +1,6 @@
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 
-# Copyright 2011 OpenStack LLC.
+# Copyright 2012 OpenStack LLC.
 # All Rights Reserved.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -26,11 +26,11 @@ _PLUGIN = None
 def plugin():
     global _PLUGIN
     if not _PLUGIN:
-        pluggable_generator_file = config.Config.get("ipv4_generator",
+        pluggable_generator_file = config.Config.get("mac_generator",
                                  os.path.join(os.path.dirname(__file__),
-                                    "db_based_ip_generator/__init__.py"))
+                                    "db_based_mac_generator/__init__.py"))
 
-        _PLUGIN = imp.load_source("pluggable_ip_generator",
+        _PLUGIN = imp.load_source("pluggable_mac_generator",
                                   pluggable_generator_file)
     return _PLUGIN
 

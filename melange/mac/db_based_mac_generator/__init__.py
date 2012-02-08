@@ -15,26 +15,20 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import imp
-import os
-
-from melange.common import config
-
-_PLUGIN = None
+#imports to allow these modules to be accessed by dynamic loading of this file
+from melange.mac.db_based_mac_generator import generator
+from melange.mac.db_based_mac_generator import mapper
+from melange.mac.db_based_mac_generator import models
 
 
-def plugin():
-    global _PLUGIN
-    if not _PLUGIN:
-        pluggable_generator_file = config.Config.get("ipv4_generator",
-                                 os.path.join(os.path.dirname(__file__),
-                                    "db_based_ip_generator/__init__.py"))
+def migrate_repo_path():
+    """Points to plugin specific sqlalchemy migration repo.
 
-        _PLUGIN = imp.load_source("pluggable_ip_generator",
-                                  pluggable_generator_file)
-    return _PLUGIN
+       Add any schema migrations specific to the models of this plugin in this
+       repo. Return None if no migrations exist
+    """
+    return None
 
 
-def reset_plugin():
-    global _PLUGIN
-    _PLUGIN = None
+def get_generator(rng):
+    return generator.DbBasedMacGenerator(rng)

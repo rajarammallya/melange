@@ -539,9 +539,6 @@ class IpBlock(ModelBase):
         self._convert_cidr_to_lowest_address()
 
     def _before_save(self):
-        network = netaddr.IPNetwork(self.cidr)
-        if not self.gateway  and  network.size > 1:
-            self.gateway = str(network[1])
         self.dns1 = self.dns1 or config.Config.get("dns1")
         self.dns2 = self.dns2 or config.Config.get("dns2")
 

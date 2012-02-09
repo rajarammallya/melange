@@ -425,15 +425,6 @@ class TestIpBlock(tests.BaseTest):
 
         self.assertEqual(block.cidr, "10.0.0.0/31")
 
-    def test_save_sets_the_gateway_ip_when_not_provided(self):
-        block = factory_models.IpBlockFactory(cidr="10.0.0.0/24",
-                                              gateway=None)
-        self.assertEqual(block.gateway, "10.0.0.1")
-
-        block = factory_models.IpBlockFactory(cidr="20.0.0.0/24",
-                                              gateway="20.0.0.10")
-        self.assertEqual(block.gateway, "20.0.0.10")
-
     def test_gateway_ip_is_not_auto_set_if_ip_block_has_only_one_ip(self):
         ipv4_block = factory_models.IpBlockFactory(cidr="10.0.0.0/32",
                                                    gateway=None)
@@ -567,7 +558,7 @@ class TestIpBlock(tests.BaseTest):
         interface = factory_models.InterfaceFactory()
 
         #allocate all ips except last ip(broadcast)
-        for i in range(0, 2):
+        for i in range(0, 3):
             block.allocate_ip(interface=interface)
 
         self.assertRaises(exception.NoMoreAddressesError,
@@ -633,7 +624,7 @@ class TestIpBlock(tests.BaseTest):
         interface = factory_models.InterfaceFactory()
         ip_block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.0/30")
 
-        for i in range(0, 2):
+        for i in range(0, 3):
             ip_block.allocate_ip(interface=interface)
 
         self.assertRaises(exception.NoMoreAddressesError,
@@ -716,7 +707,7 @@ class TestIpBlock(tests.BaseTest):
         block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.0/30")
         interface = factory_models.InterfaceFactory()
 
-        for i in range(0, 2):
+        for i in range(0, 3):
             block.allocate_ip(interface=interface)
 
         self.assertRaises(exception.NoMoreAddressesError,
@@ -728,7 +719,7 @@ class TestIpBlock(tests.BaseTest):
         interface = factory_models.InterfaceFactory()
 
         self.assertEqual(block.allocate_ip(interface).address, "10.0.0.0")
-        self.assertEqual(block.allocate_ip(interface).address, "10.0.0.2")
+        self.assertEqual(block.allocate_ip(interface).address, "10.0.0.1")
 
     def test_allocate_ip_for_ipv6_block_uses_pluggable_algo(self):
         block = factory_models.IpV6IpBlockFactory(cidr="ff::/120")
@@ -829,14 +820,14 @@ class TestIpBlock(tests.BaseTest):
                           address=ip.address,
                           interface=interface)
 
-    def test_data(self):
+    def test_data_with_gateway(self):
         policy = factory_models.PolicyFactory()
         parent_block = factory_models.PrivateIpBlockFactory(
                                                 cidr="10.0.0.0/24")
         ip_block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.0/29",
                                          policy_id=policy.id,
-                                         parent_id=parent_block.id)
-
+                                         parent_id=parent_block.id,
+                                         gateway="10.0.0.1")
         data = ip_block.data()
 
         self.assertEqual(data['id'], ip_block.id)
@@ -849,6 +840,29 @@ class TestIpBlock(tests.BaseTest):
         self.assertEqual(data['updated_at'], ip_block.updated_at)
         self.assertEqual(data['broadcast'], "10.0.0.7")
         self.assertEqual(data['gateway'], "10.0.0.1")
+        self.assertEqual(data['netmask'], "255.255.255.248")
+        self.assertEqual(data['dns1'], ip_block.dns1)
+        self.assertEqual(data['dns2'], ip_block.dns2)
+
+    def test_data_without_gateway(self):
+        policy = factory_models.PolicyFactory()
+        parent_block = factory_models.PrivateIpBlockFactory(
+                                                cidr="10.0.0.0/24")
+        ip_block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.0/29",
+                                         policy_id=policy.id,
+                                         parent_id=parent_block.id)
+        data = ip_block.data()
+
+        self.assertEqual(data['id'], ip_block.id)
+        self.assertEqual(data['cidr'], ip_block.cidr)
+        self.assertEqual(data['network_id'], ip_block.network_id)
+        self.assertEqual(data['tenant_id'], ip_block.tenant_id)
+        self.assertEqual(data['policy_id'], ip_block.policy_id)
+        self.assertEqual(data['parent_id'], ip_block.parent_id)
+        self.assertEqual(data['created_at'], ip_block.created_at)
+        self.assertEqual(data['updated_at'], ip_block.updated_at)
+        self.assertEqual(data['broadcast'], "10.0.0.7")
+        self.assertEqual(data['gateway'], None)
         self.assertEqual(data['netmask'], "255.255.255.248")
         self.assertEqual(data['dns1'], ip_block.dns1)
         self.assertEqual(data['dns2'], ip_block.dns2)
@@ -1002,7 +1016,7 @@ class TestIpBlock(tests.BaseTest):
     def test_is_full_flag_reset_when_addresses_are_deleted(self):
         interface = factory_models.InterfaceFactory()
         ip_block = factory_models.PrivateIpBlockFactory(cidr="10.0.0.0/30")
-        for i in range(0, 2):
+        for i in range(0, 3):
             ip = _allocate_ip(ip_block, interface=interface)
         ip.deallocate()
         self.assertRaises(exception.NoMoreAddressesError,

@@ -19,15 +19,15 @@ import routes
 import unittest
 import webtest
 
+from melange import tests
 from melange.common import config
 from melange.common import wsgi
-from melange.tests import unit
 
 
 class TestExtensions(unittest.TestCase):
 
     def test_extension_loads_with_melange_xmlns(self):
-        options = {'config_file': unit.test_config_path()}
+        options = {'config_file': tests.test_config_file()}
         conf, app = config.Config.load_paste_app('melangeapi',
                                           options, None)
         test_app = webtest.TestApp(app)

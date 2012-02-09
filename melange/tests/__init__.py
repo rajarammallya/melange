@@ -15,12 +15,35 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import mox
+# See http://code.google.com/p/python-nose/issues/detail?id=373
+# The code below enables nosetests to work with i18n _() blocks
+import __builtin__
+setattr(__builtin__, '_', lambda x: x)
+
+import os
 import unittest
 import urlparse
 
+import mox
+
 from melange.db import db_api
 from melange.common import utils
+
+
+def melange_root_path():
+    return os.path.join(os.path.dirname(__file__), "..", "..")
+
+
+def melange_bin_path(filename="."):
+    return os.path.join(melange_root_path(), "bin", filename)
+
+
+def melange_etc_path(filename="."):
+    return os.path.join(melange_root_path(), "etc", "melange", filename)
+
+
+def test_config_file():
+    return melange_etc_path("melange.conf.sample")
 
 
 class BaseTest(unittest.TestCase):

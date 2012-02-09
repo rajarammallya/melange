@@ -18,17 +18,13 @@
 import os
 import subprocess
 
-import melange
+from melange import tests
 from melange.common import config
 from melange.db import db_api
 
 
-def test_config_file():
-    return melange.melange_etc_path("melange.conf.sample")
-
-
 def setup():
-    options = dict(config_file=test_config_file())
+    options = dict(config_file=tests.test_config_file())
     _db_sync(options)
     _configure_db(options)
 
@@ -60,7 +56,7 @@ def execute(cmd, raise_error=True):
 
     # Make sure that we use the programs in the
     # current source directory's bin/ directory.
-    env['PATH'] = melange.melange_bin_path() + ':' + env['PATH']
+    env['PATH'] = tests.melange_bin_path() + ':' + env['PATH']
     process = subprocess.Popen(cmd,
                                shell=True,
                                stdin=subprocess.PIPE,

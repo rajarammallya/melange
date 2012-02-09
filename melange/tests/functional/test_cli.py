@@ -26,8 +26,8 @@ from melange.tests import functional
 
 
 def run_melange_manage(command):
-    melange_manage = melange.melange_bin_path('melange-manage')
-    config_file = functional.test_config_file()
+    melange_manage = tests.melange_bin_path('melange-manage')
+    config_file = tests.test_config_file()
     return functional.execute("%(melange_manage)s %(command)s "
                               "--config-file=%(config_file)s" % locals())
 
@@ -56,8 +56,8 @@ class TestDeleteDeallocatedIps(tests.BaseTest):
         days = config.Config.get('keep_deallocated_ips_for_days')
         self._push_back_deallocated_date(ip, days)
 
-        script = melange.melange_bin_path('melange-delete-deallocated-ips')
-        config_file = functional.test_config_file()
+        script = tests.melange_bin_path('melange-delete-deallocated-ips')
+        config_file = tests.test_config_file()
         functional.execute("{0} --config-file={1}".format(script, config_file))
 
         self.assertIsNone(models.IpAddress.get(ip.id))

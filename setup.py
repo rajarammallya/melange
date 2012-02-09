@@ -96,4 +96,6 @@ setup(name='melange',
                'bin/melange-manage',
                'bin/melange-delete-deallocated-ips',
                ],
-      py_modules=[])
+      py_modules=[],
+      namespace_packages=['melange'],
+    )

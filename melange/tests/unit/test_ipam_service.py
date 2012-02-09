@@ -17,7 +17,6 @@
 import string
 import unittest
 
-import mox
 import netaddr
 import routes
 import webob.exc
@@ -41,7 +40,7 @@ class ControllerTestBase(tests.BaseTest):
     def setUp(self):
         super(ControllerTestBase, self).setUp()
         conf, melange_app = config.Config.load_paste_app('melangeapp',
-                {"config_file": unit.test_config_path()}, None)
+                {"config_file": tests.test_config_file()}, None)
         self.app = unit.TestApp(melange_app)
 
 

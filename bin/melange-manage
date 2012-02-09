@@ -16,11 +16,16 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+#TODO(jkoelker) Convert this to an entry_point
+
+import gettext
 import optparse
 import os
-import re
 import sys
-import time
+
+
+gettext.install('melange', unicode=1)
+
 
 # If ../melange/__init__.py exists, add ../ to Python search path, so that
 # it will override what happens to be installed in /usr/(local/)lib/python...
@@ -32,7 +37,6 @@ if os.path.exists(os.path.join(possible_topdir, 'melange', '__init__.py')):
 
 from melange import version
 from melange.common import config
-from melange.common import wsgi
 from melange.common import utils
 from melange.db import db_api
 

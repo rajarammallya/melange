@@ -26,10 +26,16 @@ This script can be run as a cron job on the melange server.
 
 """
 
-import logging
+#TODO(jkoelker) Convert this to an entry_point
+
+import gettext
 import optparse
 import os
 import sys
+
+
+gettext.install('melange', unicode=1)
+
 
 # If ../melange/__init__.py exists, add ../ to Python search path, so that
 # it will override what happens to be installed in /usr/(local/)lib/python...

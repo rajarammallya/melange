@@ -15,23 +15,14 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-# See http://code.google.com/p/python-nose/issues/detail?id=373
-# The code below enables nosetests to work with i18n _() blocks
-import __builtin__
-setattr(__builtin__, '_', lambda x: x)
-
 import json
 import webtest
 
-import melange
+from melange import tests
 from melange.common import config
 from melange.common import utils
 from melange.common import wsgi
 from melange.db import db_api
-
-
-def test_config_path():
-    return melange.melange_etc_path("melange.conf.sample")
 
 
 def sanitize(data):
@@ -79,7 +70,7 @@ class TestApp(webtest.TestApp):
 
 
 def setup():
-    options = {"config_file": test_config_path()}
+    options = {"config_file": tests.test_config_file()}
     conf = config.Config.load_paste_config("melangeapp", options, None)
 
     db_api.drop_db(conf)

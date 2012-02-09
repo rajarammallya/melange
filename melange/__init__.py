@@ -14,25 +14,8 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
-import gettext
-import pkgutil
-import os
-
-
-__path__ = pkgutil.extend_path(__path__, __name__)
-
-
-gettext.install('melange', unicode=1)
-
-
-def melange_root_path():
-    return os.path.dirname(__file__)
-
-
-def melange_bin_path(filename="."):
-    return os.path.join(melange_root_path(), "..", "bin", filename)
-
-
-def melange_etc_path(filename="."):
-    return os.path.join(melange_root_path(), "..", "etc", "melange", filename)
+try:
+    __import__('pkg_resources').declare_namespace(__name__)
+except ImportError:
+    from pkgutil import extend_path
+    __path__ = extend_path(__path__, __name__)

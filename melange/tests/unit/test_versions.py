@@ -19,14 +19,13 @@ import webtest
 
 from melange.common import config
 from melange import tests
-from melange.tests import unit
 
 
 class TestVersionsController(tests.BaseTest):
 
     def setUp(self):
         conf, melange_app = config.Config.load_paste_app('melange',
-                              {"config_file": unit.test_config_path()}, None)
+                              {"config_file": tests.test_config_file()}, None)
         self.test_app = webtest.TestApp(melange_app)
         super(TestVersionsController, self).setUp()
 

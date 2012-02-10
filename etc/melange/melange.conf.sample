@@ -63,13 +63,17 @@ notifier_queue_transport = memory
 [composite:melange]
 use = call:melange.common.wsgi:versioned_urlmap
 /: versions
-/v0.1: melangeapi
+/v0.1: melangeapp_v0_1
+/v1.0: melangeapp_v1_0
 
 [app:versions]
 paste.app_factory = melange.versions:app_factory
 
-[pipeline:melangeapi]
-pipeline = extensions melangeapp
+[pipeline:melangeapi_v0_1]
+pipeline = extensions melangeapp_v0_1
+
+[pipeline:melangeapi_v1_0]
+pipeline = extensions melangeapp_v1_0
 
 [filter:extensions]
 paste.filter_factory = melange.common.extensions:factory
@@ -87,8 +91,11 @@ admin_token = 999888777666
 [filter:authorization]
 paste.filter_factory = melange.common.auth:AuthorizationMiddleware.factory
 
-[app:melangeapp]
-paste.app_factory = melange.ipam.service:app_factory
+[app:melangeapp_v0_1]
+paste.app_factory = melange.ipam.service:APIV01.app_factory
+
+[app:melangeapp_v1_0]
+paste.app_factory = melange.ipam.service:APIV10.app_factory
 
 #Add this filter to log request and response for debugging
 [filter:debug]

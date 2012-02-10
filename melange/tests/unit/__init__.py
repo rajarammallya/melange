@@ -83,6 +83,6 @@ class TestApp(webtest.TestApp):
 
 def setup():
     options = {"config_file": test_config_path()}
-    conf = config.Config.load_paste_config("melangeapp", options, None)
+    conf = config.Config.load_paste_config("melange", options, None)
 
     db_api.db_reset(conf, db_based_ip_generator, db_based_mac_generator)

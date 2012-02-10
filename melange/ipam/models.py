@@ -814,6 +814,20 @@ class Interface(ModelBase):
                                         mac_address)
 
     @classmethod
+    def create_and_allocate_ips(cls,
+                                device_id=None,
+                                network_params=None,
+                                **kwargs):
+        interface = Interface.create_and_configure(device_id=device_id,
+                                                   **kwargs)
+
+        if network_params:
+            network = Network.find_or_create_by(network_params.pop('id'),
+                                               network_params.pop('tenant_id'))
+            network.allocate_ips(interface=interface, **network_params)
+        return interface
+
+    @classmethod
     def create_and_configure(cls, virtual_interface_id=None, device_id=None,
                              tenant_id=None, mac_address=None):
         interface = Interface.create(vif_id_on_device=virtual_interface_id,

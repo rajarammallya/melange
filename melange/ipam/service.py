@@ -439,7 +439,7 @@ class InterfacesController(BaseController, ShowAction, DeleteAction):
 
 class InstanceInterfacesController(BaseController):
 
-    def update(self, request, device_id, body=None):
+    def update_all(self, request, device_id, body=None):
         models.Interface.delete_by(device_id=device_id)
 
         params = self._extract_required_params(body, 'instance')
@@ -448,30 +448,46 @@ class InstanceInterfacesController(BaseController):
         for iface in params['interfaces']:
 
             network_params = utils.stringify_keys(iface.pop('network', None))
-            interface = models.Interface.create_and_configure(
-                    device_id=device_id, tenant_id=tenant_id, **iface)
-
-            if network_params:
-                network = models.Network.find_or_create_by(
-                            network_params.pop('id'),
-                            network_params.pop('tenant_id'))
-                network.allocate_ips(interface=interface, **network_params)
+            interface = models.Interface.create_and_allocate_ips(
+                                                device_id=device_id,
+                                                network_params=network_params,
+                                                tenant_id=tenant_id,
+                                                **iface)
 
             view_data = views.InterfaceConfigurationView(interface).data()
             created_interfaces.append(view_data)
 
         return {'instance': {'interfaces': created_interfaces}}
 
-    def show(self, request, device_id):
+    def index(self, request, device_id):
         interfaces = models.Interface.find_all(device_id=device_id)
         view_data = [views.InterfaceConfigurationView(iface).data()
                         for iface in interfaces]
 
         return {'instance': {'interfaces': view_data}}
 
-    def delete(self, request, device_id):
+    def delete_all(self, request, device_id):
         LOG.debug("Deleting instance interface (device_id=%s)" % device_id)
         models.Interface.delete_by(device_id=device_id)
+
+    def create(self, request, device_id, body=None):
+        iface_params = self._extract_required_params(body, 'interface')
+        network_params = utils.stringify_keys(iface_params.pop('network', None))
+        interface = models.Interface.create_and_allocate_ips(
+                                            device_id=device_id,
+                                            network_params=network_params,
+                                            **iface_params)
+        view_data = views.InterfaceConfigurationView(interface).data()
+        return dict(interface=view_data)
+
+    def show(self, request, id, device_id, tenant_id=None):
+        iface_params = dict(device_id=device_id, id=id)
+        if tenant_id:
+            iface_params.update(dict(tenant_id=tenant_id))
+
+        interface = models.Interface.find_by(**iface_params)
+        view_data = views.InterfaceConfigurationView(interface).data()
+        return dict(interface=view_data)
 
 
 class MacAddressRangesController(BaseController, ShowAction, DeleteAction):
@@ -522,63 +538,54 @@ class InterfaceAllowedIpsController(BaseController):
         interface.disallow_ip(ip)
 
 
-class API(wsgi.Router):
+class APIV01(wsgi.Router):
 
     def __init__(self):
         mapper = routes.Mapper()
-        super(API, self).__init__(mapper)
-        self._natting_mapper(mapper,
-                             "inside_globals",
-                             InsideGlobalsController().create_resource())
-        self._natting_mapper(mapper,
-                             "inside_locals",
-                             InsideLocalsController().create_resource())
-        self._block_and_nested_resource_mapper(mapper)
-        self._policy_and_rules_mapper(mapper)
+        super(APIV01, self).__init__(mapper)
         self._networks_maper(mapper)
         self._interface_ip_allocations_mapper(mapper)
-        self._allocated_ips_mapper(mapper)
-        self._ip_routes_mapper(mapper)
         self._interface_mapper(mapper)
-        self._instance_interface_mapper(mapper)
-        self._mac_address_range_mapper(mapper)
+        self._allowed_ips_mapper(mapper)
+        APICommon(mapper)
 
-    def _allocated_ips_mapper(self, mapper):
-        allocated_ips_res = AllocatedIpAddressesController().create_resource()
-        self._connect(mapper,
-                      "/ipam/allocated_ip_addresses",
-                      controller=allocated_ips_res,
-                      action="index",
-                      conditions=dict(method=['GET']))
-        self._connect(mapper,
-                      "/ipam/tenants/{tenant_id}/allocated_ip_addresses",
-                      controller=allocated_ips_res,
-                      action="index",
-                      conditions=dict(method=['GET']))
+    def _networks_maper(self, mapper):
+        resource = NetworksController().create_resource()
+        path = "/ipam/tenants/{tenant_id}/networks/{network_id}"
+        mapper.resource("networks", path, controller=resource)
 
-    def _ip_routes_mapper(self, mapper):
-        ip_routes_res = IpRoutesController().create_resource()
-        path = ("/ipam/tenants/{tenant_id}/ip_blocks/{source_block_id}"
-                "/ip_routes")
-        mapper.resource("ip_routes", path, controller=ip_routes_res)
+    def _interface_ip_allocations_mapper(self, mapper):
+        path = ("/ipam/tenants/{tenant_id}/networks"
+                "/{network_id}/interfaces/{interface_id}")
+        resource = InterfaceIpAllocationsController().create_resource()
+        with mapper.submapper(controller=resource, path_prefix=path) as submap:
+            _connect(submap, "/ip_allocations", action='create',
+                          conditions=dict(method=['POST']))
+            _connect(submap,
+                          "/ip_allocations",
+                          action='index',
+                          conditions=dict(method=['GET']))
+            _connect(submap, "/ip_allocations", action='bulk_delete',
+                          conditions=dict(method=['DELETE']))
 
     def _interface_mapper(self, mapper):
         interface_res = InterfacesController().create_resource()
-        interface_allowed_ips = InterfaceAllowedIpsController()
         path = "/ipam/interfaces"
-        self._connect(mapper,
+        _connect(mapper,
                       "/ipam/tenants/{tenant_id}/"
                       "interfaces/{virtual_interface_id}",
                       controller=interface_res,
                       action="show",
                       conditions=dict(method=['GET']))
-        self._connect(mapper,
+        _connect(mapper,
                       "/ipam/interfaces/{virtual_interface_id}",
                       controller=interface_res,
                       action="delete",
                       conditions=dict(method=['DELETE']))
         mapper.resource("interfaces", path, controller=interface_res)
 
+    def _allowed_ips_mapper(self, mapper):
+        interface_allowed_ips = InterfaceAllowedIpsController()
         mapper.connect("/ipam/tenants/{tenant_id}/"
                        "interfaces/{interface_id}/allowed_ips/{address:.+?}",
                        action="delete",
@@ -595,47 +602,89 @@ class API(wsgi.Router):
                         path_prefix=("/ipam/tenants/{tenant_id}/"
                                      "interfaces/{interface_id}"))
 
+    @classmethod
+    def app_factory(cls, global_conf, **local_conf):
+        return APIV01()
+
+
+class APIV10(wsgi.Router):
+
+    def __init__(self):
+        mapper = routes.Mapper()
+        super(APIV10, self).__init__(mapper)
+        APICommon(mapper)
+
+    @classmethod
+    def app_factory(cls, global_conf, **local_conf):
+        return APIV10()
+
+
+class APICommon():
+
+    def __init__(self, mapper):
+        self._natting_mapper(mapper,
+                             "inside_globals",
+                             InsideGlobalsController().create_resource())
+        self._natting_mapper(mapper,
+                             "inside_locals",
+                             InsideLocalsController().create_resource())
+        self._block_and_nested_resource_mapper(mapper)
+        self._policy_and_rules_mapper(mapper)
+        self._allocated_ips_mapper(mapper)
+        self._ip_routes_mapper(mapper)
+        self._instance_interface_mapper(mapper)
+        self._mac_address_range_mapper(mapper)
+
+    def _allocated_ips_mapper(self, mapper):
+        allocated_ips_res = AllocatedIpAddressesController().create_resource()
+        _connect(mapper,
+                      "/ipam/allocated_ip_addresses",
+                      controller=allocated_ips_res,
+                      action="index",
+                      conditions=dict(method=['GET']))
+        _connect(mapper,
+                      "/ipam/tenants/{tenant_id}/allocated_ip_addresses",
+                      controller=allocated_ips_res,
+                      action="index",
+                      conditions=dict(method=['GET']))
+
+    def _ip_routes_mapper(self, mapper):
+        ip_routes_res = IpRoutesController().create_resource()
+        path = ("/ipam/tenants/{tenant_id}/ip_blocks/{source_block_id}"
+                "/ip_routes")
+        mapper.resource("ip_routes", path, controller=ip_routes_res)
+
     def _instance_interface_mapper(self, mapper):
         res = InstanceInterfacesController().create_resource()
-        self._connect(mapper,
-                      "/ipam/instances/{device_id}/interfaces",
-                      controller=res,
-                      action="update",
-                      conditions=dict(method=['PUT']))
-        self._connect(mapper,
-                      "/ipam/instances/{device_id}/interfaces",
-                      controller=res,
-                      action="show",
-                      conditions=dict(method=['GET']))
-        self._connect(mapper,
-                      "/ipam/instances/{device_id}/interfaces",
-                      controller=res,
-                      action="delete",
-                      conditions=dict(method=['DELETE']))
+        _connect(mapper,
+                 "/ipam/instances/{device_id}/interfaces",
+                 controller=res,
+                 action="update_all",
+                 conditions=dict(method=['PUT']))
+        _connect(mapper,
+                 "/ipam/instances/{device_id}/interfaces",
+                 controller=res,
+                 action="index",
+                 conditions=dict(method=['GET']))
+        _connect(mapper,
+                 "/ipam/instances/{device_id}/interfaces",
+                 controller=res,
+                 action="delete_all",
+                 conditions=dict(method=['DELETE']))
+        mapper.resource("interfaces",
+                        "/ipam/instances/{device_id}/interfaces",
+                        controller=res)
+        _connect(mapper,
+                 "/ipam/tenants/{tenant_id}/instances/{device_id}/"
+                 "interfaces/{id}",
+                 controller=res,
+                 action="show",
+                 conditions=dict(method=['GET']))
 
     def _mac_address_range_mapper(self, mapper):
         range_res = MacAddressRangesController().create_resource()
         path = ("/ipam/mac_address_ranges")
         mapper.resource("mac_address_ranges", path, controller=range_res)
-
-    def _networks_maper(self, mapper):
-        resource = NetworksController().create_resource()
-        path = "/ipam/tenants/{tenant_id}/networks/{network_id}"
-        mapper.resource("networks", path, controller=resource)
-
-    def _interface_ip_allocations_mapper(self, mapper):
-        path = ("/ipam/tenants/{tenant_id}/networks"
-                "/{network_id}/interfaces/{interface_id}")
-        resource = InterfaceIpAllocationsController().create_resource()
-        with mapper.submapper(controller=resource, path_prefix=path) as submap:
-            self._connect(submap, "/ip_allocations", action='create',
-                          conditions=dict(method=['POST']))
-            self._connect(submap,
-                          "/ip_allocations",
-                          action='index',
-                          conditions=dict(method=['GET']))
-            self._connect(submap, "/ip_allocations", action='bulk_delete',
-                          conditions=dict(method=['DELETE']))
 
     def _policy_and_rules_mapper(self, mapper):
         policy_path = "/ipam/tenants/{tenant_id}/policies"
@@ -672,10 +721,10 @@ class API(wsgi.Router):
                                       parent_resource["member_name"])
         with mapper.submapper(controller=subnet_controller,
                               path_prefix=path_prefix) as submap:
-            self._connect(submap, "/subnets",
+            _connect(submap, "/subnets",
                           action="index",
                           conditions=dict(method=["GET"]))
-            self._connect(submap, "/subnets",
+            _connect(submap, "/subnets",
                           action="create",
                           conditions=dict(method=["POST"]))
 
@@ -685,23 +734,23 @@ class API(wsgi.Router):
                                       parent_resource["member_name"])
         with mapper.submapper(controller=ip_address_controller,
                               path_prefix=path_prefix) as submap:
-            self._connect(submap,
+            _connect(submap,
                           "/ip_addresses/{address:.+?}",
                           action="show",
                           conditions=dict(method=["GET"]))
-            self._connect(submap,
+            _connect(submap,
                           "/ip_addresses/{address:.+?}",
                           action="delete",
                           conditions=dict(method=["DELETE"]))
-            self._connect(submap,
+            _connect(submap,
                           "/ip_addresses/{address:.+?}""/restore",
                           action="restore",
                           conditions=dict(method=["PUT"]))
 
             #mapper.resource here for ip addresses was slowing down the tests
-            self._connect(submap, "/ip_addresses", action="create",
+            _connect(submap, "/ip_addresses", action="create",
                           conditions=dict(method=["POST"]))
-            self._connect(submap, "/ip_addresses", action="index",
+            _connect(submap, "/ip_addresses", action="index",
                           conditions=dict(method=["GET"]))
 
     def _natting_mapper(self, mapper, nat_type, nat_controller):
@@ -709,20 +758,16 @@ class API(wsgi.Router):
                        "ip_addresses/{address:.+?}/")
         with mapper.submapper(controller=nat_controller,
                               path_prefix=path_prefix) as submap:
-            self._connect(submap, nat_type, action="create",
+            _connect(submap, nat_type, action="create",
                           conditions=dict(method=["POST"]))
-            self._connect(submap, nat_type, action="index",
+            _connect(submap, nat_type, action="index",
                           conditions=dict(method=["GET"]))
-            self._connect(submap, nat_type, action="delete",
+            _connect(submap, nat_type, action="delete",
                           conditions=dict(method=["DELETE"]))
-            self._connect(submap,
+            _connect(submap,
                           "%(nat_type)s/{%(nat_type)s_address:.+?}" % locals(),
                           action="delete",
                           conditions=dict(method=["DELETE"]))
 
-    def _connect(self, mapper, path, *args, **kwargs):
-        return mapper.connect(path + "{.format:(json|xml)?}", *args, **kwargs)
-
-
-def app_factory(global_conf, **local_conf):
-    return API()
+def _connect(mapper, path, *args, **kwargs):
+    return mapper.connect(path + "{.format:(json|xml)?}", *args, **kwargs)

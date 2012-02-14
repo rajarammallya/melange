@@ -82,7 +82,7 @@ function run_pep8 {
   echo "Running pep8 ..."
   # Opt-out files from pep8
   ignore_scripts="*.sh:*melange-debug:*clean-vlans"
-  ignore_files="*eventlet-patch:*pip-requires"
+  ignore_files="*eventlet-patch:*pip-requires:*test-requires"
   GLOBIGNORE="$ignore_scripts:$ignore_files"
   srcfiles=`find bin -type f ! -name "melange.conf*"`
   srcfiles+=" `find tools/*`"
